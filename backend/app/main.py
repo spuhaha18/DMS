@@ -11,6 +11,7 @@ from app.master.users_api import router as users_router
 from app.master.templates_api import router as templates_router
 from app.documents.submit_api import router as submit_router
 from app.documents.search_api import router as search_router
+from app.documents.lineage_api import router as lineage_router
 from app.documents.list_api import router as list_router
 from app.workflow.inbox_api import router as inbox_router
 from app.printing.api import router as printing_router
@@ -24,6 +25,7 @@ app.include_router(users_router)
 app.include_router(templates_router)
 app.include_router(submit_router)
 app.include_router(search_router)
+app.include_router(lineage_router)
 app.include_router(list_router)
 app.include_router(inbox_router)
 app.include_router(printing_router)
