@@ -8,6 +8,7 @@ from app.master.projects_api import router as projects_router
 from app.master.document_types_api import router as doctypes_router
 from app.master.organizations_api import router as orgs_router
 from app.master.users_api import router as users_router
+from app.master.templates_api import router as templates_router
 
 app = FastAPI(title="DMS", version="0.1.0")
 app.include_router(auth_router)
@@ -15,6 +16,7 @@ app.include_router(projects_router)
 app.include_router(doctypes_router)
 app.include_router(orgs_router)
 app.include_router(users_router)
+app.include_router(templates_router)
 
 app.add_middleware(
     CORSMiddleware,

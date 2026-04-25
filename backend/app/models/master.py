@@ -1,3 +1,4 @@
+import hashlib
 from datetime import date
 from sqlalchemy import String, Integer, Date, JSON, ForeignKey, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
@@ -45,3 +46,13 @@ class User(Base):
     title: Mapped[str | None] = mapped_column(String(64), nullable=True)
     role: Mapped[str] = mapped_column(String(32), default="Author", nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class Template(Base):
+    __tablename__ = "templates"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    doc_type_id: Mapped[int] = mapped_column(ForeignKey("document_types.id"), nullable=False, index=True)
+    version: Mapped[str] = mapped_column(String(32), nullable=False)
+    effective_date: Mapped[date] = mapped_column(Date, nullable=False)
+    object_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
