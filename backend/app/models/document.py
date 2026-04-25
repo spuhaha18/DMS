@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from sqlalchemy import String, Integer, Date, ForeignKey, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from app.db import Base
 
 
@@ -25,3 +26,4 @@ class Document(Base):
     final_pdf_object_key: Mapped[str | None] = mapped_column(String(256), nullable=True)
     final_pdf_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()", nullable=False)
+    search_tsv: Mapped[str | None] = mapped_column(TSVECTOR, nullable=True)
