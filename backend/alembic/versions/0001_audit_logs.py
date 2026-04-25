@@ -26,8 +26,8 @@ def upgrade() -> None:
         sa.Column('actor', sa.String(length=64), nullable=False),
         sa.Column('action', sa.String(length=64), nullable=False),
         sa.Column('target', sa.String(length=128), nullable=False),
-        sa.Column('payload_json', sa.JSON(), nullable=False),
-        sa.Column('ts', sa.DateTime(timezone=True), nullable=False),
+        sa.Column('payload_json', sa.JSON(), nullable=False, server_default='{}'),
+        sa.Column('ts', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('now()')),
         sa.PrimaryKeyConstraint('id'),
     )
     op.create_index(op.f('ix_audit_logs_action'), 'audit_logs', ['action'], unique=False)
