@@ -19,7 +19,7 @@ def test_audit_log_insert(db):
     from app.models.audit_log import AuditLog
     row = AuditLog(actor="u1", action="TEST", target="t1", payload_json={"k": "v"})
     db.add(row)
-    db.commit()
+    db.flush()  # get ID without committing; fixture rollback will undo
     assert row.id is not None
 
 
@@ -31,10 +31,9 @@ def test_audit_log_update_blocked(db):
 
     row = AuditLog(actor="u1", action="TEST", target="t1", payload_json={})
     db.add(row)
-    db.commit()
+    db.flush()
     with pytest.raises(Exception):
         db.execute(text("UPDATE audit_logs SET action='TAMPER' WHERE id=:id"), {"id": row.id})
-        db.commit()
 
 
 def test_audit_log_delete_blocked(db):
@@ -45,7 +44,6 @@ def test_audit_log_delete_blocked(db):
 
     row = AuditLog(actor="u1", action="TEST", target="t1", payload_json={})
     db.add(row)
-    db.commit()
+    db.flush()
     with pytest.raises(Exception):
         db.execute(text("DELETE FROM audit_logs WHERE id=:id"), {"id": row.id})
-        db.commit()

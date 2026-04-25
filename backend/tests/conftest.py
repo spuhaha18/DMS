@@ -1,17 +1,21 @@
 import pytest
+from alembic.config import Config
+from alembic import command
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.db import Base
 from app.config import settings
 
-TEST_DB_URL = settings.DATABASE_URL  # uses same DB, ensure docker compose is up
 
 @pytest.fixture(scope="session")
 def engine():
-    e = create_engine(TEST_DB_URL)
-    Base.metadata.create_all(e)  # alembic will handle this in real runs
+    e = create_engine(settings.DATABASE_URL)
+    # Apply migrations (including REVOKE) so DB-level enforcement is in place
+    alembic_cfg = Config("alembic.ini")
+    command.upgrade(alembic_cfg, "head")
     yield e
     e.dispose()
+
 
 @pytest.fixture
 def db(engine):
