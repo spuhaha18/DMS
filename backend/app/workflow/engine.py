@@ -1,9 +1,14 @@
-from datetime import datetime
+import hashlib
+from datetime import datetime, date as date_
 from sqlalchemy.orm import Session
 from app.models.document import Document
 from app.models.approval import Approval, ApprovalTemplate
 from app.models.master import DocumentType
 from app.audit.log import log_action
+from app.pdf.converter import docx_to_pdf
+from app.pdf.stamp import append_signature_block
+from app.storage.minio_client import get_object, put_object, ensure_buckets
+from app.config import settings
 
 
 def instantiate_approval_line(db: Session, doc: Document, dt: DocumentType) -> None:
@@ -86,6 +91,46 @@ def approve_action(db: Session, doc_id: int, username: str, decision: str, *, co
         doc.effective_status = "Effective"
         log_action(db, actor=username, action="APPROVE_APPROVED",
                    target=f"document:{doc_id}", payload={})
+
+        # Finalization pipeline: convert DOCX → PDF → stamp → store
+        docx_bytes = get_object(settings.BUCKET_SOURCE, doc.source_docx_key)
+        pdf_bytes = docx_to_pdf(docx_bytes)
+
+        # Collect approved signatures ordered by step_order then id
+        sigs = []
+        for ap in (
+            db.query(Approval)
+            .filter_by(document_id=doc_id)
+            .filter(Approval.status == "Approved")
+            .order_by(Approval.step_order, Approval.id)
+            .all()
+        ):
+            sigs.append({
+                "username": ap.assigned_username,
+                "name": ap.assigned_username,  # name not separately stored
+                "role": ap.role,
+                "ts": str(ap.decided_at),
+                "meaning": ap.signature_meaning or "동의",
+            })
+
+        pdf_bytes = append_signature_block(pdf_bytes, sigs)
+        sha256 = hashlib.sha256(pdf_bytes).hexdigest()
+        key = f"final/{doc.doc_number}-rev{doc.revision}.pdf"
+        ensure_buckets()
+        put_object(settings.BUCKET_FINAL, key, pdf_bytes, "application/pdf")
+
+        doc.final_pdf_object_key = key
+        doc.final_pdf_sha256 = sha256
+        doc.effective_date = date_.today()
+
+        if doc.parent_document_id and doc.relation_type == "revision":
+            parent = db.get(Document, doc.parent_document_id)
+            if parent:
+                parent.effective_status = "Superseded"
+
+        log_action(db, actor=username, action="DOC_FINALIZED",
+                   target=f"document:{doc_id}",
+                   payload={"key": key, "sha256": sha256})
 
 
 def withdraw(db: Session, doc_id: int, username: str) -> None:

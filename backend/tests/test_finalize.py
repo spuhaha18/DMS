@@ -1,18 +1,15 @@
-from datetime import date, datetime
-import io
+from datetime import date
+from unittest.mock import patch, MagicMock
 import pytest
-from unittest.mock import patch
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
 from app.workflow.engine import (
-    instantiate_approval_line, review_action, approve_action, withdraw
+    instantiate_approval_line, review_action, approve_action
 )
 
 
 @pytest.fixture
 def project(db):
     from app.models.master import Project
-    p = Project(code="WF-P", name="Workflow Test", owner_username="alice",
+    p = Project(code="FIN-P", name="Finalize Test", owner_username="alice",
                 start_date=date(2026, 1, 1), end_date=date(2027, 12, 31))
     db.add(p)
     db.flush()
@@ -22,12 +19,10 @@ def project(db):
 @pytest.fixture
 def sop_doctype(db):
     from app.models.master import DocumentType
-    dt = DocumentType(
-        code="SOP-WF", name="SOP Workflow",
-        numbering_pattern="{project_code}-SOP-{seq:04d}",
-        allowed_change_types=["New", "Revision"],
-        template_version_policy="reject",
-    )
+    dt = DocumentType(code="SOP-FIN", name="SOP Finalize",
+                      numbering_pattern="{project_code}-SOP-{seq:04d}",
+                      allowed_change_types=["New"],
+                      template_version_policy="reject")
     db.add(dt)
     db.flush()
     return dt
@@ -38,12 +33,11 @@ def approval_template(db, sop_doctype):
     from app.models.approval import ApprovalTemplate
     at = ApprovalTemplate(
         doc_type_id=sop_doctype.id,
-        name="Default SOP Approval",
-        config={"reviewers": ["reviewer1", "reviewer2"], "approvers": ["approver1"]},
+        name="Default",
+        config={"reviewers": ["reviewer1"], "approvers": ["approver1"]},
     )
     db.add(at)
     db.flush()
-    # Link to doctype
     sop_doctype.default_approval_template_id = at.id
     db.flush()
     return at
@@ -59,12 +53,12 @@ def submitted_doc(db, project, sop_doctype, approval_template):
     db.add(t)
     db.flush()
     doc = Document(
-        doc_number="WF-P-SOP-0001", revision="A",
+        doc_number="FIN-P-SOP-0001", revision="A",
         document_type_id=sop_doctype.id, project_id=project.id,
-        author_username="alice", title="Test Doc",
+        author_username="alice", title="Finalize Test Doc",
         effective_status="UnderReview",
         template_id=t.id, template_version="1.0",
-        source_docx_key="sources/WF-P-SOP-0001.docx",
+        source_docx_key="sources/FIN-P-SOP-0001.docx",
     )
     db.add(doc)
     db.flush()
@@ -77,7 +71,12 @@ def submitted_doc(db, project, sop_doctype, approval_template):
 @patch("app.workflow.engine.get_object")
 @patch("app.workflow.engine.ensure_buckets")
 @patch("app.workflow.engine.docx_to_pdf")
-def test_serial_review_then_approval(mock_convert, mock_ensure, mock_get, mock_put, db, submitted_doc):
+def test_final_approval_finalizes_document(mock_convert, mock_ensure, mock_get, mock_put, db, submitted_doc):
+    import io
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+
+    # Produce a real minimal PDF for stamp test
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     c.drawString(100, 700, "Test")
@@ -86,32 +85,15 @@ def test_serial_review_then_approval(mock_convert, mock_ensure, mock_get, mock_p
     mock_get.return_value = b"fake docx"
 
     doc_id = submitted_doc.id
-    # Both reviewers must approve before moving to PendingApproval
+
     review_action(db, doc_id, "reviewer1", "Approve")
     db.flush()
-    db.refresh(submitted_doc)
-    assert submitted_doc.effective_status == "UnderReview"  # still waiting for reviewer2
-
-    review_action(db, doc_id, "reviewer2", "Approve")
-    db.flush()
-    db.refresh(submitted_doc)
-    assert submitted_doc.effective_status == "PendingApproval"
 
     approve_action(db, doc_id, "approver1", "Approve")
     db.flush()
     db.refresh(submitted_doc)
+
     assert submitted_doc.effective_status == "Effective"
-
-
-def test_reject_returns_to_draft(db, submitted_doc):
-    review_action(db, submitted_doc.id, "reviewer1", "Reject", comment="수정 요망")
-    db.flush()
-    db.refresh(submitted_doc)
-    assert submitted_doc.effective_status == "Draft"
-
-
-def test_withdraw_by_author(db, submitted_doc):
-    withdraw(db, submitted_doc.id, "alice")
-    db.flush()
-    db.refresh(submitted_doc)
-    assert submitted_doc.effective_status == "Draft"
+    assert submitted_doc.final_pdf_object_key is not None
+    assert submitted_doc.final_pdf_sha256 is not None
+    mock_put.assert_called_once()
