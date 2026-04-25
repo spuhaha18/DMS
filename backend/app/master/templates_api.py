@@ -1,4 +1,5 @@
 import hashlib
+import re
 import zipfile
 import io
 from lxml import etree
@@ -24,7 +25,11 @@ def inject_custom_properties(docx_bytes: bytes, props: dict[str, str]) -> bytes:
     """Inject/replace docProps/custom.xml in the docx ZIP."""
     src = io.BytesIO(docx_bytes)
     dst = io.BytesIO()
-    with zipfile.ZipFile(src) as zin, zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zout:
+    try:
+      zin_ctx = zipfile.ZipFile(src)
+    except zipfile.BadZipFile:
+        raise ValueError("Not a valid ZIP/docx file")
+    with zin_ctx as zin, zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zout:
         names = set(zin.namelist())
         # Copy all parts except ones we will rewrite
         skip = {"docProps/custom.xml", "[Content_Types].xml", "_rels/.rels"}
@@ -81,11 +86,12 @@ def inject_custom_properties(docx_bytes: bytes, props: dict[str, str]) -> bytes:
                 f"{{{RELS_NS}}}Relationship[@Target='docProps/custom.xml']"
             )
             if not existing_rels:
-                # Find max existing Id
-                ids = [
-                    int(r.get("Id", "rId0").replace("rId", "0") or "0")
-                    for r in rels_tree.findall(f"{{{RELS_NS}}}Relationship")
-                ]
+                # Find max existing numeric rId
+                ids = []
+                for r in rels_tree.findall(f"{{{RELS_NS}}}Relationship"):
+                    m = re.match(r"rId(\d+)", r.get("Id", ""))
+                    if m:
+                        ids.append(int(m.group(1)))
                 next_id = f"rId{max(ids, default=0) + 1}"
                 etree.SubElement(
                     rels_tree,
@@ -132,8 +138,11 @@ async def upload_template(
     if not dt:
         raise HTTPException(404, "Document type not found")
 
+    if not re.match(r"^[\w.\-]+$", version):
+        raise HTTPException(400, "version must contain only alphanumeric characters, dots, or hyphens")
+
     raw = await file.read()
-    if not raw[:4] == b"PK\x03\x04":
+    if raw[:4] != b"PK\x03\x04":
         raise HTTPException(400, "File must be a valid .docx (ZIP) file")
 
     t = Template(doc_type_id=dt.id, version=version, effective_date=effective_date,
@@ -141,7 +150,10 @@ async def upload_template(
     db.add(t)
     db.flush()  # assign ID
 
-    injected = inject_custom_properties(raw, {"templateId": str(t.id), "templateVersion": version})
+    try:
+        injected = inject_custom_properties(raw, {"templateId": str(t.id), "templateVersion": version})
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     sha = hashlib.sha256(injected).hexdigest()
     key = f"templates/{t.id}-{version}.docx"
 

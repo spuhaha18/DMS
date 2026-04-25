@@ -1,19 +1,23 @@
+import threading
 from io import BytesIO
 from minio import Minio
 from app.config import settings
 
 _client: Minio | None = None
+_lock = threading.Lock()
 
 
 def get_client() -> Minio:
     global _client
     if _client is None:
-        _client = Minio(
-            settings.MINIO_ENDPOINT,
-            access_key=settings.MINIO_ACCESS_KEY,
-            secret_key=settings.MINIO_SECRET_KEY,
-            secure=False,
-        )
+        with _lock:
+            if _client is None:
+                _client = Minio(
+                    settings.MINIO_ENDPOINT,
+                    access_key=settings.MINIO_ACCESS_KEY,
+                    secret_key=settings.MINIO_SECRET_KEY,
+                    secure=False,
+                )
     return _client
 
 
