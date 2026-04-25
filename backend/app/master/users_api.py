@@ -17,7 +17,12 @@ class UserIn(BaseModel):
     role: str = "Author"
 
 
-@router.post("", status_code=201)
+class UserOut(BaseModel):
+    id: int
+    username: str
+
+
+@router.post("", status_code=201, response_model=UserOut)
 async def create(body: UserIn, user: CurrentUser = Depends(require_role("Admin")), db: Session = Depends(get_db)):
     if db.query(User).filter_by(username=body.username).first():
         raise HTTPException(409, "Duplicate username")

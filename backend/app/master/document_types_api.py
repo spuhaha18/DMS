@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import List
+from typing import Literal, List
 from sqlalchemy.orm import Session
 from app.deps import get_db, require_role, current_user, CurrentUser
 from app.models.master import DocumentType
@@ -15,10 +15,15 @@ class DocumentTypeIn(BaseModel):
     numbering_pattern: str
     allowed_change_types: List[str]
     default_validity_months: int | None = None
-    template_version_policy: str = "reject"
+    template_version_policy: Literal["reject", "warn", "allow"] = "reject"
 
 
-@router.post("", status_code=201)
+class DocumentTypeOut(BaseModel):
+    id: int
+    code: str
+
+
+@router.post("", status_code=201, response_model=DocumentTypeOut)
 async def create(body: DocumentTypeIn, user: CurrentUser = Depends(require_role("Admin")), db: Session = Depends(get_db)):
     if db.query(DocumentType).filter_by(code=body.code).first():
         raise HTTPException(409, "Duplicate document type code")

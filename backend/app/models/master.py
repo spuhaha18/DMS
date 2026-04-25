@@ -32,7 +32,7 @@ class Organization(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    parent_id: Mapped[int | None] = mapped_column(ForeignKey("organizations.id"), nullable=True)
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey("organizations.id"), nullable=True, index=True)
 
 
 class User(Base):
@@ -41,7 +41,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     employee_no: Mapped[str | None] = mapped_column(String(32), nullable=True)
     email: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    org_id: Mapped[int | None] = mapped_column(ForeignKey("organizations.id"), nullable=True)
+    org_id: Mapped[int | None] = mapped_column(ForeignKey("organizations.id"), nullable=True, index=True)
     title: Mapped[str | None] = mapped_column(String(64), nullable=True)
     role: Mapped[str] = mapped_column(String(32), default="Author", nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

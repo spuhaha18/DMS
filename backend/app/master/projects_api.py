@@ -17,7 +17,12 @@ class ProjectIn(BaseModel):
     end: date
 
 
-@router.post("", status_code=201)
+class ProjectOut(BaseModel):
+    id: int
+    code: str
+
+
+@router.post("", status_code=201, response_model=ProjectOut)
 async def create(body: ProjectIn, user: CurrentUser = Depends(require_role("Admin")), db: Session = Depends(get_db)):
     if db.query(Project).filter_by(code=body.code).first():
         raise HTTPException(409, "Duplicate project code")

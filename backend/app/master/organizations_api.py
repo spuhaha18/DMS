@@ -14,7 +14,12 @@ class OrgIn(BaseModel):
     parent_id: int | None = None
 
 
-@router.post("", status_code=201)
+class OrgOut(BaseModel):
+    id: int
+    code: str
+
+
+@router.post("", status_code=201, response_model=OrgOut)
 async def create(body: OrgIn, user: CurrentUser = Depends(require_role("Admin")), db: Session = Depends(get_db)):
     if db.query(Organization).filter_by(code=body.code).first():
         raise HTTPException(409, "Duplicate org code")
