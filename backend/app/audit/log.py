@@ -1,7 +1,8 @@
+from sqlalchemy.orm import Session
 from app.models.audit_log import AuditLog
 
 
-def log_action(db, *, actor: str, action: str, target: str, payload: dict | None = None) -> AuditLog:
+def log_action(db: Session, *, actor: str, action: str, target: str, payload: dict | None = None) -> AuditLog:
     """Insert an audit log entry. Never call db.commit() here — caller manages transaction."""
     row = AuditLog(
         actor=actor,
