@@ -9,10 +9,11 @@ LOCK_BASE = 0xC0FFEE_00000000
 
 
 def _period_for(pattern: str, now: datetime) -> str:
-    if "{year}" in pattern:
-        return str(now.year)
+    # Check {ym} before {year}: monthly is more specific (patterns can contain both)
     if "{ym}" in pattern:
         return f"{now.year}-{now.month:02d}"
+    if "{year}" in pattern:
+        return str(now.year)
     return "all"
 
 
@@ -30,8 +31,8 @@ def assign_number(db: Session, project_id: int, doc_type_id: int, *, now: dateti
 
     period = _period_for(dt.numbering_pattern, now)
 
-    # Advisory lock prevents duplicate sequence numbers under concurrency
-    lock_key = int(LOCK_BASE | ((project_id * 1_000_003 + doc_type_id) & 0xFFFFFFFF))
+    # Collision-free advisory lock: pack two 32-bit IDs into distinct halves of 64-bit key
+    lock_key = (project_id & 0xFFFFFFFF) << 32 | (doc_type_id & 0xFFFFFFFF)
     db.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": lock_key})
 
     seq = (
