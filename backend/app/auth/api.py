@@ -24,8 +24,7 @@ async def login(body: LoginIn, db: Session = Depends(get_db)):
         )
     log_action(db, actor=user["username"], action="LOGIN", target=user["username"], payload={})
     db.commit()
-    role = ldap.derive_role(user["groups"])
-    token = session.issue(user["username"], role=role)
+    token = session.issue(user["username"], role=user["role"])
     return {"access_token": token, "token_type": "bearer", "user": user}
 
 
