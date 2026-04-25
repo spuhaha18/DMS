@@ -17,6 +17,7 @@ if config.config_file_name is not None:
 from app.db import Base  # noqa: E402
 from app.config import settings  # noqa: E402
 import app.models.audit_log  # noqa: F401 — registers AuditLog with Base.metadata
+import app.models.master  # noqa: F401 — registers master tables with Base.metadata
 
 # Override the sqlalchemy.url with our app settings
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
