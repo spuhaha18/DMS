@@ -23,13 +23,20 @@ class CurrentUser:
 
 def current_user(
     creds: HTTPAuthorizationCredentials | None = Depends(bearer),
-    db: Session = Depends(get_db),
 ) -> CurrentUser:
     if not creds:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     data = decode(creds.credentials)
     if not data:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token")
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return CurrentUser(username=data["sub"], role=data.get("role", "Author"))
 
 

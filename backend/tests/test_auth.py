@@ -11,9 +11,11 @@ def client():
 
 @pytest.fixture
 def mock_ldap():
-    with patch("app.auth.ldap.Connection") as m:
+    with patch("app.auth.ldap.Server") as mock_server, \
+         patch("app.auth.ldap.Connection") as mock_conn:
+        mock_server.return_value = MagicMock()
         conn = MagicMock()
-        m.return_value = conn
+        mock_conn.return_value = conn
         conn.entries = [MagicMock(
             sAMAccountName="alice", mail="alice@example.com",
             department="R&D", title="연구원", memberOf=[]
@@ -28,7 +30,8 @@ def test_login_success(client, mock_ldap):
 
 
 def test_login_bad_credentials(client):
-    with patch("app.auth.ldap.Connection", side_effect=Exception("invalid")):
+    with patch("app.auth.ldap.Server"), \
+         patch("app.auth.ldap.Connection", side_effect=Exception("invalid")):
         r = client.post("/auth/login", json={"username": "alice", "password": "wrong"})
     assert r.status_code == 401
 

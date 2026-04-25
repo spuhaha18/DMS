@@ -17,10 +17,15 @@ class LoginIn(BaseModel):
 async def login(body: LoginIn, db: Session = Depends(get_db)):
     user = ldap.authenticate(body.username, body.password)
     if not user:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     log_action(db, actor=user["username"], action="LOGIN", target=user["username"], payload={})
     db.commit()
-    token = session.issue(user["username"])
+    role = ldap.derive_role(user["groups"])
+    token = session.issue(user["username"], role=role)
     return {"access_token": token, "token_type": "bearer", "user": user}
 
 

@@ -1,5 +1,19 @@
 from ldap3 import Server, Connection, ALL, SUBTREE
+from ldap3.utils.conv import escape_filter_chars
 from app.config import settings
+
+
+def derive_role(groups: list[str]) -> str:
+    for g in groups:
+        if "DMS-Admin" in g:
+            return "Admin"
+    for g in groups:
+        if "DMS-Approver" in g:
+            return "Approver"
+    for g in groups:
+        if "DMS-Reviewer" in g:
+            return "Reviewer"
+    return "Author"
 
 
 def authenticate(username: str, password: str) -> dict | None:
@@ -10,19 +24,24 @@ def authenticate(username: str, password: str) -> dict | None:
         conn = Connection(server, user=user_dn, password=password, auto_bind=True)
     except Exception:
         return None
-    conn.search(
-        settings.LDAP_BASE_DN,
-        f"(sAMAccountName={username})",
-        search_scope=SUBTREE,
-        attributes=["sAMAccountName", "mail", "department", "title", "memberOf"],
-    )
-    if not conn.entries:
-        return None
-    e = conn.entries[0]
-    return {
-        "username": str(e.sAMAccountName),
-        "email": str(e.mail),
-        "department": str(e.department),
-        "title": str(e.title),
-        "groups": [str(g) for g in e.memberOf],
-    }
+    try:
+        conn.search(
+            settings.LDAP_BASE_DN,
+            f"(sAMAccountName={escape_filter_chars(username)})",
+            search_scope=SUBTREE,
+            attributes=["sAMAccountName", "mail", "department", "title", "memberOf"],
+        )
+        if not conn.entries:
+            return None
+        e = conn.entries[0]
+        groups = [str(g) for g in e.memberOf]
+        return {
+            "username": str(e.sAMAccountName),
+            "email": str(e.mail),
+            "department": str(e.department),
+            "title": str(e.title),
+            "groups": groups,
+            "role": derive_role(groups),
+        }
+    finally:
+        conn.unbind()
