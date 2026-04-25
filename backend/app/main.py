@@ -3,8 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import settings
 from app.exceptions import DMSException
+from app.auth.api import router as auth_router
 
 app = FastAPI(title="DMS", version="0.1.0")
+app.include_router(auth_router)
 
 app.add_middleware(
     CORSMiddleware,
