@@ -92,6 +92,11 @@ async def submit_document(
     db.add(d)
     db.flush()
 
+    from app.workflow.engine import instantiate_approval_line
+    if dt.default_approval_template_id:
+        d.effective_status = "UnderReview"
+        instantiate_approval_line(db, d, dt)
+
     log_action(db, actor=user.username, action="DOC_SUBMIT",
                target=f"document:{d.id}",
                payload={"doc_number": doc_number, "change_type": change_type, "title": title})
