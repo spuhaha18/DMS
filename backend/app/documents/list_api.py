@@ -17,8 +17,9 @@ def list_documents(
     q = db.query(Document)
     if project_code:
         pj = db.query(Project).filter_by(code=project_code).first()
-        if pj:
-            q = q.filter(Document.project_id == pj.id)
+        if not pj:
+            return []
+        q = q.filter(Document.project_id == pj.id)
     if status:
         q = q.filter(Document.effective_status == status)
     docs = q.order_by(Document.id.desc()).all()

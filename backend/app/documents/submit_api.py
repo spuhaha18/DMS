@@ -57,10 +57,14 @@ async def submit_document(
         if change_type == "Revision":
             doc_number = parent.doc_number
             current_rev = parent.revision or "A"
+            if current_rev >= "Z":
+                raise HTTPException(400, "Revision letter overflow: cannot increment beyond Z")
             revision = chr(ord(current_rev) + 1)
             relation_type = "revision"
         else:
             suffix_map = {"Errata": "-E", "Addendum": "-AD", "Amendment": "-AM"}
+            if change_type not in suffix_map:
+                raise HTTPException(400, f"Unsupported change_type: {change_type}")
             suffix = suffix_map[change_type]
             doc_number = f"{parent.doc_number}{suffix}{datetime.utcnow():%y%m%d}"
             revision = parent.revision
