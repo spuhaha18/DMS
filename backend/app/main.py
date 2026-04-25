@@ -12,6 +12,7 @@ from app.master.templates_api import router as templates_router
 from app.documents.submit_api import router as submit_router
 from app.documents.list_api import router as list_router
 from app.workflow.inbox_api import router as inbox_router
+from app.printing.api import router as printing_router
 
 app = FastAPI(title="DMS", version="0.1.0")
 app.include_router(auth_router)
@@ -23,6 +24,7 @@ app.include_router(templates_router)
 app.include_router(submit_router)
 app.include_router(list_router)
 app.include_router(inbox_router)
+app.include_router(printing_router)
 
 app.add_middleware(
     CORSMiddleware,
