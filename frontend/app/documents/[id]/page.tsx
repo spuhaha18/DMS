@@ -43,7 +43,14 @@ export default function DocumentDetailPage() {
   });
 
   if (isLoading) return <div style={{ padding: 40 }}>로딩 중...</div>;
-  if (!doc) return <div style={{ padding: 40 }}>문서를 찾을 수 없습니다.</div>;
+  if (!doc) return (
+    <div style={{ padding: 40 }}>
+      <p style={{ marginBottom: 16, color: "#6b7280" }}>문서를 찾을 수 없습니다.</p>
+      <button onClick={() => router.push("/documents")} style={{ color: "#2563eb", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+        ← 문서 목록으로
+      </button>
+    </div>
+  );
 
   const isEffective = doc.effective_status === "Effective" || doc.effective_status === "Superseded";
 
