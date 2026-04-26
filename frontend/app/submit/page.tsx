@@ -57,7 +57,7 @@ export default function SubmitPage() {
   return (
     <div style={{ maxWidth: 600, margin: "40px auto", padding: 24 }}>
       <h1 style={{ marginBottom: 24, fontSize: 22, fontWeight: "bold" }}>문서 상신</h1>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <Field label="과제">
           <select value={projectCode} onChange={(e) => setProjectCode(e.target.value)} required style={inputStyle}>
             <option value="">선택</option>

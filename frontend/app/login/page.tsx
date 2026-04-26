@@ -30,7 +30,7 @@ export default function LoginPage() {
   return (
     <div style={{ maxWidth: 400, margin: "100px auto", padding: 24 }}>
       <h1 style={{ marginBottom: 24, fontSize: 24, fontWeight: "bold" }}>DMS 로그인</h1>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: "block", marginBottom: 4 }}>사용자명</label>
           <input
