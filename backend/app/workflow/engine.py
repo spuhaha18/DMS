@@ -87,7 +87,7 @@ def approve_action(db: Session, doc_id: int, username: str, decision: str, *, co
         doc.effective_status = "Draft"
         log_action(db, actor=username, action="APPROVE_REJECTED",
                    target=f"document:{doc_id}", payload={"comment": comment})
-    else:
+    elif _all_step_done(db, doc_id, 3):
         doc.effective_status = "Effective"
         log_action(db, actor=username, action="APPROVE_APPROVED",
                    target=f"document:{doc_id}", payload={})

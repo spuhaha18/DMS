@@ -7,6 +7,8 @@ import pytest
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 
+pytestmark = pytest.mark.e2e
+
 
 def _make_docx(template_id: int, template_version: str) -> bytes:
     """Minimal valid docx with custom properties."""

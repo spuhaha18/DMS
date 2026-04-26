@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from sqlalchemy import String, Integer, Date, ForeignKey, DateTime
+from sqlalchemy import String, Integer, Date, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from app.db import Base
@@ -7,8 +7,9 @@ from app.db import Base
 
 class Document(Base):
     __tablename__ = "documents"
+    __table_args__ = (UniqueConstraint("doc_number", "revision", name="uq_documents_doc_number_revision"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    doc_number: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    doc_number: Mapped[str] = mapped_column(String(64), nullable=False)
     revision: Mapped[str | None] = mapped_column(String(8), nullable=True)
     document_type_id: Mapped[int] = mapped_column(ForeignKey("document_types.id"), nullable=False, index=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)

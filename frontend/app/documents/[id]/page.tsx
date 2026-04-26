@@ -62,10 +62,25 @@ export default function DocumentDetailPage() {
 
       {isEffective && (
         <div style={{ marginBottom: 24 }}>
-          <a href={`/api/documents/${id}/print`} target="_blank" rel="noopener noreferrer"
-            style={{ display: "inline-block", padding: "8px 16px", background: "#2563eb", color: "white", textDecoration: "none", borderRadius: 4 }}>
+          <button
+            onClick={async () => {
+              const token = localStorage.getItem("dms_token");
+              const res = await fetch(`/api/documents/${id}/print`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({ reason: "열람" }),
+              });
+              if (!res.ok) { alert("PDF 다운로드 실패"); return; }
+              const blob = await res.blob();
+              const url = URL.createObjectURL(blob);
+              window.open(url, "_blank");
+            }}
+            style={{ display: "inline-block", padding: "8px 16px", background: "#2563eb", color: "white", border: "none", borderRadius: 4, cursor: "pointer" }}>
             PDF 보기 / 인쇄
-          </a>
+          </button>
         </div>
       )}
 

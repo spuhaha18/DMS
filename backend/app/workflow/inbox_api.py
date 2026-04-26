@@ -56,6 +56,9 @@ def decide(
     if a.role == "Reviewer":
         review_action(db, a.document_id, user.username, body.decision, comment=body.comment)
     elif a.role == "Approver":
+        doc = db.get(Document, a.document_id)
+        if not doc or doc.effective_status != "PendingApproval":
+            raise HTTPException(400, "Document is not ready for final approval")
         approve_action(db, a.document_id, user.username, body.decision, comment=body.comment)
     else:
         raise HTTPException(400, f"Cannot decide on role {a.role}")

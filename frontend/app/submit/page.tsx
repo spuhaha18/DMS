@@ -17,11 +17,11 @@ export default function SubmitPage() {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    api<{ items: Array<{ id: number; code: string; name: string }> }>("/master/projects").then(
-      (d) => setProjects(d.items ?? [])
+    api<Array<{ id: number; code: string; name: string }>>("/master/projects").then(
+      (d) => setProjects(Array.isArray(d) ? d : [])
     ).catch(() => {});
-    api<{ items: Array<{ id: number; code: string; name: string; allowed_change_types: string[] }> }>("/master/document-types").then(
-      (d) => setDocTypes(d.items ?? [])
+    api<Array<{ id: number; code: string; name: string; allowed_change_types: string[] }>>("/master/document-types").then(
+      (d) => setDocTypes(Array.isArray(d) ? d : [])
     ).catch(() => {});
   }, []);
 
