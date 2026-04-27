@@ -1,9 +1,38 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.deps import get_db, current_user, CurrentUser
+from app.models.approval import Approval
 from app.models.document import Document
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+
+@router.get("/{doc_id}/approvals")
+def approval_history(
+    doc_id: int,
+    user: CurrentUser = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    doc = db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+    rows = (
+        db.query(Approval)
+        .filter_by(document_id=doc_id)
+        .order_by(Approval.step_order)
+        .all()
+    )
+    return [
+        {
+            "step_order": a.step_order,
+            "role": a.role,
+            "assigned_username": a.assigned_username,
+            "status": a.status,
+            "comment": a.comment,
+            "decided_at": a.decided_at.isoformat() if a.decided_at else None,
+        }
+        for a in rows
+    ]
 
 
 @router.get("")
