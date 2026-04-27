@@ -4,3 +4,8 @@ backend/.venv/
 backend/uv.lock
 **/__pycache__/
 **/*.pyc
+.gstack/
+.env
+frontend/.next/
+frontend/node_modules/
+backend/pilot_sample.docx

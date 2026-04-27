@@ -18,7 +18,7 @@
 └─────────────────────────────────────────────────────┘
 ```
 
-Buckets: `dms-templates`, `dms-sources`, `dms-final`
+Buckets: `dms-templates`, `dms-source`, `dms-final`
 
 ---
 
@@ -36,11 +36,18 @@ find /backups -name "dms-*.sql.gz" -mtime +30 -delete
 
 ### MinIO
 
+`mc` below refers to the **MinIO Client** (`https://dl.min.io/client/mc/release/linux-amd64/mc`),
+not GNU Midnight Commander. On Debian/Ubuntu the latter ships as `mc` too —
+install MinIO Client as `mcli` to avoid the name collision.
+
 ```bash
+# One-time alias setup
+mcli alias set minio http://minio:9000 "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY"
+
 # Mirror all buckets to backup location daily at 03:00 KST
-mc mirror minio/dms-templates /backups/minio/dms-templates/
-mc mirror minio/dms-sources   /backups/minio/dms-sources/
-mc mirror minio/dms-final     /backups/minio/dms-final/
+mcli mirror minio/dms-templates /backups/minio/dms-templates/
+mcli mirror minio/dms-source    /backups/minio/dms-source/
+mcli mirror minio/dms-final     /backups/minio/dms-final/
 ```
 
 ---
@@ -48,15 +55,21 @@ mc mirror minio/dms-final     /backups/minio/dms-final/
 ## Health Checks
 
 ```bash
-# Backend
+# Liveness (process up)
 curl -f http://localhost:8000/health || alert "Backend down"
 
-# Postgres
+# Readiness (process up + Postgres reachable + MinIO reachable)
+curl -f http://localhost:8000/ready || alert "Backend degraded"
+
+# Direct Postgres
 docker compose exec postgres pg_isready -U dms || alert "Postgres down"
 
-# MinIO
+# Direct MinIO
 curl -f http://localhost:9000/minio/health/live || alert "MinIO down"
 ```
+
+`/ready` returns HTTP 503 with per-dependency status when anything is degraded —
+prefer it over `/health` for monitoring.
 
 ---
 
@@ -121,7 +134,7 @@ SELECT count(*) FROM audit_logs;  -- record count
 
 1. Check MinIO logs: `docker compose logs minio --tail 50`
 2. Restart: `docker compose restart minio`
-3. Re-verify buckets: `mc ls minio/`
+3. Re-verify buckets: `mcli ls minio/` (expect: `dms-templates/  dms-source/  dms-final/`)
 
 ---
 
@@ -133,9 +146,9 @@ SELECT count(*) FROM audit_logs;  -- record count
 | `MINIO_ENDPOINT` | MinIO host:port | `minio:9000` |
 | `MINIO_ACCESS_KEY` | MinIO access key | `minioadmin` |
 | `MINIO_SECRET_KEY` | MinIO secret | `minioadmin` |
-| `LDAP_URL` | AD server | `ldap://ad.example.com` |
+| `LDAP_HOST` | AD server | `ldap://ad.example.com` |
 | `LDAP_BASE_DN` | Search base | `DC=example,DC=com` |
-| `SECRET_KEY` | JWT signing key | 32+ random chars |
+| `JWT_SECRET` | JWT signing key | 32+ random chars |
 | `SMTP_HOST` | Mail relay | `smtp.example.com` |
 
 ---
