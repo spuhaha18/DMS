@@ -22,6 +22,27 @@ interface LineageItem {
   relation_type: string | null;
 }
 
+interface ApprovalStep {
+  step_order: number;
+  role: string;
+  assigned_username: string;
+  status: string;
+  comment: string | null;
+  decided_at: string | null;
+}
+
+const statusColor: Record<string, string> = {
+  Approved: "#16a34a",
+  Rejected: "#dc2626",
+  Pending: "#d97706",
+};
+
+const roleLabel: Record<string, string> = {
+  Author: "작성자",
+  Reviewer: "검토자",
+  Approver: "승인자",
+};
+
 export default function DocumentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -39,6 +60,12 @@ export default function DocumentDetailPage() {
   const { data: lineage } = useQuery<{ chain: LineageItem[] }>({
     queryKey: ["lineage", id],
     queryFn: () => api(`/documents/${id}/lineage`),
+    enabled: !!id,
+  });
+
+  const { data: approvals } = useQuery<ApprovalStep[]>({
+    queryKey: ["approvals", id],
+    queryFn: () => api(`/documents/${id}/approvals`),
     enabled: !!id,
   });
 
@@ -88,6 +115,39 @@ export default function DocumentDetailPage() {
             style={{ display: "inline-block", padding: "8px 16px", background: "#2563eb", color: "white", border: "none", borderRadius: 4, cursor: "pointer" }}>
             PDF 보기 / 인쇄
           </button>
+        </div>
+      )}
+
+      {approvals && approvals.length > 0 && (
+        <div style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>결재 이력</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {approvals.map((a) => (
+              <div key={a.step_order} style={{
+                display: "flex", alignItems: "flex-start", gap: 12,
+                padding: "12px 16px", border: "1px solid #e5e7eb",
+                borderRadius: 6, background: "white",
+              }}>
+                <div style={{ minWidth: 72, fontSize: 12, color: "#6b7280", paddingTop: 2 }}>
+                  {roleLabel[a.role] ?? a.role}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontWeight: 500, marginRight: 8 }}>{a.assigned_username}</span>
+                  <span style={{ fontSize: 12, color: statusColor[a.status] ?? "#6b7280", fontWeight: 600 }}>
+                    {a.status === "Approved" ? "승인" : a.status === "Rejected" ? "반려" : a.status === "Pending" ? "대기" : a.status}
+                  </span>
+                  {a.decided_at && (
+                    <span style={{ fontSize: 12, color: "#9ca3af", marginLeft: 8 }}>
+                      {new Date(a.decided_at).toLocaleString("ko-KR")}
+                    </span>
+                  )}
+                  {a.comment && (
+                    <p style={{ margin: "4px 0 0", fontSize: 13, color: "#374151" }}>{a.comment}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
