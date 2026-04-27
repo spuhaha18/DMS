@@ -1,3 +1,4 @@
+from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -10,7 +11,7 @@ router = APIRouter(prefix="/workflow", tags=["workflow"])
 
 
 class DecideIn(BaseModel):
-    decision: str  # "Approve" or "Reject"
+    decision: Literal["Approve", "Reject"]
     comment: str | None = None
 
 
@@ -49,9 +50,6 @@ def decide(
         raise HTTPException(403, "Not your approval")
     if a.status != "Pending":
         raise HTTPException(400, "Approval already decided")
-
-    if body.decision not in ("Approve", "Reject"):
-        raise HTTPException(400, "decision must be 'Approve' or 'Reject'")
 
     if a.role == "Reviewer":
         review_action(db, a.document_id, user.username, body.decision, comment=body.comment)

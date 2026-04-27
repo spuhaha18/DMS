@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from app.deps import get_db, current_user, CurrentUser
 from app.models.document import Document
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/documents", tags=["printing"])
 
 
 class PrintIn(BaseModel):
-    reason: str
+    reason: str = Field(..., min_length=1)
 
 
 @router.post("/{doc_id}/print")

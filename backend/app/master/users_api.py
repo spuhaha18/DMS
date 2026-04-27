@@ -1,3 +1,4 @@
+from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -7,6 +8,8 @@ from app.audit.log import log_action
 
 router = APIRouter(prefix="/master/users", tags=["master"])
 
+Role = Literal["Author", "Reviewer", "Approver", "Admin"]
+
 
 class UserIn(BaseModel):
     username: str
@@ -14,7 +17,7 @@ class UserIn(BaseModel):
     employee_no: str | None = None
     org_id: int | None = None
     title: str | None = None
-    role: str = "Author"
+    role: Role = "Author"
 
 
 class UserOut(BaseModel):
