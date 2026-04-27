@@ -31,6 +31,10 @@ export default function SubmitPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(""); setSuccess("");
+    if (!projectCode) { setError("과제를 선택하세요"); return; }
+    if (!docTypeCode) { setError("문서 유형을 선택하세요"); return; }
+    if (!title.trim()) { setError("문서 제목을 입력하세요"); return; }
+    if (requiresParent && !parentDocNumber.trim()) { setError("원본 문서번호를 입력하세요"); return; }
     if (!file) { setError("파일을 선택하세요"); return; }
     const fd = new FormData();
     fd.append("file", file);
