@@ -18,8 +18,8 @@ def _sha256(uploaded_file) -> str:
 
 
 def _validate_doc_extension(filename: str) -> None:
-    if Path(filename).suffix.lower() not in {".doc", ".docx"}:
-        raise ValidationError("Only .doc and .docx files are accepted.")
+    if Path(filename).suffix.lower() != ".docx":
+        raise ValidationError("Only .docx files are accepted.")
 
 
 @transaction.atomic

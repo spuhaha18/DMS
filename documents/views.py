@@ -73,10 +73,11 @@ def generate_pdf_view(request, pk):
     if request.method != "POST":
         from django.http import HttpResponseNotAllowed
         return HttpResponseNotAllowed(["POST"])
+    from documents.models import DocumentStatus
     document = get_object_or_404(Document.objects.select_related("current_revision"), pk=pk)
     revision = document.current_revision
-    if revision is None:
-        messages.error(request, _("PDF 발급할 리비전이 없습니다."))
+    if revision is None or revision.status != DocumentStatus.APPROVED:
+        messages.error(request, _("승인된 리비전이 없어 공식 PDF를 발급할 수 없습니다."))
         return redirect("documents:detail", pk=pk)
     try:
         from pdfs.services import generate_official_pdf

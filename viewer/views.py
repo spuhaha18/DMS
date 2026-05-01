@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
-from django.http import FileResponse, HttpResponse
+from django.core.exceptions import PermissionDenied
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils.translation import gettext as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -25,7 +26,7 @@ def pdf_stream(request, document_pk, revision_id=None):
     document = get_object_or_404(Document, pk=document_pk)
     try:
         revision = resolve_viewable_revision(request.user, document, revision_id=revision_id)
-    except Exception as e:
+    except PermissionDenied as e:
         return HttpResponse(_("접근이 거부되었습니다: %(err)s") % {"err": e}, status=403)
     if not revision.official_pdf:
         return HttpResponse(_("공식 PDF가 아직 발급되지 않았습니다."), status=404)
