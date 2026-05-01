@@ -51,6 +51,42 @@ def detail(request, pk):
 
 
 @login_required
+def submit_for_approval_view(request, pk):
+    if request.method != "POST":
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(["POST"])
+    document = get_object_or_404(Document.objects.select_related("current_revision"), pk=pk)
+    revision = document.current_revision
+    if revision is None:
+        messages.error(request, _("결재 상신할 리비전이 없습니다."))
+        return redirect("documents:detail", pk=pk)
+    try:
+        from approvals.services import submit_for_approval
+        submit_for_approval(revision, actor=request.user, reason=_("문서 등록부에서 결재 상신"))
+    except Exception as e:
+        messages.error(request, _("결재 상신 실패: %(err)s") % {"err": e})
+    return redirect("documents:detail", pk=pk)
+
+
+@login_required
+def generate_pdf_view(request, pk):
+    if request.method != "POST":
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(["POST"])
+    document = get_object_or_404(Document.objects.select_related("current_revision"), pk=pk)
+    revision = document.current_revision
+    if revision is None:
+        messages.error(request, _("PDF 발급할 리비전이 없습니다."))
+        return redirect("documents:detail", pk=pk)
+    try:
+        from pdfs.services import generate_official_pdf
+        generate_official_pdf(revision, actor=request.user, reason=_("문서 등록부에서 공식 PDF 발급"))
+    except Exception as e:
+        messages.error(request, _("공식 PDF 발급 실패: %(err)s") % {"err": e})
+    return redirect("documents:detail", pk=pk)
+
+
+@login_required
 def evidence_package(request, pk):
     from audit.models import AuditEvent
     from approvals.models import ApprovalTask, ElectronicSignature

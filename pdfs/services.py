@@ -161,15 +161,19 @@ def _generate_official_pdf_inner(revision, *, job, actor, reason: str):
 
     source_path = Path(revision.source_file.path)
     with tempfile.TemporaryDirectory() as tmpdir:
-        filled_path = Path(tmpdir) / "filled.docx"
-        try:
-            tpl = DocxTemplate(str(source_path))
-            tpl.render(_build_approval_context(revision))
-            tpl.save(str(filled_path))
-        except Exception as exc:
-            raise _TemplateRenderError() from exc
+        if source_path.suffix.lower() == ".docx":
+            filled_path = Path(tmpdir) / "filled.docx"
+            try:
+                tpl = DocxTemplate(str(source_path))
+                tpl.render(_build_approval_context(revision))
+                tpl.save(str(filled_path))
+            except Exception as exc:
+                raise _TemplateRenderError() from exc
+            conversion_input = filled_path
+        else:
+            conversion_input = source_path
 
-        pdf_bytes = _run_libreoffice_conversion(filled_path)
+        pdf_bytes = _run_libreoffice_conversion(conversion_input)
         pdf_bytes = _apply_watermark(pdf_bytes, revision)
 
     pdf_filename = f"{revision.document.document_number}_rev{revision.revision}.pdf"
