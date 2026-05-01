@@ -65,6 +65,48 @@ def _apply_watermark(pdf_bytes: bytes, revision) -> bytes:
         return pdf_bytes
 
 
+def _build_approval_context(revision):
+    tasks = (
+        revision.approval_tasks
+        .select_related("assigned_to")
+        .prefetch_related("signature__signer")
+        .order_by("order")
+    )
+    approvers = []
+    for t in tasks:
+        sig = getattr(t, "signature", None)
+        if sig is not None:
+            user = sig.signer
+            if user.last_name and user.first_name:
+                name = f"{user.last_name} {user.first_name}"
+            else:
+                name = user.get_full_name() or user.username
+            signed_at = timezone.localtime(sig.signed_at).strftime("%Y-%m-%d %H:%M")
+        else:
+            name = ""
+            signed_at = ""
+        approvers.append({
+            "order": t.order,
+            "name": name,
+            "meaning": t.signature_meaning,
+            "signed_at": signed_at,
+            "role": t.role_name,
+        })
+
+    ctx = {
+        "approvers": approvers,
+        "document_number": revision.document.document_number,
+        "document_title": revision.document.title,
+        "revision": revision.revision,
+        "effective_date": timezone.localdate().strftime("%Y-%m-%d"),
+    }
+    for i, a in enumerate(approvers, start=1):
+        ctx[f"approver_{i}_name"] = a["name"]
+        ctx[f"approver_{i}_meaning"] = a["meaning"]
+        ctx[f"approver_{i}_signed_at"] = a["signed_at"]
+    return ctx
+
+
 def generate_official_pdf(revision, *, actor, reason: str):
     # Create the job record before entering the atomic block so it survives rollback.
     job, _ = PdfConversionJob.objects.get_or_create(
