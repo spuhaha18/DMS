@@ -60,6 +60,12 @@ def _is_document_owner_or_qa(user, document) -> bool:
     return user.groups.filter(name="QA").exists()
 
 
+def _is_qa_or_admin(user) -> bool:
+    if user.is_superuser or user.is_staff:
+        return True
+    return user.groups.filter(name="QA").exists()
+
+
 @login_required
 def submit_for_approval_view(request, pk):
     if request.method != "POST":
@@ -89,7 +95,7 @@ def generate_pdf_view(request, pk):
         return HttpResponseNotAllowed(["POST"])
     from documents.models import DocumentStatus
     document = get_object_or_404(Document.objects.select_related("created_by", "current_revision"), pk=pk)
-    if not _is_document_owner_or_qa(request.user, document):
+    if not _is_qa_or_admin(request.user):
         messages.error(request, _("권한이 없습니다."))
         return redirect("documents:detail", pk=pk)
     revision = document.current_revision
