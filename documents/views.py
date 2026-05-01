@@ -1,5 +1,7 @@
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.translation import gettext as _
 
 from .forms import DocumentRegistrationForm
 from .models import Document
@@ -20,15 +22,22 @@ def register_document_view(request):
     if request.method == "POST":
         form = DocumentRegistrationForm(request.POST, request.FILES)
         if form.is_valid():
-            doc = register_document(
-                user=request.user,
-                project_code=form.cleaned_data["project_code"],
-                document_type=form.cleaned_data["document_type"],
-                title=form.cleaned_data["title"],
-                uploaded_file=form.cleaned_data["source_file"],
-                reason=form.cleaned_data["reason"],
-            )
-            return redirect("documents:detail", pk=doc.pk)
+            try:
+                doc = register_document(
+                    user=request.user,
+                    project_code=form.cleaned_data["project_code"],
+                    document_type=form.cleaned_data["document_type"],
+                    title=form.cleaned_data["title"],
+                    uploaded_file=form.cleaned_data["source_file"],
+                    reason=form.cleaned_data["reason"],
+                )
+            except Exception as e:
+                messages.error(request, _("PDF 생성 실패: %(err)s") % {"err": e})
+                return render(request, "documents/register_document.html", {"form": form})
+            try:
+                return redirect("documents:detail", pk=doc.pk)
+            except Exception as e:
+                messages.error(request, _("결재 상신 실패: %(err)s") % {"err": e})
     else:
         form = DocumentRegistrationForm()
     return render(request, "documents/register_document.html", {"form": form})

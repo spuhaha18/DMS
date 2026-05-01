@@ -1,6 +1,8 @@
 from django.contrib.auth.decorators import login_required
-from django.http import FileResponse, Http404
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.utils.translation import gettext as _
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 
 from documents.models import Document
 from viewer.services import record_view, resolve_viewable_revision
@@ -17,12 +19,19 @@ def pdf_view(request, document_pk, revision_id=None):
 
 
 @login_required
+@xframe_options_sameorigin
 def pdf_stream(request, document_pk, revision_id=None):
     """Serve the official PDF through Django so every access is auth-gated."""
     document = get_object_or_404(Document, pk=document_pk)
-    revision = resolve_viewable_revision(request.user, document, revision_id=revision_id)
+    try:
+        revision = resolve_viewable_revision(request.user, document, revision_id=revision_id)
+    except Exception as e:
+        return HttpResponse(_("접근이 거부되었습니다: %(err)s") % {"err": e}, status=403)
     if not revision.official_pdf:
-        raise Http404("Official PDF not available.")
-    response = FileResponse(revision.official_pdf.open("rb"), content_type="application/pdf")
-    response["Content-Disposition"] = "inline"
-    return response
+        return HttpResponse(_("공식 PDF가 아직 발급되지 않았습니다."), status=404)
+    try:
+        response = FileResponse(revision.official_pdf.open("rb"), content_type="application/pdf")
+        response["Content-Disposition"] = "inline"
+        return response
+    except Exception as e:
+        return HttpResponse(_("PDF 로드 실패: %(err)s") % {"err": e}, status=500)
