@@ -9,16 +9,13 @@ from documents.services import mark_effective, register_document
 
 
 @pytest.mark.django_db
-def test_only_docx_is_accepted():
+def test_only_doc_and_docx_are_accepted():
     user = User.objects.create_user("researcher", password="pw")
     project = ProjectCode.objects.create(code="P001", name="Project 1")
     doc_type = DocumentType.objects.create(code="AM", name="Analysis Method")
 
-    with pytest.raises(ValidationError, match="Only .docx"):
+    with pytest.raises(ValidationError, match="Only .doc and .docx"):
         register_document(user=user, project_code=project, document_type=doc_type, title="Bad", uploaded_file=SimpleUploadedFile("bad.pdf", b"pdf"), reason="bad")
-
-    with pytest.raises(ValidationError, match="Only .docx"):
-        register_document(user=user, project_code=project, document_type=doc_type, title="Bad", uploaded_file=SimpleUploadedFile("bad.doc", b"doc"), reason="bad")
 
 
 @pytest.mark.django_db

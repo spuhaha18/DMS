@@ -29,7 +29,7 @@ def test_number_reservation_and_audit_event_commit_together():
     project = ProjectCode.objects.create(code="P001", name="Project 1")
     doc_type = DocumentType.objects.create(code="VAL", name="Validation")
 
-    document = register_document(user=user, project_code=project, document_type=doc_type, title="Validation", uploaded_file=SimpleUploadedFile("v.docx", b"body"), reason="registration")
+    document = register_document(user=user, project_code=project, document_type=doc_type, title="Validation", uploaded_file=SimpleUploadedFile("v.doc", b"body"), reason="registration")
 
     assert Document.objects.filter(document_number="P001-VAL-0001").exists()
     assert AuditEvent.objects.filter(event_type="document.registered", object_id=str(document.id)).exists()
