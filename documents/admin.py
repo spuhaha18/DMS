@@ -1,4 +1,9 @@
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
+
+admin.site.site_header = _("EDMS 관리자")
+admin.site.site_title = _("EDMS")
+admin.site.index_title = _("운영 콘솔")
 
 from audit.services import append_event
 from .models import Document, DocumentNumberSequence, DocumentRevision, DocumentType, ProjectCode
