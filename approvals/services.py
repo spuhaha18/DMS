@@ -18,9 +18,16 @@ def submit_for_approval(revision, *, actor, reason: str):
     from approvals.models import ApprovalRouteTemplate
 
     doc_type = revision.document.document_type
-    template = ApprovalRouteTemplate.objects.filter(document_type=doc_type, is_active=True).first()
-    if template is None:
+    active_templates = ApprovalRouteTemplate.objects.filter(document_type=doc_type, is_active=True)
+    count = active_templates.count()
+    if count == 0:
         raise ValidationError("No active approval route template found for this document type.")
+    if count > 1:
+        raise ValidationError(
+            f"Multiple active approval route templates ({count}) found for document type '{doc_type}'. "
+            "Deactivate all but one before submitting."
+        )
+    template = active_templates.first()
 
     steps = list(template.steps.all())
     if not steps:

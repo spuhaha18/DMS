@@ -175,19 +175,26 @@ def _generate_official_pdf_inner(revision, *, job, actor, reason: str):
 
     source_path = Path(revision.source_file.path)
     with tempfile.TemporaryDirectory() as tmpdir:
-        if source_path.suffix.lower() == ".docx":
-            filled_path = Path(tmpdir) / "filled.docx"
-            try:
-                tpl = DocxTemplate(str(source_path))
-                tpl.render(_build_approval_context(revision))
-                tpl.save(str(filled_path))
-            except Exception as exc:
-                raise _TemplateRenderError() from exc
-            conversion_input = filled_path
+        # Normalize .doc to .docx so DocxTemplate can fill approval placeholders.
+        if source_path.suffix.lower() == ".doc":
+            subprocess.run(
+                [settings.EDMS_LIBREOFFICE_BINARY, "--headless", "--convert-to", "docx",
+                 "--outdir", tmpdir, str(source_path)],
+                check=True, capture_output=True, timeout=120,
+            )
+            docx_source = Path(tmpdir) / (source_path.stem + ".docx")
         else:
-            conversion_input = source_path
+            docx_source = source_path
 
-        pdf_bytes = _run_libreoffice_conversion(conversion_input)
+        filled_path = Path(tmpdir) / "filled.docx"
+        try:
+            tpl = DocxTemplate(str(docx_source))
+            tpl.render(_build_approval_context(revision))
+            tpl.save(str(filled_path))
+        except Exception as exc:
+            raise _TemplateRenderError() from exc
+
+        pdf_bytes = _run_libreoffice_conversion(filled_path)
         pdf_bytes = _apply_watermark(pdf_bytes, revision)
 
     pdf_filename = f"{revision.document.document_number}_rev{revision.revision}.pdf"
