@@ -116,8 +116,12 @@ def generate_official_pdf(revision, *, actor, reason: str):
     )
 
     exc_to_raise = None
+    template_render_failed = False
     try:
         _generate_official_pdf_inner(revision, job=job, actor=actor, reason=reason)
+    except _TemplateRenderError as exc:
+        exc_to_raise = exc.__cause__
+        template_render_failed = True
     except Exception as exc:
         exc_to_raise = exc
 
@@ -128,12 +132,22 @@ def generate_official_pdf(revision, *, actor, reason: str):
         job.error_message = str(exc_to_raise)
         job.completed_at = timezone.now()
         job.save(update_fields=["status", "error_message", "completed_at"])
+        if template_render_failed:
+            QaException.objects.create(
+                revision=revision,
+                exception_type="approval_template_render_failed",
+                message=str(exc_to_raise),
+            )
         QaException.objects.create(
             revision=revision,
             exception_type="pdf_conversion_failed",
             message=str(exc_to_raise),
         )
         raise exc_to_raise
+
+
+class _TemplateRenderError(Exception):
+    """Internal sentinel: wraps a docxtpl render failure so it survives the atomic rollback."""
 
 
 @transaction.atomic
@@ -153,12 +167,7 @@ def _generate_official_pdf_inner(revision, *, job, actor, reason: str):
             tpl.render(_build_approval_context(revision))
             tpl.save(str(filled_path))
         except Exception as exc:
-            QaException.objects.create(
-                revision=revision,
-                exception_type="approval_template_render_failed",
-                message=str(exc),
-            )
-            raise
+            raise _TemplateRenderError() from exc
 
         pdf_bytes = _run_libreoffice_conversion(filled_path)
         pdf_bytes = _apply_watermark(pdf_bytes, revision)

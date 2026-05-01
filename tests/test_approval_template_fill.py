@@ -127,3 +127,34 @@ def test_generate_official_pdf_renders_docx_template_with_approval_context(setti
     docx_arg = m_conv.call_args[0][0]
     assert Path(str(docx_arg)).suffix == ".docx"
     assert Path(str(docx_arg)) != Path(revision.source_file.path)
+
+
+from pdfs.models import QaException as _QaException
+
+
+@pytest.mark.django_db
+def test_docxtpl_render_failure_creates_distinct_qa_exception(settings, tmp_path):
+    settings.EDMS_PRIVATE_MEDIA_ROOT = tmp_path
+    qa = User.objects.create_user("qa3", password="pw")
+    project = ProjectCode.objects.create(code="P003", name="Project 3")
+    doc_type = DocumentType.objects.create(code="AM3", name="Analysis Method")
+    document = register_document(
+        user=qa, project_code=project, document_type=doc_type,
+        title="Doc3", uploaded_file=SimpleUploadedFile("doc.docx", b"src"),
+        reason="reg",
+    )
+    revision = document.current_revision
+    revision.status = DocumentStatus.APPROVED
+    revision.save()
+
+    with patch("pdfs.services._converter_version", return_value="LibreOffice 24.2"), \
+         patch("docxtpl.DocxTemplate.render", side_effect=Exception("template syntax error")):
+        with pytest.raises(Exception, match="template syntax error"):
+            generate_official_pdf(revision, actor=qa, reason="approved")
+
+    assert _QaException.objects.filter(
+        revision=revision, exception_type="approval_template_render_failed"
+    ).exists()
+    assert _QaException.objects.filter(
+        revision=revision, exception_type="pdf_conversion_failed"
+    ).exists()
