@@ -23,17 +23,17 @@ def _converter_version() -> str:
     return result.stdout.strip()
 
 
-def _run_libreoffice_conversion(revision) -> bytes:
+def _run_libreoffice_conversion(docx_path: Path) -> bytes:
     binary = settings.EDMS_LIBREOFFICE_BINARY
-    source_path = Path(revision.source_file.path)
+    docx_path = Path(docx_path)
     with tempfile.TemporaryDirectory() as tmpdir:
         subprocess.run(
-            [binary, "--headless", "--convert-to", "pdf", "--outdir", tmpdir, str(source_path)],
+            [binary, "--headless", "--convert-to", "pdf", "--outdir", tmpdir, str(docx_path)],
             check=True,
             capture_output=True,
             timeout=120,
         )
-        pdf_name = source_path.stem + ".pdf"
+        pdf_name = docx_path.stem + ".pdf"
         pdf_path = Path(tmpdir) / pdf_name
         return pdf_path.read_bytes()
 
@@ -144,7 +144,7 @@ def _generate_official_pdf_inner(revision, *, job, actor, reason: str):
     job.converter_version = converter_ver
     job.save(update_fields=["converter_version"])
 
-    pdf_bytes = _run_libreoffice_conversion(revision)
+    pdf_bytes = _run_libreoffice_conversion(Path(revision.source_file.path))
     pdf_bytes = _apply_watermark(pdf_bytes, revision)
 
     pdf_filename = f"{revision.document.document_number}_rev{revision.revision}.pdf"
