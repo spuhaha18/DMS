@@ -1,0 +1,123 @@
+import hashlib
+import subprocess
+import tempfile
+from pathlib import Path
+
+from django.conf import settings
+from django.core.files.base import ContentFile
+from django.db import transaction
+from django.utils import timezone
+
+from audit.services import append_event
+from documents.services import mark_effective
+from pdfs.models import PdfConversionJob, PdfConversionStatus, QaException
+
+
+def _converter_version() -> str:
+    result = subprocess.run(
+        [settings.EDMS_LIBREOFFICE_BINARY, "--version"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    return result.stdout.strip()
+
+
+def _run_libreoffice_conversion(revision) -> bytes:
+    binary = settings.EDMS_LIBREOFFICE_BINARY
+    source_path = Path(revision.source_file.path)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        subprocess.run(
+            [binary, "--headless", "--convert-to", "pdf", "--outdir", tmpdir, str(source_path)],
+            check=True,
+            capture_output=True,
+            timeout=120,
+        )
+        pdf_name = source_path.stem + ".pdf"
+        pdf_path = Path(tmpdir) / pdf_name
+        return pdf_path.read_bytes()
+
+
+def _apply_watermark(pdf_bytes: bytes, revision) -> bytes:
+    try:
+        from pypdf import PdfReader, PdfWriter
+        import io
+
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        writer = PdfWriter()
+        writer.append_pages_from_reader(reader)
+
+        watermark_text = settings.EDMS_WATERMARK_TEMPLATE.format(
+            document_number=revision.document.document_number,
+            revision=revision.revision,
+            status=revision.status,
+            generated_at=timezone.now().strftime("%Y-%m-%d"),
+        )
+        writer.add_metadata({
+            "/Subject": watermark_text,
+            "/Creator": "EDMS v1",
+        })
+        out = io.BytesIO()
+        writer.write(out)
+        return out.getvalue()
+    except Exception:
+        return pdf_bytes
+
+
+def generate_official_pdf(revision, *, actor, reason: str):
+    exc_to_raise = None
+    try:
+        _generate_official_pdf_inner(revision, actor=actor, reason=reason)
+    except Exception as exc:
+        exc_to_raise = exc
+
+    if exc_to_raise is not None:
+        # Record the QaException outside the rolled-back transaction
+        QaException.objects.create(
+            revision=revision,
+            exception_type="pdf_conversion_failed",
+            message=str(exc_to_raise),
+        )
+        raise exc_to_raise
+
+
+@transaction.atomic
+def _generate_official_pdf_inner(revision, *, actor, reason: str):
+    job, _ = PdfConversionJob.objects.get_or_create(revision=revision)
+    job.status = PdfConversionStatus.PENDING
+    job.save(update_fields=["status"])
+
+    try:
+        converter_ver = _converter_version()
+        job.converter_version = converter_ver
+        job.save(update_fields=["converter_version"])
+
+        pdf_bytes = _run_libreoffice_conversion(revision)
+        pdf_bytes = _apply_watermark(pdf_bytes, revision)
+
+        pdf_filename = f"{revision.document.document_number}_rev{revision.revision}.pdf"
+        revision.official_pdf.save(pdf_filename, ContentFile(pdf_bytes), save=False)
+        revision.official_pdf_sha256 = hashlib.sha256(pdf_bytes).hexdigest()
+        revision.save(update_fields=["official_pdf", "official_pdf_sha256"])
+
+        job.status = PdfConversionStatus.SUCCEEDED
+        job.completed_at = timezone.now()
+        job.save(update_fields=["status", "completed_at"])
+
+        append_event(
+            actor=actor,
+            event_type="pdf.generated",
+            object_type="DocumentRevision",
+            object_id=str(revision.id),
+            after={"official_pdf_sha256": revision.official_pdf_sha256, "converter_version": converter_ver},
+            reason=reason,
+        )
+
+        mark_effective(revision, actor=actor, reason=reason)
+
+    except Exception as exc:
+        job.status = PdfConversionStatus.FAILED
+        job.error_message = str(exc)
+        job.completed_at = timezone.now()
+        job.save(update_fields=["status", "error_message", "completed_at"])
+        raise
