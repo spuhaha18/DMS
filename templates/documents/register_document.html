@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Register Document{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "신규 문서 등록" %}{% endblock %}
 {% block content %}
 <div class="panel">
-  <h2>Register New Document</h2>
+  <h2>{% trans "신규 문서 등록" %}</h2>
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     {% for field in form %}
@@ -12,8 +13,8 @@
       {% if field.errors %}<p style="color:red;">{{ field.errors }}</p>{% endif %}
     </div>
     {% endfor %}
-    <button type="submit">Register</button>
-    <a href="{% url 'documents:register' %}" style="margin-left:8px;">Cancel</a>
+    <button type="submit">{% trans "등록" %}</button>
+    <a href="{% url 'documents:register' %}" style="margin-left:8px;">{% trans "취소" %}</a>
   </form>
 </div>
 {% endblock %}
