@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import FileResponse, Http404, HttpResponse
@@ -7,6 +9,8 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 
 from documents.models import Document
 from viewer.services import record_view, resolve_viewable_revision
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -34,5 +38,6 @@ def pdf_stream(request, document_pk, revision_id=None):
         response = FileResponse(revision.official_pdf.open("rb"), content_type="application/pdf")
         response["Content-Disposition"] = "inline"
         return response
-    except Exception as e:
-        return HttpResponse(_("PDF 로드 실패: %(err)s") % {"err": e}, status=500)
+    except Exception:
+        logger.exception("pdf_stream failed for revision %s", revision.pk)
+        return HttpResponse(_("PDF 파일을 열 수 없습니다."), status=500)

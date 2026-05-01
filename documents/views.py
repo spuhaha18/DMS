@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
@@ -6,6 +8,8 @@ from django.utils.translation import gettext as _
 from .forms import DocumentRegistrationForm
 from .models import Document
 from .services import register_document
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -32,12 +36,10 @@ def register_document_view(request):
                     reason=form.cleaned_data["reason"],
                 )
             except Exception as e:
-                messages.error(request, _("PDF 생성 실패: %(err)s") % {"err": e})
+                logger.exception("document registration failed for user %s", request.user.pk)
+                messages.error(request, _("문서 등록 중 오류가 발생했습니다."))
                 return render(request, "documents/register_document.html", {"form": form})
-            try:
-                return redirect("documents:detail", pk=doc.pk)
-            except Exception as e:
-                messages.error(request, _("결재 상신 실패: %(err)s") % {"err": e})
+            return redirect("documents:detail", pk=doc.pk)
     else:
         form = DocumentRegistrationForm()
     return render(request, "documents/register_document.html", {"form": form})
@@ -64,7 +66,8 @@ def submit_for_approval_view(request, pk):
         from approvals.services import submit_for_approval
         submit_for_approval(revision, actor=request.user, reason=_("문서 등록부에서 결재 상신"))
     except Exception as e:
-        messages.error(request, _("결재 상신 실패: %(err)s") % {"err": e})
+        logger.exception("submit_for_approval failed for revision %s", revision.pk)
+        messages.error(request, _("결재 상신 중 오류가 발생했습니다."))
     return redirect("documents:detail", pk=pk)
 
 
@@ -83,7 +86,8 @@ def generate_pdf_view(request, pk):
         from pdfs.services import generate_official_pdf
         generate_official_pdf(revision, actor=request.user, reason=_("문서 등록부에서 공식 PDF 발급"))
     except Exception as e:
-        messages.error(request, _("공식 PDF 발급 실패: %(err)s") % {"err": e})
+        logger.exception("generate_official_pdf failed for revision %s", revision.pk)
+        messages.error(request, _("공식 PDF 발급 중 오류가 발생했습니다."))
     return redirect("documents:detail", pk=pk)
 
 

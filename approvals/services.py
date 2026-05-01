@@ -15,6 +15,12 @@ def submit_for_approval(revision, *, actor, reason: str):
     if revision.status not in {DocumentStatus.DRAFT_UPLOADED, DocumentStatus.REJECTED}:
         raise ValidationError(f"Cannot submit revision with status '{revision.status}' for approval.")
 
+    # Remove stale tasks from previous rejected cycles so the completion check works correctly.
+    # CANCELLED and REJECTED tasks have no ElectronicSignature (PROTECT), so deletion is safe.
+    revision.approval_tasks.filter(
+        status__in=[ApprovalTaskStatus.CANCELLED, ApprovalTaskStatus.REJECTED]
+    ).delete()
+
     from approvals.models import ApprovalRouteTemplate
 
     doc_type = revision.document.document_type

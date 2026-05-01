@@ -68,9 +68,21 @@ def _apply_watermark(pdf_bytes: bytes, revision) -> bytes:
 
 def _build_approval_context(revision):
     from approvals.models import ApprovalTaskStatus
-    tasks = (
+    from django.db.models import Max
+
+    # For each order position, take only the latest approved task.
+    # This handles rejection/resubmission cycles where the same order position
+    # may have an approved task from both the previous and current cycle.
+    latest_per_order = (
         revision.approval_tasks
         .filter(status=ApprovalTaskStatus.APPROVED)
+        .values("order")
+        .annotate(max_id=Max("id"))
+        .values_list("max_id", flat=True)
+    )
+    tasks = (
+        revision.approval_tasks
+        .filter(id__in=latest_per_order)
         .select_related("assigned_to")
         .prefetch_related("signature__signer")
         .order_by("order")
