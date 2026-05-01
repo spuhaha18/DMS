@@ -67,8 +67,10 @@ def _apply_watermark(pdf_bytes: bytes, revision) -> bytes:
 
 
 def _build_approval_context(revision):
+    from approvals.models import ApprovalTaskStatus
     tasks = (
         revision.approval_tasks
+        .filter(status=ApprovalTaskStatus.APPROVED)
         .select_related("assigned_to")
         .prefetch_related("signature__signer")
         .order_by("order")

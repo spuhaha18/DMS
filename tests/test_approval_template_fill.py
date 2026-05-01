@@ -48,7 +48,7 @@ def test_build_approval_context_includes_signed_name_and_date(settings, tmp_path
 
 
 @pytest.mark.django_db
-def test_build_approval_context_handles_unsigned_tasks(settings, tmp_path):
+def test_build_approval_context_excludes_non_approved_tasks(settings, tmp_path):
     settings.EDMS_PRIVATE_MEDIA_ROOT = tmp_path
     qa = User.objects.create_user("qa", password="pw")
     approver = User.objects.create_user("bob", password="pw")
@@ -68,9 +68,9 @@ def test_build_approval_context_handles_unsigned_tasks(settings, tmp_path):
 
     ctx = _build_approval_context(revision)
 
-    assert ctx["approvers"][0]["name"] == ""
-    assert ctx["approvers"][0]["signed_at"] == ""
-    assert ctx["approver_1_name"] == ""
+    # PENDING tasks are excluded — context should have no approvers
+    assert ctx["approvers"] == []
+    assert "approver_1_name" not in ctx
 
 
 from pathlib import Path

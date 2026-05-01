@@ -31,7 +31,7 @@
     </tbody>
   </table>
   <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-    {% if document.status == "Draft Uploaded" %}
+    {% if document.status == "Draft Uploaded" or document.status == "Rejected" %}
     <form method="post" action="{% url 'documents:submit_for_approval' document.pk %}">
       {% csrf_token %}
       <button type="submit">{% trans "결재 상신" %}</button>
