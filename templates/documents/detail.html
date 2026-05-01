@@ -31,13 +31,13 @@
     </tbody>
   </table>
   <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-    {% if document.status == "Draft Uploaded" or document.status == "Rejected" %}
+    {% if can_submit and document.status == "Draft Uploaded" or can_submit and document.status == "Rejected" %}
     <form method="post" action="{% url 'documents:submit_for_approval' document.pk %}">
       {% csrf_token %}
       <button type="submit">{% trans "결재 상신" %}</button>
     </form>
     {% endif %}
-    {% if document.status == "Approved" %}
+    {% if can_generate_pdf and document.status == "Approved" %}
     <form method="post" action="{% url 'documents:generate_pdf' document.pk %}">
       {% csrf_token %}
       <button type="submit" style="background:#217a3c;">{% trans "공식 PDF 발급" %}</button>

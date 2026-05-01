@@ -2,6 +2,7 @@ import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext as _
 
@@ -49,7 +50,12 @@ def register_document_view(request):
 def detail(request, pk):
     document = get_object_or_404(Document.objects.select_related("project_code", "document_type", "created_by", "current_revision"), pk=pk)
     revisions = document.revisions.select_related("created_by").order_by("-revision")
-    return render(request, "documents/detail.html", {"document": document, "revisions": revisions})
+    return render(request, "documents/detail.html", {
+        "document": document,
+        "revisions": revisions,
+        "can_submit": _is_document_owner_or_qa(request.user, document),
+        "can_generate_pdf": _is_qa_or_admin(request.user),
+    })
 
 
 def _is_document_owner_or_qa(user, document) -> bool:
@@ -82,7 +88,9 @@ def submit_for_approval_view(request, pk):
     try:
         from approvals.services import submit_for_approval
         submit_for_approval(revision, actor=request.user, reason=_("문서 등록부에서 결재 상신"))
-    except Exception as e:
+    except ValidationError as e:
+        messages.error(request, e.message if hasattr(e, "message") else str(e))
+    except Exception:
         logger.exception("submit_for_approval failed for revision %s", revision.pk)
         messages.error(request, _("결재 상신 중 오류가 발생했습니다."))
     return redirect("documents:detail", pk=pk)
