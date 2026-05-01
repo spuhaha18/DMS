@@ -15,12 +15,6 @@ def submit_for_approval(revision, *, actor, reason: str):
     if revision.status not in {DocumentStatus.DRAFT_UPLOADED, DocumentStatus.REJECTED}:
         raise ValidationError(f"Cannot submit revision with status '{revision.status}' for approval.")
 
-    # Remove stale tasks from previous rejected cycles so the completion check works correctly.
-    # CANCELLED and REJECTED tasks have no ElectronicSignature (PROTECT), so deletion is safe.
-    revision.approval_tasks.filter(
-        status__in=[ApprovalTaskStatus.CANCELLED, ApprovalTaskStatus.REJECTED]
-    ).delete()
-
     from approvals.models import ApprovalRouteTemplate
 
     doc_type = revision.document.document_type
@@ -67,7 +61,10 @@ def approve_task(task, *, signer, password: str, comment: str, reason: str):
     if task.status != ApprovalTaskStatus.PENDING:
         raise ValidationError(f"Task is not pending (current status: {task.status}).")
 
-    prior_tasks = ApprovalTask.objects.filter(revision=task.revision, order__lt=task.order)
+    # Exclude CANCELLED/REJECTED tasks from prior cycles so resubmitted revisions can progress.
+    prior_tasks = ApprovalTask.objects.filter(revision=task.revision, order__lt=task.order).exclude(
+        status__in=[ApprovalTaskStatus.CANCELLED, ApprovalTaskStatus.REJECTED]
+    )
     if prior_tasks.exclude(status=ApprovalTaskStatus.APPROVED).exists():
         raise ValidationError("Prior approval tasks must be approved first.")
 
@@ -94,7 +91,10 @@ def approve_task(task, *, signer, password: str, comment: str, reason: str):
         reason=reason,
     )
 
-    all_done = not ApprovalTask.objects.filter(revision=task.revision).exclude(status=ApprovalTaskStatus.APPROVED).exists()
+    # Completion: no PENDING tasks remain (CANCELLED/REJECTED from prior cycles are ignored).
+    all_done = not ApprovalTask.objects.filter(
+        revision=task.revision, status=ApprovalTaskStatus.PENDING
+    ).exists()
     if all_done:
         revision = task.revision
         revision.status = DocumentStatus.APPROVED

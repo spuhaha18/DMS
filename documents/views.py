@@ -52,12 +52,23 @@ def detail(request, pk):
     return render(request, "documents/detail.html", {"document": document, "revisions": revisions})
 
 
+def _is_document_owner_or_qa(user, document) -> bool:
+    if user.is_superuser or user.is_staff:
+        return True
+    if user == document.created_by:
+        return True
+    return user.groups.filter(name="QA").exists()
+
+
 @login_required
 def submit_for_approval_view(request, pk):
     if request.method != "POST":
         from django.http import HttpResponseNotAllowed
         return HttpResponseNotAllowed(["POST"])
-    document = get_object_or_404(Document.objects.select_related("current_revision"), pk=pk)
+    document = get_object_or_404(Document.objects.select_related("created_by", "current_revision"), pk=pk)
+    if not _is_document_owner_or_qa(request.user, document):
+        messages.error(request, _("권한이 없습니다."))
+        return redirect("documents:detail", pk=pk)
     revision = document.current_revision
     if revision is None:
         messages.error(request, _("결재 상신할 리비전이 없습니다."))
@@ -77,7 +88,10 @@ def generate_pdf_view(request, pk):
         from django.http import HttpResponseNotAllowed
         return HttpResponseNotAllowed(["POST"])
     from documents.models import DocumentStatus
-    document = get_object_or_404(Document.objects.select_related("current_revision"), pk=pk)
+    document = get_object_or_404(Document.objects.select_related("created_by", "current_revision"), pk=pk)
+    if not _is_document_owner_or_qa(request.user, document):
+        messages.error(request, _("권한이 없습니다."))
+        return redirect("documents:detail", pk=pk)
     revision = document.current_revision
     if revision is None or revision.status != DocumentStatus.APPROVED:
         messages.error(request, _("승인된 리비전이 없어 공식 PDF를 발급할 수 없습니다."))
