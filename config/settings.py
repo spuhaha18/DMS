@@ -25,6 +25,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -56,10 +57,12 @@ DATABASES = {
     }
 }
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = "ko"
+LANGUAGES = [("ko", "한국어")]
 TIME_ZONE = "Asia/Seoul"
 USE_I18N = True
 USE_TZ = True
+LOCALE_PATHS = [BASE_DIR / "locale"]
 
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -76,4 +79,4 @@ EDMS_ROLE_RESEARCHER = "Researcher"
 EDMS_ROLE_REVIEWER = "Reviewer"
 EDMS_ROLE_APPROVER = "Approver"
 EDMS_ROLE_READER = "Reader"
-EDMS_WATERMARK_TEMPLATE = "Official PDF | {document_number} | Rev {revision} | {status} | Generated {generated_at}"
+EDMS_WATERMARK_TEMPLATE = "공식 PDF | {document_number} | Rev {revision} | {status} | 발급일 {generated_at}"
