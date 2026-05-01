@@ -1,19 +1,27 @@
 {% extends "base.html" %}
-{% block title %}Audit Trail{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "감사 로그" %}{% endblock %}
 {% block content %}
 <div class="panel">
-  <h2>Audit Trail</h2>
+  <h2>{% trans "감사 로그" %}</h2>
   <form method="get" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;">
-    <input name="document_number" value="{{ document_number }}" placeholder="Document number">
-    <input name="username" value="{{ username }}" placeholder="Username">
-    <input name="event_type" value="{{ event_type }}" placeholder="Event type">
+    <input name="document_number" value="{{ document_number }}" placeholder="{% trans '문서번호' %}">
+    <input name="username" value="{{ username }}" placeholder="{% trans '사용자명' %}">
+    <input name="event_type" value="{{ event_type }}" placeholder="{% trans '이벤트 유형' %}">
     <input type="date" name="date_from" value="{{ date_from }}">
     <input type="date" name="date_to" value="{{ date_to }}">
-    <button type="submit">Filter</button>
-    <a href="{% url 'audit:event_list' %}">Clear</a>
+    <button type="submit">{% trans "필터" %}</button>
+    <a href="{% url 'audit:event_list' %}">{% trans "초기화" %}</a>
   </form>
   <table>
-    <thead><tr><th>Time</th><th>Actor</th><th>Event</th><th>Object</th><th>Reason</th><th>Hash</th></tr></thead>
+    <thead><tr>
+      <th>{% trans "시각" %}</th>
+      <th>{% trans "실행자" %}</th>
+      <th>{% trans "이벤트" %}</th>
+      <th>{% trans "대상" %}</th>
+      <th>{% trans "사유" %}</th>
+      <th>{% trans "해시" %}</th>
+    </tr></thead>
     <tbody>
     {% for e in events %}
     <tr>
@@ -24,7 +32,7 @@
       <td>{{ e.reason }}</td>
       <td style="font-family:monospace;font-size:10px;">{{ e.event_hash|slice:":12" }}…</td>
     </tr>
-    {% empty %}<tr><td colspan="6">No audit events match.</td></tr>
+    {% empty %}<tr><td colspan="6">{% trans "조건에 일치하는 감사 이벤트가 없습니다." %}</td></tr>
     {% endfor %}
     </tbody>
   </table>
