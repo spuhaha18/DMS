@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% trans "로그아웃" %}{% endblock %}
+{% block content %}
+<div class="panel">
+  <h2>{% trans "로그아웃 되었습니다" %}</h2>
+  <p>{% trans "보안을 위해 브라우저를 닫거나 다시 로그인해 주세요." %}</p>
+  <p><a class="button" href="{% url 'login' %}">{% trans "다시 로그인" %}</a></p>
+</div>
+{% endblock %}
