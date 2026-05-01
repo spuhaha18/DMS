@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Pending Approvals{% endblock %}
+{% block content %}
+<div class="panel">
+  <h2>Pending Approvals</h2>
+  <table>
+    <thead><tr><th>Document</th><th>Revision</th><th>Role</th><th>Meaning</th><th>Route</th><th>Action</th></tr></thead>
+    <tbody>
+    {% for task in tasks %}
+    <tr>
+      <td><a href="{% url 'documents:detail' task.revision.document.pk %}">{{ task.revision.document.document_number }}</a></td>
+      <td>{{ task.revision.revision }}</td>
+      <td>{{ task.role_name }}</td>
+      <td>{{ task.signature_meaning }}</td>
+      <td>{{ task.route_template_name }}</td>
+      <td><a href="{% url 'approvals:task_detail' task.pk %}" class="button">Review</a></td>
+    </tr>
+    {% empty %}<tr><td colspan="6">No pending tasks.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

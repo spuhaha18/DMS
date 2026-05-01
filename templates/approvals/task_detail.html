@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Approval Task{% endblock %}
+{% block content %}
+<div class="panel">
+  <h2>Approval: {{ task.revision.document.document_number }} Rev {{ task.revision.revision }}</h2>
+  <table>
+    <tr><th>Role</th><td>{{ task.role_name }}</td></tr>
+    <tr><th>Signature Meaning</th><td>{{ task.signature_meaning }}</td></tr>
+    <tr><th>Route</th><td>{{ task.route_template_name }}</td></tr>
+    <tr><th>Source SHA-256</th><td style="font-family:monospace;font-size:11px;">{{ task.revision.source_sha256 }}</td></tr>
+  </table>
+  {% if error %}<p style="color:red;">{{ error }}</p>{% endif %}
+  <form method="post" style="margin-top:14px;">
+    {% csrf_token %}
+    {% for field in form %}
+    <div style="margin-bottom:10px;">
+      <label>{{ field.label }}</label><br>{{ field }}
+      {% if field.errors %}<p style="color:red;">{{ field.errors }}</p>{% endif %}
+    </div>
+    {% endfor %}
+    <button type="submit">Submit Decision</button>
+  </form>
+</div>
+{% endblock %}

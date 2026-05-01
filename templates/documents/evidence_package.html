@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Evidence: {{ document.document_number }}{% endblock %}
+{% block content %}
+<div class="panel">
+  <h2>Evidence Package: {{ document.document_number }}</h2>
+  <h3>Approval Tasks</h3>
+  <table>
+    <thead><tr><th>Order</th><th>Assigned To</th><th>Role</th><th>Meaning</th><th>Status</th><th>Completed</th></tr></thead>
+    <tbody>
+    {% for t in tasks %}
+    <tr><td>{{ t.order }}</td><td>{{ t.assigned_to }}</td><td>{{ t.role_name }}</td><td>{{ t.signature_meaning }}</td><td>{{ t.status }}</td><td>{{ t.completed_at|default:"-" }}</td></tr>
+    {% empty %}<tr><td colspan="6">None</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <h3>Audit Events</h3>
+  <table>
+    <thead><tr><th>Time</th><th>Actor</th><th>Event</th><th>Reason</th></tr></thead>
+    <tbody>
+    {% for e in audit_events %}
+    <tr><td>{{ e.created_at }}</td><td>{{ e.actor }}</td><td>{{ e.event_type }}</td><td>{{ e.reason }}</td></tr>
+    {% empty %}<tr><td colspan="4">None</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

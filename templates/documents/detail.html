@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ document.document_number }}{% endblock %}
+{% block content %}
+<div class="panel">
+  <h2>{{ document.document_number }} — {{ document.title }}</h2>
+  <table>
+    <tr><th>Project</th><td>{{ document.project_code }}</td></tr>
+    <tr><th>Type</th><td>{{ document.document_type }}</td></tr>
+    <tr><th>Status</th><td><span class="status">{{ document.status }}</span></td></tr>
+    <tr><th>Created by</th><td>{{ document.created_by }}</td></tr>
+    <tr><th>Created</th><td>{{ document.created_at }}</td></tr>
+  </table>
+  <h3>Revisions</h3>
+  <table>
+    <thead><tr><th>Rev</th><th>Status</th><th>SHA-256</th><th>Created</th></tr></thead>
+    <tbody>
+    {% for rev in revisions %}
+    <tr>
+      <td>{{ rev.revision }}</td>
+      <td><span class="status">{{ rev.status }}</span></td>
+      <td style="font-family:monospace;font-size:11px;">{{ rev.source_sha256|slice:":16" }}…</td>
+      <td>{{ rev.created_at|date:"Y-m-d" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p><a href="{% url 'documents:evidence_package' document.pk %}">View Evidence Package</a></p>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}View: {{ document.document_number }}{% endblock %}
+{% block content %}
+<div class="panel">
+  <h2>{{ document.document_number }} — {{ document.title }}</h2>
+  <table>
+    <tr><th>Revision</th><td>{{ revision.revision }}</td></tr>
+    <tr><th>Status</th><td><span class="status">{{ revision.status }}</span></td></tr>
+    <tr><th>PDF SHA-256</th><td style="font-family:monospace;font-size:11px;">{{ revision.official_pdf_sha256 }}</td></tr>
+    {% if revision.effective_at %}<tr><th>Effective</th><td>{{ revision.effective_at }}</td></tr>{% endif %}
+  </table>
+  <p style="margin-top:14px;color:#555;font-size:13px;">
+    Direct download is disabled. This is a controlled viewing session. Your access has been recorded.
+  </p>
+  {% if revision.official_pdf %}
+  <iframe src="{{ revision.official_pdf.url }}" style="width:100%;height:70vh;border:1px solid #d8dee4;margin-top:12px;" title="Official PDF"></iframe>
+  {% else %}
+  <p>Official PDF not yet available.</p>
+  {% endif %}
+</div>
+{% endblock %}
