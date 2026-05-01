@@ -50,3 +50,5 @@ def test_failed_conversion_blocks_effective_and_creates_exception():
     revision.refresh_from_db()
     assert revision.status == DocumentStatus.APPROVED
     assert QaException.objects.filter(revision=revision, exception_type="pdf_conversion_failed").exists()
+    job = PdfConversionJob.objects.get(revision=revision)
+    assert job.status == PdfConversionStatus.FAILED

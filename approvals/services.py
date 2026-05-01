@@ -10,6 +10,11 @@ from documents.models import DocumentStatus
 
 @transaction.atomic
 def submit_for_approval(revision, *, actor, reason: str):
+    if revision.status == DocumentStatus.IN_REVIEW:
+        raise ValidationError("Revision is already submitted for approval.")
+    if revision.status not in {DocumentStatus.DRAFT_UPLOADED, DocumentStatus.REJECTED}:
+        raise ValidationError(f"Cannot submit revision with status '{revision.status}' for approval.")
+
     from approvals.models import ApprovalRouteTemplate
 
     doc_type = revision.document.document_type
@@ -53,6 +58,8 @@ def submit_for_approval(revision, *, actor, reason: str):
 def approve_task(task, *, signer, password: str, comment: str, reason: str):
     if task.assigned_to != signer:
         raise ValidationError("You are not assigned to this task.")
+    if task.status != ApprovalTaskStatus.PENDING:
+        raise ValidationError(f"Task is not pending (current status: {task.status}).")
 
     prior_tasks = ApprovalTask.objects.filter(revision=task.revision, order__lt=task.order)
     if prior_tasks.exclude(status=ApprovalTaskStatus.APPROVED).exists():
@@ -102,6 +109,8 @@ def approve_task(task, *, signer, password: str, comment: str, reason: str):
 def reject_task(task, *, signer, password: str, comment: str, reason: str):
     if task.assigned_to != signer:
         raise ValidationError("You are not assigned to this task.")
+    if task.status != ApprovalTaskStatus.PENDING:
+        raise ValidationError(f"Task is not pending (current status: {task.status}).")
 
     require_password_reentry(signer, password)
 

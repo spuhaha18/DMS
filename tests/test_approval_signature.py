@@ -76,3 +76,22 @@ def test_rejection_marks_revision_rejected_and_does_not_create_signature():
     assert task.status == "Rejected"
     assert task.revision.status == DocumentStatus.REJECTED
     assert not ElectronicSignature.objects.filter(task=task).exists()
+
+
+@pytest.mark.django_db
+def test_submit_for_approval_raises_if_already_in_review():
+    task = _submitted_single_step_task()
+    revision = task.revision
+
+    with pytest.raises(ValidationError, match="already submitted"):
+        submit_for_approval(revision, actor=revision.document.created_by, reason="duplicate")
+
+
+@pytest.mark.django_db
+def test_approve_already_approved_task_is_blocked():
+    task = _submitted_single_step_task()
+    approve_task(task, signer=task.assigned_to, password="pw", comment="ok", reason="sign")
+
+    task.refresh_from_db()
+    with pytest.raises(ValidationError, match="not pending"):
+        approve_task(task, signer=task.assigned_to, password="pw", comment="again", reason="re-sign")

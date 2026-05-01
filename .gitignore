@@ -5,6 +5,8 @@ __pycache__/
 .env
 /media/
 /private_media/
+/official_pdfs/
+/sources/
 /staticfiles/
 /.worktrees/
 /worktrees/

@@ -2,7 +2,7 @@ import hashlib
 import json
 from typing import Any
 
-from django.db import transaction
+from django.db import connection, transaction
 
 from audit.models import AuditEvent
 
@@ -23,7 +23,12 @@ def _canonical_payload(event: AuditEvent, prev_hash: str) -> str:
 
 @transaction.atomic
 def append_event(*, actor, event_type: str, object_type: str, object_id: str, before=None, after=None, reason: str = "") -> AuditEvent:
-    previous = AuditEvent.objects.order_by("-id").first()
+    # select_for_update serializes concurrent appends on PostgreSQL; SQLite uses
+    # file-level write locking so the race cannot occur there.
+    qs = AuditEvent.objects.order_by("-id")
+    if connection.vendor != "sqlite":
+        qs = qs.select_for_update()
+    previous = qs.first()
     prev_hash = previous.event_hash if previous else ""
     event = AuditEvent(
         actor=actor,
