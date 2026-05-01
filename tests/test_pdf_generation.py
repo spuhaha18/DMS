@@ -50,7 +50,10 @@ def test_failed_conversion_blocks_effective_and_creates_exception():
     revision.status = DocumentStatus.APPROVED
     revision.save()
 
-    with patch("pdfs.services._converter_version", return_value="LibreOffice 24.2"), patch("pdfs.services._run_libreoffice_conversion", side_effect=RuntimeError("conversion failed")):
+    with patch("pdfs.services._converter_version", return_value="LibreOffice 24.2"), \
+         patch("pdfs.services._run_libreoffice_conversion", side_effect=RuntimeError("conversion failed")), \
+         patch("docxtpl.DocxTemplate.render"), \
+         patch("docxtpl.DocxTemplate.save", side_effect=lambda path: open(path, "wb").write(b"FAKE_DOCX")):
         with pytest.raises(RuntimeError, match="conversion failed"):
             generate_official_pdf(revision, actor=user, reason="approved")
 

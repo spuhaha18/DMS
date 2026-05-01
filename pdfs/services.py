@@ -7,6 +7,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
+from docxtpl import DocxTemplate
 
 from audit.services import append_event
 from documents.services import mark_effective
@@ -144,8 +145,23 @@ def _generate_official_pdf_inner(revision, *, job, actor, reason: str):
     job.converter_version = converter_ver
     job.save(update_fields=["converter_version"])
 
-    pdf_bytes = _run_libreoffice_conversion(Path(revision.source_file.path))
-    pdf_bytes = _apply_watermark(pdf_bytes, revision)
+    source_path = Path(revision.source_file.path)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filled_path = Path(tmpdir) / "filled.docx"
+        try:
+            tpl = DocxTemplate(str(source_path))
+            tpl.render(_build_approval_context(revision))
+            tpl.save(str(filled_path))
+        except Exception as exc:
+            QaException.objects.create(
+                revision=revision,
+                exception_type="approval_template_render_failed",
+                message=str(exc),
+            )
+            raise
+
+        pdf_bytes = _run_libreoffice_conversion(filled_path)
+        pdf_bytes = _apply_watermark(pdf_bytes, revision)
 
     pdf_filename = f"{revision.document.document_number}_rev{revision.revision}.pdf"
     revision.official_pdf.save(pdf_filename, ContentFile(pdf_bytes), save=False)

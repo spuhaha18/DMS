@@ -71,3 +71,59 @@ def test_build_approval_context_handles_unsigned_tasks(settings, tmp_path):
     assert ctx["approvers"][0]["name"] == ""
     assert ctx["approvers"][0]["signed_at"] == ""
     assert ctx["approver_1_name"] == ""
+
+
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+from pdfs.services import generate_official_pdf
+
+
+@pytest.mark.django_db
+def test_generate_official_pdf_renders_docx_template_with_approval_context(settings, tmp_path):
+    settings.EDMS_PRIVATE_MEDIA_ROOT = tmp_path
+    qa = User.objects.create_user("qa2", password="pw")
+    approver = User.objects.create_user("alice2", password="pw", first_name="앨리스", last_name="김")
+    project = ProjectCode.objects.create(code="P002", name="Project 2")
+    doc_type = DocumentType.objects.create(code="AM2", name="Analysis Method")
+    document = register_document(
+        user=qa, project_code=project, document_type=doc_type,
+        title="Doc2", uploaded_file=SimpleUploadedFile("doc.docx", b"src"),
+        reason="reg",
+    )
+    revision = document.current_revision
+    revision.status = DocumentStatus.APPROVED
+    revision.save()
+    task = ApprovalTask.objects.create(
+        revision=revision, order=1, assigned_to=approver,
+        role_name="Reviewer", signature_meaning="검토",
+        status=ApprovalTaskStatus.APPROVED, route_template_name="default",
+        completed_at=djtz.now(),
+    )
+    ElectronicSignature.objects.create(
+        task=task, signer=approver, meaning="검토", source_sha256="a" * 64,
+    )
+
+    rendered_ctx = {}
+    saved_paths = []
+
+    def fake_render(self, ctx):
+        rendered_ctx.update(ctx)
+
+    def fake_save(self, path):
+        saved_paths.append(Path(path))
+        Path(path).write_bytes(b"FAKE_DOCX")
+
+    with patch("pdfs.services._converter_version", return_value="LibreOffice 24.2"), \
+         patch("pdfs.services._run_libreoffice_conversion", return_value=b"%PDF-1.4\nbody") as m_conv, \
+         patch("docxtpl.DocxTemplate.render", new=fake_render), \
+         patch("docxtpl.DocxTemplate.save", new=fake_save):
+        generate_official_pdf(revision, actor=qa, reason="approved")
+
+    # docxtpl was called with approval context
+    assert rendered_ctx.get("document_number") == document.document_number
+    assert rendered_ctx.get("approvers", [{}])[0].get("name") == "김 앨리스"
+    # LibreOffice received the filled .docx path (not the original source)
+    docx_arg = m_conv.call_args[0][0]
+    assert Path(str(docx_arg)).suffix == ".docx"
+    assert Path(str(docx_arg)) != Path(revision.source_file.path)
