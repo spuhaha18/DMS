@@ -22,8 +22,15 @@ def test_successful_conversion_records_version_hash_and_effective_status(tmp_pat
     revision.status = DocumentStatus.APPROVED
     revision.save()
 
-    with patch("pdfs.services._converter_version", return_value="LibreOffice 24.2"), patch("pdfs.services._run_libreoffice_conversion", return_value=b"%PDF-1.4\nbody"):
+    with patch("pdfs.services._converter_version", return_value="LibreOffice 24.2"), \
+         patch("pdfs.services._run_libreoffice_conversion", return_value=b"%PDF-1.4\nbody") as m_conv, \
+         patch("docxtpl.DocxTemplate.render"), \
+         patch("docxtpl.DocxTemplate.save", side_effect=lambda path: open(path, "wb").write(b"FAKE_DOCX")):
         generate_official_pdf(revision, actor=user, reason="approved")
+
+    assert m_conv.called
+    called_arg = m_conv.call_args[0][0]
+    assert str(called_arg).endswith(".docx"), f"Expected .docx path, got: {called_arg}"
 
     revision.refresh_from_db()
     job = PdfConversionJob.objects.get(revision=revision)
@@ -43,7 +50,10 @@ def test_failed_conversion_blocks_effective_and_creates_exception():
     revision.status = DocumentStatus.APPROVED
     revision.save()
 
-    with patch("pdfs.services._converter_version", return_value="LibreOffice 24.2"), patch("pdfs.services._run_libreoffice_conversion", side_effect=RuntimeError("conversion failed")):
+    with patch("pdfs.services._converter_version", return_value="LibreOffice 24.2"), \
+         patch("pdfs.services._run_libreoffice_conversion", side_effect=RuntimeError("conversion failed")), \
+         patch("docxtpl.DocxTemplate.render"), \
+         patch("docxtpl.DocxTemplate.save", side_effect=lambda path: open(path, "wb").write(b"FAKE_DOCX")):
         with pytest.raises(RuntimeError, match="conversion failed"):
             generate_official_pdf(revision, actor=user, reason="approved")
 

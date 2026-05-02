@@ -1,25 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Document Register{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "문서 등록부" %}{% endblock %}
 {% block content %}
 <div class="panel">
-  <h2>Document Register</h2>
+  <h2>{% trans "문서 등록부" %}</h2>
   <form method="get" style="margin-bottom:12px;">
-    <input name="q" value="{{ q }}" placeholder="Search by number or title">
-    <button type="submit">Search</button>
-    <a href="{% url 'documents:register_document' %}" class="button" style="margin-left:8px;">New Document</a>
+    <input name="q" value="{{ q }}" placeholder="{% trans '번호 또는 제목으로 검색' %}">
+    <button type="submit">{% trans "검색" %}</button>
+    <a href="{% url 'documents:register_document' %}" class="button" style="margin-left:8px;">{% trans "신규 문서" %}</a>
   </form>
   <table>
-    <thead><tr><th>Number</th><th>Title</th><th>Type</th><th>Status</th><th>Created</th></tr></thead>
+    <thead><tr>
+      <th>{% trans "문서번호" %}</th>
+      <th>{% trans "제목" %}</th>
+      <th>{% trans "유형" %}</th>
+      <th>{% trans "상태" %}</th>
+      <th>{% trans "생성일" %}</th>
+    </tr></thead>
     <tbody>
     {% for doc in documents %}
     <tr>
       <td><a href="{% url 'documents:detail' doc.pk %}">{{ doc.document_number }}</a></td>
       <td>{{ doc.title }}</td>
       <td>{{ doc.document_type }}</td>
-      <td><span class="status">{{ doc.status }}</span></td>
+      <td><span class="status">{{ doc.get_status_display }}</span></td>
       <td>{{ doc.created_at|date:"Y-m-d" }}</td>
     </tr>
-    {% empty %}<tr><td colspan="5">No documents found.</td></tr>
+    {% empty %}<tr><td colspan="5">{% trans "문서가 없습니다." %}</td></tr>
     {% endfor %}
     </tbody>
   </table>

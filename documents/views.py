@@ -1,9 +1,16 @@
+import logging
+
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.translation import gettext as _
 
 from .forms import DocumentRegistrationForm
 from .models import Document
 from .services import register_document
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -20,14 +27,19 @@ def register_document_view(request):
     if request.method == "POST":
         form = DocumentRegistrationForm(request.POST, request.FILES)
         if form.is_valid():
-            doc = register_document(
-                user=request.user,
-                project_code=form.cleaned_data["project_code"],
-                document_type=form.cleaned_data["document_type"],
-                title=form.cleaned_data["title"],
-                uploaded_file=form.cleaned_data["source_file"],
-                reason=form.cleaned_data["reason"],
-            )
+            try:
+                doc = register_document(
+                    user=request.user,
+                    project_code=form.cleaned_data["project_code"],
+                    document_type=form.cleaned_data["document_type"],
+                    title=form.cleaned_data["title"],
+                    uploaded_file=form.cleaned_data["source_file"],
+                    reason=form.cleaned_data["reason"],
+                )
+            except Exception as e:
+                logger.exception("document registration failed for user %s", request.user.pk)
+                messages.error(request, _("문서 등록 중 오류가 발생했습니다."))
+                return render(request, "documents/register_document.html", {"form": form})
             return redirect("documents:detail", pk=doc.pk)
     else:
         form = DocumentRegistrationForm()
@@ -38,7 +50,73 @@ def register_document_view(request):
 def detail(request, pk):
     document = get_object_or_404(Document.objects.select_related("project_code", "document_type", "created_by", "current_revision"), pk=pk)
     revisions = document.revisions.select_related("created_by").order_by("-revision")
-    return render(request, "documents/detail.html", {"document": document, "revisions": revisions})
+    return render(request, "documents/detail.html", {
+        "document": document,
+        "revisions": revisions,
+        "can_submit": _is_document_owner_or_qa(request.user, document),
+        "can_generate_pdf": _is_qa_or_admin(request.user),
+    })
+
+
+def _is_document_owner_or_qa(user, document) -> bool:
+    if user.is_superuser or user.is_staff:
+        return True
+    if user == document.created_by:
+        return True
+    return user.groups.filter(name="QA").exists()
+
+
+def _is_qa_or_admin(user) -> bool:
+    if user.is_superuser or user.is_staff:
+        return True
+    return user.groups.filter(name="QA").exists()
+
+
+@login_required
+def submit_for_approval_view(request, pk):
+    if request.method != "POST":
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(["POST"])
+    document = get_object_or_404(Document.objects.select_related("created_by", "current_revision"), pk=pk)
+    if not _is_document_owner_or_qa(request.user, document):
+        messages.error(request, _("권한이 없습니다."))
+        return redirect("documents:detail", pk=pk)
+    revision = document.current_revision
+    if revision is None:
+        messages.error(request, _("결재 상신할 리비전이 없습니다."))
+        return redirect("documents:detail", pk=pk)
+    try:
+        from approvals.services import submit_for_approval
+        submit_for_approval(revision, actor=request.user, reason=_("문서 등록부에서 결재 상신"))
+    except ValidationError as e:
+        messages.error(request, e.message if hasattr(e, "message") else str(e))
+    except Exception:
+        logger.exception("submit_for_approval failed for revision %s", revision.pk)
+        messages.error(request, _("결재 상신 중 오류가 발생했습니다."))
+    return redirect("documents:detail", pk=pk)
+
+
+@login_required
+def generate_pdf_view(request, pk):
+    if request.method != "POST":
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(["POST"])
+    from documents.models import DocumentStatus
+    document = get_object_or_404(Document.objects.select_related("created_by", "current_revision"), pk=pk)
+    if not _is_qa_or_admin(request.user):
+        messages.error(request, _("권한이 없습니다."))
+        return redirect("documents:detail", pk=pk)
+    revision = document.current_revision
+    if revision is None or revision.status != DocumentStatus.APPROVED:
+        messages.error(request, _("승인된 리비전이 없어 공식 PDF를 발급할 수 없습니다."))
+        return redirect("documents:detail", pk=pk)
+    try:
+        from pdfs.services import generate_official_pdf
+        generate_official_pdf(revision, actor=request.user, reason=_("문서 등록부에서 공식 PDF 발급"))
+    except Exception as e:
+        logger.exception("generate_official_pdf failed for revision %s", revision.pk)
+        messages.error(request, _("공식 PDF 발급 중 오류가 발생했습니다."))
+    return redirect("documents:detail", pk=pk)
 
 
 @login_required

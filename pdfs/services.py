@@ -7,6 +7,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
+from docxtpl import DocxTemplate
 
 from audit.services import append_event
 from documents.services import mark_effective
@@ -23,17 +24,17 @@ def _converter_version() -> str:
     return result.stdout.strip()
 
 
-def _run_libreoffice_conversion(revision) -> bytes:
+def _run_libreoffice_conversion(docx_path: Path) -> bytes:
     binary = settings.EDMS_LIBREOFFICE_BINARY
-    source_path = Path(revision.source_file.path)
+    docx_path = Path(docx_path)
     with tempfile.TemporaryDirectory() as tmpdir:
         subprocess.run(
-            [binary, "--headless", "--convert-to", "pdf", "--outdir", tmpdir, str(source_path)],
+            [binary, "--headless", "--convert-to", "pdf", "--outdir", tmpdir, str(docx_path)],
             check=True,
             capture_output=True,
             timeout=120,
         )
-        pdf_name = source_path.stem + ".pdf"
+        pdf_name = docx_path.stem + ".pdf"
         pdf_path = Path(tmpdir) / pdf_name
         return pdf_path.read_bytes()
 
@@ -65,6 +66,62 @@ def _apply_watermark(pdf_bytes: bytes, revision) -> bytes:
         return pdf_bytes
 
 
+def _build_approval_context(revision):
+    from approvals.models import ApprovalTaskStatus
+    from django.db.models import Max
+
+    # For each order position, take only the latest approved task.
+    # This handles rejection/resubmission cycles where the same order position
+    # may have an approved task from both the previous and current cycle.
+    latest_per_order = (
+        revision.approval_tasks
+        .filter(status=ApprovalTaskStatus.APPROVED)
+        .values("order")
+        .annotate(max_id=Max("id"))
+        .values_list("max_id", flat=True)
+    )
+    tasks = (
+        revision.approval_tasks
+        .filter(id__in=latest_per_order)
+        .select_related("assigned_to")
+        .prefetch_related("signature__signer")
+        .order_by("order")
+    )
+    approvers = []
+    for t in tasks:
+        sig = getattr(t, "signature", None)
+        if sig is not None:
+            user = sig.signer
+            if user.last_name and user.first_name:
+                name = f"{user.last_name} {user.first_name}"
+            else:
+                name = user.get_full_name() or user.username
+            signed_at = timezone.localtime(sig.signed_at).strftime("%Y-%m-%d %H:%M")
+        else:
+            name = ""
+            signed_at = ""
+        approvers.append({
+            "order": t.order,
+            "name": name,
+            "meaning": t.signature_meaning,
+            "signed_at": signed_at,
+            "role": t.role_name,
+        })
+
+    ctx = {
+        "approvers": approvers,
+        "document_number": revision.document.document_number,
+        "document_title": revision.document.title,
+        "revision": revision.revision,
+        "effective_date": timezone.localdate().strftime("%Y-%m-%d"),
+    }
+    for i, a in enumerate(approvers, start=1):
+        ctx[f"approver_{i}_name"] = a["name"]
+        ctx[f"approver_{i}_meaning"] = a["meaning"]
+        ctx[f"approver_{i}_signed_at"] = a["signed_at"]
+    return ctx
+
+
 def generate_official_pdf(revision, *, actor, reason: str):
     # Create the job record before entering the atomic block so it survives rollback.
     job, _ = PdfConversionJob.objects.get_or_create(
@@ -73,8 +130,12 @@ def generate_official_pdf(revision, *, actor, reason: str):
     )
 
     exc_to_raise = None
+    template_render_failed = False
     try:
         _generate_official_pdf_inner(revision, job=job, actor=actor, reason=reason)
+    except _TemplateRenderError as exc:
+        exc_to_raise = exc.__cause__
+        template_render_failed = True
     except Exception as exc:
         exc_to_raise = exc
 
@@ -85,12 +146,22 @@ def generate_official_pdf(revision, *, actor, reason: str):
         job.error_message = str(exc_to_raise)
         job.completed_at = timezone.now()
         job.save(update_fields=["status", "error_message", "completed_at"])
+        if template_render_failed:
+            QaException.objects.create(
+                revision=revision,
+                exception_type="approval_template_render_failed",
+                message=str(exc_to_raise),
+            )
         QaException.objects.create(
             revision=revision,
             exception_type="pdf_conversion_failed",
             message=str(exc_to_raise),
         )
         raise exc_to_raise
+
+
+class _TemplateRenderError(Exception):
+    """Internal sentinel: wraps a docxtpl render failure so it survives the atomic rollback."""
 
 
 @transaction.atomic
@@ -102,8 +173,29 @@ def _generate_official_pdf_inner(revision, *, job, actor, reason: str):
     job.converter_version = converter_ver
     job.save(update_fields=["converter_version"])
 
-    pdf_bytes = _run_libreoffice_conversion(revision)
-    pdf_bytes = _apply_watermark(pdf_bytes, revision)
+    source_path = Path(revision.source_file.path)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Normalize .doc to .docx so DocxTemplate can fill approval placeholders.
+        if source_path.suffix.lower() == ".doc":
+            subprocess.run(
+                [settings.EDMS_LIBREOFFICE_BINARY, "--headless", "--convert-to", "docx",
+                 "--outdir", tmpdir, str(source_path)],
+                check=True, capture_output=True, timeout=120,
+            )
+            docx_source = Path(tmpdir) / (source_path.stem + ".docx")
+        else:
+            docx_source = source_path
+
+        filled_path = Path(tmpdir) / "filled.docx"
+        try:
+            tpl = DocxTemplate(str(docx_source))
+            tpl.render(_build_approval_context(revision))
+            tpl.save(str(filled_path))
+        except Exception as exc:
+            raise _TemplateRenderError() from exc
+
+        pdf_bytes = _run_libreoffice_conversion(filled_path)
+        pdf_bytes = _apply_watermark(pdf_bytes, revision)
 
     pdf_filename = f"{revision.document.document_number}_rev{revision.revision}.pdf"
     revision.official_pdf.save(pdf_filename, ContentFile(pdf_bytes), save=False)

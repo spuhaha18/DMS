@@ -18,9 +18,16 @@ def submit_for_approval(revision, *, actor, reason: str):
     from approvals.models import ApprovalRouteTemplate
 
     doc_type = revision.document.document_type
-    template = ApprovalRouteTemplate.objects.filter(document_type=doc_type, is_active=True).first()
-    if template is None:
+    active_templates = ApprovalRouteTemplate.objects.filter(document_type=doc_type, is_active=True)
+    count = active_templates.count()
+    if count == 0:
         raise ValidationError("No active approval route template found for this document type.")
+    if count > 1:
+        raise ValidationError(
+            f"Multiple active approval route templates ({count}) found for document type '{doc_type}'. "
+            "Deactivate all but one before submitting."
+        )
+    template = active_templates.first()
 
     steps = list(template.steps.all())
     if not steps:
@@ -61,7 +68,10 @@ def approve_task(task, *, signer, password: str, comment: str, reason: str):
     if task.status != ApprovalTaskStatus.PENDING:
         raise ValidationError(f"Task is not pending (current status: {task.status}).")
 
-    prior_tasks = ApprovalTask.objects.filter(revision=task.revision, order__lt=task.order)
+    # Exclude CANCELLED/REJECTED tasks from prior cycles so resubmitted revisions can progress.
+    prior_tasks = ApprovalTask.objects.filter(revision=task.revision, order__lt=task.order).exclude(
+        status__in=[ApprovalTaskStatus.CANCELLED, ApprovalTaskStatus.REJECTED]
+    )
     if prior_tasks.exclude(status=ApprovalTaskStatus.APPROVED).exists():
         raise ValidationError("Prior approval tasks must be approved first.")
 
@@ -88,7 +98,10 @@ def approve_task(task, *, signer, password: str, comment: str, reason: str):
         reason=reason,
     )
 
-    all_done = not ApprovalTask.objects.filter(revision=task.revision).exclude(status=ApprovalTaskStatus.APPROVED).exists()
+    # Completion: no PENDING tasks remain (CANCELLED/REJECTED from prior cycles are ignored).
+    all_done = not ApprovalTask.objects.filter(
+        revision=task.revision, status=ApprovalTaskStatus.PENDING
+    ).exists()
     if all_done:
         revision = task.revision
         revision.status = DocumentStatus.APPROVED

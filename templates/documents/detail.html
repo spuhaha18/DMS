@@ -1,29 +1,52 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% block title %}{{ document.document_number }}{% endblock %}
 {% block content %}
 <div class="panel">
   <h2>{{ document.document_number }} — {{ document.title }}</h2>
   <table>
-    <tr><th>Project</th><td>{{ document.project_code }}</td></tr>
-    <tr><th>Type</th><td>{{ document.document_type }}</td></tr>
-    <tr><th>Status</th><td><span class="status">{{ document.status }}</span></td></tr>
-    <tr><th>Created by</th><td>{{ document.created_by }}</td></tr>
-    <tr><th>Created</th><td>{{ document.created_at }}</td></tr>
+    <tr><th>{% trans "프로젝트" %}</th><td>{{ document.project_code }}</td></tr>
+    <tr><th>{% trans "유형" %}</th><td>{{ document.document_type }}</td></tr>
+    <tr><th>{% trans "상태" %}</th><td><span class="status">{{ document.get_status_display }}</span></td></tr>
+    <tr><th>{% trans "작성자" %}</th><td>{{ document.created_by }}</td></tr>
+    <tr><th>{% trans "생성일" %}</th><td>{{ document.created_at }}</td></tr>
   </table>
-  <h3>Revisions</h3>
+  <h3>{% trans "리비전" %}</h3>
   <table>
-    <thead><tr><th>Rev</th><th>Status</th><th>SHA-256</th><th>Created</th></tr></thead>
+    <thead><tr>
+      <th>{% trans "리비전" %}</th>
+      <th>{% trans "상태" %}</th>
+      <th>{% trans "원본 SHA-256" %}</th>
+      <th>{% trans "생성일" %}</th>
+    </tr></thead>
     <tbody>
     {% for rev in revisions %}
     <tr>
       <td>{{ rev.revision }}</td>
-      <td><span class="status">{{ rev.status }}</span></td>
+      <td><span class="status">{{ rev.get_status_display }}</span></td>
       <td style="font-family:monospace;font-size:11px;">{{ rev.source_sha256|slice:":16" }}…</td>
       <td>{{ rev.created_at|date:"Y-m-d" }}</td>
     </tr>
     {% endfor %}
     </tbody>
   </table>
-  <p><a href="{% url 'documents:evidence_package' document.pk %}">View Evidence Package</a></p>
+  <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    {% if can_submit and document.status == "Draft Uploaded" or can_submit and document.status == "Rejected" %}
+    <form method="post" action="{% url 'documents:submit_for_approval' document.pk %}">
+      {% csrf_token %}
+      <button type="submit">{% trans "결재 상신" %}</button>
+    </form>
+    {% endif %}
+    {% if can_generate_pdf and document.status == "Approved" %}
+    <form method="post" action="{% url 'documents:generate_pdf' document.pk %}">
+      {% csrf_token %}
+      <button type="submit" style="background:#217a3c;">{% trans "공식 PDF 발급" %}</button>
+    </form>
+    {% endif %}
+    {% if document.status == "Effective" %}
+    <a class="button" href="{% url 'viewer:pdf_view' document.pk %}">{% trans "공식 PDF 열람" %}</a>
+    {% endif %}
+    <a href="{% url 'documents:evidence_package' document.pk %}">{% trans "증빙 자료 보기" %}</a>
+  </div>
 </div>
 {% endblock %}

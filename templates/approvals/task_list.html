@@ -1,10 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Pending Approvals{% endblock %}
+{% load i18n %}
+{% block title %}{% trans "결재 대기 목록" %}{% endblock %}
 {% block content %}
 <div class="panel">
-  <h2>Pending Approvals</h2>
+  <h2>{% trans "결재 대기 목록" %}</h2>
   <table>
-    <thead><tr><th>Document</th><th>Revision</th><th>Role</th><th>Meaning</th><th>Route</th><th>Action</th></tr></thead>
+    <thead><tr>
+      <th>{% trans "문서" %}</th>
+      <th>{% trans "리비전" %}</th>
+      <th>{% trans "역할" %}</th>
+      <th>{% trans "결재 의미" %}</th>
+      <th>{% trans "결재선" %}</th>
+      <th>{% trans "동작" %}</th>
+    </tr></thead>
     <tbody>
     {% for task in tasks %}
     <tr>
@@ -13,9 +21,9 @@
       <td>{{ task.role_name }}</td>
       <td>{{ task.signature_meaning }}</td>
       <td>{{ task.route_template_name }}</td>
-      <td><a href="{% url 'approvals:task_detail' task.pk %}" class="button">Review</a></td>
+      <td><a href="{% url 'approvals:task_detail' task.pk %}" class="button">{% trans "검토" %}</a></td>
     </tr>
-    {% empty %}<tr><td colspan="6">No pending tasks.</td></tr>
+    {% empty %}<tr><td colspan="6">{% trans "대기중인 결재가 없습니다." %}</td></tr>
     {% endfor %}
     </tbody>
   </table>

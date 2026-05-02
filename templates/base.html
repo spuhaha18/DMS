@@ -1,5 +1,6 @@
+{% load i18n %}
 <!doctype html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -21,10 +22,10 @@
 <body>
 <header>
   <strong>EDMS</strong>
-  <a href="{% url 'documents:register' %}">Register</a>
-  <a href="{% url 'approvals:task_list' %}">Approvals</a>
-  <a href="{% url 'audit:event_list' %}">Audit</a>
-  <a href="{% url 'admin:index' %}">Admin</a>
+  <a href="{% url 'documents:register' %}">{% trans "문서 등록" %}</a>
+  <a href="{% url 'approvals:task_list' %}">{% trans "결재함" %}</a>
+  <a href="{% url 'audit:event_list' %}">{% trans "감사 로그" %}</a>
+  <a href="{% url 'admin:index' %}">{% trans "관리자" %}</a>
 </header>
 <main>
   {% for message in messages %}<p>{{ message }}</p>{% endfor %}

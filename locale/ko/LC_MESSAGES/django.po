@@ -1,0 +1,650 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-05-01 23:31+0900\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: approvals/forms.py:6 approvals/models.py:11
+msgid "승인"
+msgstr "승인"
+
+#: approvals/forms.py:6 approvals/models.py:12
+msgid "반려"
+msgstr "반려"
+
+#: approvals/forms.py:8
+msgid "결정"
+msgstr "결정"
+
+#: approvals/forms.py:13
+msgid "비밀번호 재입력"
+msgstr "비밀번호 재입력"
+
+#: approvals/forms.py:17 approvals/models.py:51
+msgid "의견"
+msgstr "의견"
+
+#: approvals/forms.py:22
+msgid "결재 사유"
+msgstr "결재 사유"
+
+#: approvals/models.py:10 pdfs/models.py:6
+msgid "대기중"
+msgstr "대기중"
+
+#: approvals/models.py:13 templates/documents/register_document.html:17
+msgid "취소"
+msgstr "취소"
+
+#: approvals/models.py:17 documents/forms.py:15 documents/models.py:40
+#: documents/models.py:41 documents/models.py:49 documents/models.py:64
+msgid "문서 유형"
+msgstr "문서 유형"
+
+#: approvals/models.py:18
+msgid "템플릿명"
+msgstr "템플릿명"
+
+#: approvals/models.py:19 documents/models.py:22 documents/models.py:36
+msgid "사용 여부"
+msgstr "사용 여부"
+
+#: approvals/models.py:22 approvals/models.py:23
+msgid "결재선 템플릿"
+msgstr "결재선 템플릿"
+
+#: approvals/models.py:27 templates/approvals/task_detail.html:10
+#: templates/approvals/task_list.html:13
+msgid "결재선"
+msgstr "결재선"
+
+#: approvals/models.py:28 approvals/models.py:46
+#: templates/documents/evidence_package.html:10
+msgid "순서"
+msgstr "순서"
+
+#: approvals/models.py:29 templates/approvals/task_detail.html:8
+#: templates/approvals/task_list.html:11
+#: templates/documents/evidence_package.html:12
+msgid "역할"
+msgstr "역할"
+
+#: approvals/models.py:31 approvals/models.py:49 approvals/models.py:64
+#: templates/approvals/task_detail.html:9 templates/approvals/task_list.html:12
+#: templates/documents/evidence_package.html:13
+msgid "결재 의미"
+msgstr "결재 의미"
+
+#: approvals/models.py:32
+msgid "\"검토\", \"승인\" 등 한국어로 입력하세요."
+msgstr "\"검토\", \"승인\" 등 한국어로 입력하세요."
+
+#: approvals/models.py:36 approvals/models.py:37
+msgid "결재 단계"
+msgstr "결재 단계"
+
+#: approvals/models.py:45 documents/models.py:99 documents/models.py:100
+#: pdfs/models.py:12 pdfs/models.py:25 templates/approvals/task_list.html:10
+#: templates/documents/detail.html:14 templates/documents/detail.html:17
+#: templates/viewer/pdf_view.html:8 viewer/models.py:8
+msgid "리비전"
+msgstr "리비전"
+
+#: approvals/models.py:47
+msgid "지정 결재자"
+msgstr "지정 결재자"
+
+#: approvals/models.py:48
+msgid "역할명"
+msgstr "역할명"
+
+#: approvals/models.py:50 documents/models.py:65 documents/models.py:93
+#: pdfs/models.py:13 templates/documents/detail.html:10
+#: templates/documents/detail.html:18
+#: templates/documents/evidence_package.html:14
+#: templates/documents/register.html:17 templates/viewer/pdf_view.html:9
+msgid "상태"
+msgstr "상태"
+
+#: approvals/models.py:52 pdfs/models.py:17
+#: templates/documents/evidence_package.html:15
+msgid "완료일시"
+msgstr "완료일시"
+
+#: approvals/models.py:53
+msgid "결재선명"
+msgstr "결재선명"
+
+#: approvals/models.py:56 approvals/models.py:57 approvals/models.py:62
+#: templates/approvals/task_detail.html:3
+#: templates/documents/evidence_package.html:7
+msgid "결재 작업"
+msgstr "결재 작업"
+
+#: approvals/models.py:63
+msgid "서명자"
+msgstr "서명자"
+
+#: approvals/models.py:65
+msgid "서명일시"
+msgstr "서명일시"
+
+#: approvals/models.py:66 documents/models.py:90
+#: templates/approvals/task_detail.html:11 templates/documents/detail.html:19
+msgid "원본 SHA-256"
+msgstr "원본 SHA-256"
+
+#: approvals/models.py:67
+msgid "인증 방식"
+msgstr "인증 방식"
+
+#: approvals/models.py:70 approvals/models.py:71
+msgid "전자서명"
+msgstr "전자서명"
+
+#: audit/models.py:7 templates/audit/event_list.html:19
+#: templates/documents/evidence_package.html:28
+msgid "실행자"
+msgstr "실행자"
+
+#: audit/models.py:8 templates/audit/event_list.html:10
+msgid "이벤트 유형"
+msgstr "이벤트 유형"
+
+#: audit/models.py:9
+msgid "대상 유형"
+msgstr "대상 유형"
+
+#: audit/models.py:10
+msgid "대상 ID"
+msgstr "대상 ID"
+
+#: audit/models.py:11
+msgid "변경 전"
+msgstr "변경 전"
+
+#: audit/models.py:12
+msgid "변경 후"
+msgstr "변경 후"
+
+#: audit/models.py:13 templates/audit/event_list.html:22
+#: templates/documents/evidence_package.html:30
+msgid "사유"
+msgstr "사유"
+
+#: audit/models.py:14 pdfs/models.py:16 pdfs/models.py:29
+msgid "생성일시"
+msgstr "생성일시"
+
+#: audit/models.py:15
+msgid "이전 해시"
+msgstr "이전 해시"
+
+#: audit/models.py:16
+msgid "이벤트 해시"
+msgstr "이벤트 해시"
+
+#: audit/models.py:19 audit/models.py:20
+#: templates/documents/evidence_package.html:24
+msgid "감사 이벤트"
+msgstr "감사 이벤트"
+
+#: documents/admin.py:4
+msgid "EDMS 관리자"
+msgstr "EDMS 관리자"
+
+#: documents/admin.py:5
+msgid "EDMS"
+msgstr "EDMS"
+
+#: documents/admin.py:6
+msgid "운영 콘솔"
+msgstr "운영 콘솔"
+
+#: documents/forms.py:11 documents/models.py:20 documents/models.py:26
+#: documents/models.py:27 documents/models.py:48 documents/models.py:63
+msgid "프로젝트 코드"
+msgstr "프로젝트 코드"
+
+#: documents/forms.py:18 documents/models.py:62
+#: templates/documents/register.html:15
+msgid "제목"
+msgstr "제목"
+
+#: documents/forms.py:19 documents/models.py:88
+msgid "원본 파일"
+msgstr "원본 파일"
+
+#: documents/forms.py:21
+msgid "등록 사유"
+msgstr "등록 사유"
+
+#: documents/models.py:8
+msgid "예약됨"
+msgstr "예약됨"
+
+#: documents/models.py:9
+msgid "초안 업로드"
+msgstr "초안 업로드"
+
+#: documents/models.py:10
+msgid "결재 진행중"
+msgstr "결재 진행중"
+
+#: documents/models.py:11
+msgid "반려됨"
+msgstr "반려됨"
+
+#: documents/models.py:12
+msgid "취소됨"
+msgstr "취소됨"
+
+#: documents/models.py:13
+msgid "승인됨"
+msgstr "승인됨"
+
+#: documents/models.py:14
+msgid "발효됨"
+msgstr "발효됨"
+
+#: documents/models.py:15
+msgid "대체됨"
+msgstr "대체됨"
+
+#: documents/models.py:16
+msgid "폐기됨"
+msgstr "폐기됨"
+
+#: documents/models.py:21
+msgid "프로젝트명"
+msgstr "프로젝트명"
+
+#: documents/models.py:23 documents/models.py:68 documents/models.py:96
+#: templates/documents/detail.html:12 templates/documents/detail.html:20
+#: templates/documents/register.html:18
+msgid "생성일"
+msgstr "생성일"
+
+#: documents/models.py:34
+msgid "문서 유형 코드"
+msgstr "문서 유형 코드"
+
+#: documents/models.py:35
+msgid "문서 유형명"
+msgstr "문서 유형명"
+
+#: documents/models.py:37
+msgid "번호 접두 템플릿"
+msgstr "번호 접두 템플릿"
+
+#: documents/models.py:50
+msgid "다음 번호"
+msgstr "다음 번호"
+
+#: documents/models.py:53 documents/models.py:54
+msgid "문서번호 시퀀스"
+msgstr "문서번호 시퀀스"
+
+#: documents/models.py:61 templates/audit/event_list.html:8
+#: templates/documents/register.html:14
+msgid "문서번호"
+msgstr "문서번호"
+
+#: documents/models.py:66
+msgid "현재 리비전"
+msgstr "현재 리비전"
+
+#: documents/models.py:67 documents/models.py:95
+#: templates/documents/detail.html:11
+msgid "작성자"
+msgstr "작성자"
+
+#: documents/models.py:69
+msgid "수정일"
+msgstr "수정일"
+
+#: documents/models.py:72 documents/models.py:73 documents/models.py:86
+#: templates/approvals/task_list.html:9
+msgid "문서"
+msgstr "문서"
+
+#: documents/models.py:79
+msgid "발효 상태 문서는 발효된 현재 리비전이 필요합니다."
+msgstr "발효 상태 문서는 발효된 현재 리비전이 필요합니다."
+
+#: documents/models.py:87
+msgid "리비전 번호"
+msgstr "리비전 번호"
+
+#: documents/models.py:89
+msgid "원본 파일명"
+msgstr "원본 파일명"
+
+#: documents/models.py:91 templates/viewer/pdf_view.html:17
+msgid "공식 PDF"
+msgstr "공식 PDF"
+
+#: documents/models.py:92 viewer/models.py:9
+msgid "공식 PDF SHA-256"
+msgstr "공식 PDF SHA-256"
+
+#: documents/models.py:94 templates/viewer/pdf_view.html:11
+msgid "발효일시"
+msgstr "발효일시"
+
+#: documents/views.py:35
+#, python-format
+msgid "PDF 생성 실패: %(err)s"
+msgstr "PDF 생성 실패: %(err)s"
+
+#: documents/views.py:40
+#, python-format
+msgid "결재 상신 실패: %(err)s"
+msgstr "결재 상신 실패: %(err)s"
+
+#: pdfs/models.py:7
+msgid "성공"
+msgstr "성공"
+
+#: pdfs/models.py:8
+msgid "실패"
+msgstr "실패"
+
+#: pdfs/models.py:14
+msgid "변환기 버전"
+msgstr "변환기 버전"
+
+#: pdfs/models.py:15
+msgid "오류 메시지"
+msgstr "오류 메시지"
+
+#: pdfs/models.py:20 pdfs/models.py:21
+msgid "PDF 변환 작업"
+msgstr "PDF 변환 작업"
+
+#: pdfs/models.py:26
+msgid "예외 유형"
+msgstr "예외 유형"
+
+#: pdfs/models.py:27
+msgid "메시지"
+msgstr "메시지"
+
+#: pdfs/models.py:28
+msgid "해결됨"
+msgstr "해결됨"
+
+#: pdfs/models.py:32 pdfs/models.py:33
+msgid "QA 예외"
+msgstr "QA 예외"
+
+#: templates/approvals/task_detail.html:6
+#, python-format
+msgid "결재: %(num)s Rev %(rev)s"
+msgstr "결재: %(num)s Rev %(rev)s"
+
+#: templates/approvals/task_detail.html:22
+msgid "결재 제출"
+msgstr "결재 제출"
+
+#: templates/approvals/task_list.html:3 templates/approvals/task_list.html:6
+msgid "결재 대기 목록"
+msgstr "결재 대기 목록"
+
+#: templates/approvals/task_list.html:14
+msgid "동작"
+msgstr "동작"
+
+#: templates/approvals/task_list.html:24
+msgid "검토"
+msgstr "검토"
+
+#: templates/approvals/task_list.html:26
+msgid "대기중인 결재가 없습니다."
+msgstr "대기중인 결재가 없습니다."
+
+#: templates/audit/event_list.html:3 templates/audit/event_list.html:6
+#: templates/base.html:27
+msgid "감사 로그"
+msgstr "감사 로그"
+
+#: templates/audit/event_list.html:9 templates/registration/login.html:26
+msgid "사용자명"
+msgstr "사용자명"
+
+#: templates/audit/event_list.html:13
+msgid "필터"
+msgstr "필터"
+
+#: templates/audit/event_list.html:14
+msgid "초기화"
+msgstr "초기화"
+
+#: templates/audit/event_list.html:18
+#: templates/documents/evidence_package.html:27
+msgid "시각"
+msgstr "시각"
+
+#: templates/audit/event_list.html:20
+#: templates/documents/evidence_package.html:29
+msgid "이벤트"
+msgstr "이벤트"
+
+#: templates/audit/event_list.html:21
+msgid "대상"
+msgstr "대상"
+
+#: templates/audit/event_list.html:23
+msgid "해시"
+msgstr "해시"
+
+#: templates/audit/event_list.html:35
+msgid "조건에 일치하는 감사 이벤트가 없습니다."
+msgstr "조건에 일치하는 감사 이벤트가 없습니다."
+
+#: templates/base.html:25
+msgid "문서 등록"
+msgstr "문서 등록"
+
+#: templates/base.html:26
+msgid "결재함"
+msgstr "결재함"
+
+#: templates/base.html:28
+msgid "관리자"
+msgstr "관리자"
+
+#: templates/documents/detail.html:8
+msgid "프로젝트"
+msgstr "프로젝트"
+
+#: templates/documents/detail.html:9 templates/documents/register.html:16
+msgid "유형"
+msgstr "유형"
+
+#: templates/documents/detail.html:37
+msgid "결재 상신"
+msgstr "결재 상신"
+
+#: templates/documents/detail.html:43
+msgid "공식 PDF 발급"
+msgstr "공식 PDF 발급"
+
+#: templates/documents/detail.html:47
+msgid "공식 PDF 열람"
+msgstr "공식 PDF 열람"
+
+#: templates/documents/detail.html:49
+msgid "증빙 자료 보기"
+msgstr "증빙 자료 보기"
+
+#: templates/documents/evidence_package.html:3
+#, python-format
+msgid "증빙: %(num)s"
+msgstr "증빙: %(num)s"
+
+#: templates/documents/evidence_package.html:6
+#, python-format
+msgid "증빙 자료: %(num)s"
+msgstr "증빙 자료: %(num)s"
+
+#: templates/documents/evidence_package.html:11
+msgid "결재자"
+msgstr "결재자"
+
+#: templates/documents/evidence_package.html:20
+#: templates/documents/evidence_package.html:35
+msgid "없음"
+msgstr "없음"
+
+#: templates/documents/register.html:3 templates/documents/register.html:6
+msgid "문서 등록부"
+msgstr "문서 등록부"
+
+#: templates/documents/register.html:8
+msgid "번호 또는 제목으로 검색"
+msgstr "번호 또는 제목으로 검색"
+
+#: templates/documents/register.html:9
+msgid "검색"
+msgstr "검색"
+
+#: templates/documents/register.html:10
+msgid "신규 문서"
+msgstr "신규 문서"
+
+#: templates/documents/register.html:29
+msgid "문서가 없습니다."
+msgstr "문서가 없습니다."
+
+#: templates/documents/register_document.html:3
+#: templates/documents/register_document.html:6
+msgid "신규 문서 등록"
+msgstr "신규 문서 등록"
+
+#: templates/documents/register_document.html:16
+msgid "등록"
+msgstr "등록"
+
+#: templates/registration/logged_out.html:3
+msgid "로그아웃"
+msgstr "로그아웃"
+
+#: templates/registration/logged_out.html:6
+msgid "로그아웃 되었습니다"
+msgstr "로그아웃 되었습니다"
+
+#: templates/registration/logged_out.html:7
+msgid "보안을 위해 브라우저를 닫거나 다시 로그인해 주세요."
+msgstr "보안을 위해 브라우저를 닫거나 다시 로그인해 주세요."
+
+#: templates/registration/logged_out.html:8
+msgid "다시 로그인"
+msgstr "다시 로그인"
+
+#: templates/registration/login.html:7
+msgid "EDMS — 로그인"
+msgstr "EDMS — 로그인"
+
+#: templates/registration/login.html:20
+msgid "EDMS 로그인"
+msgstr "EDMS 로그인"
+
+#: templates/registration/login.html:22
+msgid "사용자명 또는 비밀번호가 올바르지 않습니다."
+msgstr "사용자명 또는 비밀번호가 올바르지 않습니다."
+
+#: templates/registration/login.html:28
+msgid "비밀번호"
+msgstr "비밀번호"
+
+#: templates/registration/login.html:30
+msgid "로그인"
+msgstr "로그인"
+
+#: templates/registration/password_change_done.html:3
+#: templates/registration/password_change_done.html:6
+msgid "비밀번호 변경 완료"
+msgstr "비밀번호 변경 완료"
+
+#: templates/registration/password_change_done.html:7
+msgid "새 비밀번호로 변경되었습니다."
+msgstr "새 비밀번호로 변경되었습니다."
+
+#: templates/registration/password_change_done.html:8
+msgid "문서 목록으로"
+msgstr "문서 목록으로"
+
+#: templates/registration/password_change_form.html:3
+#: templates/registration/password_change_form.html:6
+msgid "비밀번호 변경"
+msgstr "비밀번호 변경"
+
+#: templates/registration/password_change_form.html:16
+msgid "변경"
+msgstr "변경"
+
+#: templates/viewer/pdf_view.html:3
+#, python-format
+msgid "열람: %(num)s"
+msgstr "열람: %(num)s"
+
+#: templates/viewer/pdf_view.html:10
+msgid "PDF SHA-256"
+msgstr "PDF SHA-256"
+
+#: templates/viewer/pdf_view.html:14
+msgid ""
+"직접 다운로드는 비활성화되어 있습니다. 통제된 열람 세션이며 접근 기록이 남습"
+"니다."
+msgstr ""
+"직접 다운로드는 비활성화되어 있습니다. 통제된 열람 세션이며 접근 기록이 남습"
+"니다."
+
+#: templates/viewer/pdf_view.html:19 viewer/views.py:31
+msgid "공식 PDF가 아직 발급되지 않았습니다."
+msgstr "공식 PDF가 아직 발급되지 않았습니다."
+
+#: viewer/models.py:7
+msgid "사용자"
+msgstr "사용자"
+
+#: viewer/models.py:10
+msgid "열람일시"
+msgstr "열람일시"
+
+#: viewer/models.py:11
+msgid "IP 주소"
+msgstr "IP 주소"
+
+#: viewer/models.py:12
+msgid "User Agent"
+msgstr "User Agent"
+
+#: viewer/models.py:15 viewer/models.py:16
+msgid "열람 이벤트"
+msgstr "열람 이벤트"
+
+#: viewer/views.py:29
+#, python-format
+msgid "접근이 거부되었습니다: %(err)s"
+msgstr "접근이 거부되었습니다: %(err)s"
+
+#: viewer/views.py:37
+#, python-format
+msgid "PDF 로드 실패: %(err)s"
+msgstr "PDF 로드 실패: %(err)s"
