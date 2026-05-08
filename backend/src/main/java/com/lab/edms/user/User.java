@@ -92,6 +92,12 @@ public class User {
     public OffsetDateTime getLockedAt() { return lockedAt; }
     public Set<UserRole> getRoles() { return roles; }
     public String getAuthProvider() { return authProvider; }
+    public String getExternalId() { return externalId; }
+    public String getTitle() { return title; }
+    public LocalDate getValidFrom() { return validFrom; }
+    public LocalDate getValidUntil() { return validUntil; }
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public OffsetDateTime getUpdatedAt() { return updatedAt; }
 
     public void setStatus(UserStatus status) { this.status = status; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
