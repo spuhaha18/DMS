@@ -6,6 +6,7 @@ import com.lab.edms.audit.AuditService;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Service
 public class AuthService {
@@ -31,13 +32,13 @@ public class AuthService {
 
         audit.log(new AuditEvent(
                 userId, action, "USER", null,
-                null, null, null, clientIp, OffsetDateTime.now()));
+                null, null, null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
 
         if (result instanceof AuthResult.AccountLocked) {
             audit.log(new AuditEvent(
                     userId, AuditAction.USER_LOCKED, "USER", null,
                     null, null, "Account locked due to failed login attempts",
-                    clientIp, OffsetDateTime.now()));
+                    clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
         }
 
         return result;
@@ -46,6 +47,6 @@ public class AuthService {
     public void logout(String userId, String clientIp) {
         audit.log(new AuditEvent(
                 userId, AuditAction.USER_LOGOUT, "USER", null,
-                null, null, null, clientIp, OffsetDateTime.now()));
+                null, null, null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
     }
 }
