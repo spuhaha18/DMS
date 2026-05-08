@@ -42,6 +42,7 @@ public class User {
     @Column(name = "status", nullable = false, length = 20)
     private UserStatus status = UserStatus.ACTIVE;
 
+    @NotAudited
     @Column(name = "password_hash", length = 255)
     private String passwordHash;
 

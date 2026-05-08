@@ -21,6 +21,9 @@ Thumbs.db
 *.pem
 backend/src/main/resources/application-local.yml
 
+# Stray compiled class files
+org/
+
 # Logs
 *.log
 logs/
