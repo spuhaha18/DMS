@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/edms_dev
+    username: app_role
+    password: app_dev_password
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    show-sql: true
+
+edms:
+  audit:
+    datasource:
+      url: jdbc:postgresql://localhost:5432/edms_dev
+      username: audit_role
+      password: audit_dev_password

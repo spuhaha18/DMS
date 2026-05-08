@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: edms
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.envers.audit_table_suffix: _AUD
+      hibernate.envers.revision_field_name: REV
+      hibernate.envers.revision_type_field_name: REVTYPE
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+server:
+  port: 8080
+  servlet:
+    session:
+      cookie:
+        name: JSESSIONID
+        http-only: true
+        secure: false  # dev only; prod overrides via profile
+        same-site: strict
+      timeout: 15m
+
+logging:
+  level:
+    root: INFO
+    com.lab.edms: DEBUG
