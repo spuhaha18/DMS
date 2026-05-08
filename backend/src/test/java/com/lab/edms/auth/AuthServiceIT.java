@@ -11,11 +11,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@ActiveProfiles("test")
 @SpringBootTest
 @Import(TestcontainersConfig.class)
 @DirtiesContext
@@ -76,7 +78,6 @@ class AuthServiceIT {
     }
 
     private void seedUser(String userId, String rawPassword) {
-        User u = new LocalAuthProviderIT.TestUser(userId, encoder.encode(rawPassword));
-        userRepo.save(u);
+        userRepo.save(LocalAuthProviderIT.buildUser(userId, encoder.encode(rawPassword)));
     }
 }

@@ -11,9 +11,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@ActiveProfiles("test")
 @SpringBootTest
 @Import(TestcontainersConfig.class)
 @DirtiesContext
@@ -77,18 +79,15 @@ class LocalAuthProviderIT {
     }
 
     private void seedUser(String userId, String rawPassword) {
-        User u = new TestUser(userId, encoder.encode(rawPassword));
-        userRepo.save(u);
+        userRepo.save(buildUser(userId, encoder.encode(rawPassword)));
     }
 
-    public static class TestUser extends User {
-        public TestUser(String userId, String hash) {
-            try {
-                java.lang.reflect.Field f = User.class.getDeclaredField("userId"); f.setAccessible(true); f.set(this, userId);
-                java.lang.reflect.Field e = User.class.getDeclaredField("email");  e.setAccessible(true); e.set(this, userId + "@x");
-                java.lang.reflect.Field n = User.class.getDeclaredField("fullName"); n.setAccessible(true); n.set(this, userId);
-                setPasswordHash(hash);
-            } catch (Exception ex) { throw new RuntimeException(ex); }
-        }
+    static User buildUser(String userId, String hash) {
+        User u = new User();
+        u.setUserId(userId);
+        u.setEmail(userId + "@test.lab");
+        u.setFullName(userId);
+        u.setPasswordHash(hash);
+        return u;
     }
 }

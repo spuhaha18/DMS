@@ -2,6 +2,7 @@ package com.lab.edms.user;
 
 import jakarta.persistence.*;
 import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -65,6 +66,7 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @NotAudited
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private Set<UserRole> roles = new HashSet<>();
 
@@ -99,6 +101,10 @@ public class User {
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
 
+    public void setUserId(String userId) { this.userId = userId; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+    public void setEmail(String email) { this.email = email; }
+    public void setDepartment(String department) { this.department = department; }
     public void setStatus(UserStatus status) { this.status = status; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public void setForceChangePw(boolean v) { this.forceChangePw = v; }

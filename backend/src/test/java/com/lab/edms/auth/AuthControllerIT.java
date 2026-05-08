@@ -14,10 +14,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.ActiveProfiles;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@ActiveProfiles("test")
 @SpringBootTest
 @Import(TestcontainersConfig.class)
 @AutoConfigureMockMvc
@@ -77,7 +79,6 @@ class AuthControllerIT {
     }
 
     private void seed(String userId, String pw) {
-        User u = new LocalAuthProviderIT.TestUser(userId, encoder.encode(pw));
-        userRepo.save(u);
+        userRepo.save(LocalAuthProviderIT.buildUser(userId, encoder.encode(pw)));
     }
 }

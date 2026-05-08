@@ -7,6 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -16,9 +17,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Qualifier;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@ActiveProfiles("test")
 @SpringBootTest
 @Import(TestcontainersConfig.class)
 @DirtiesContext
@@ -26,7 +31,13 @@ class AuditServiceIT {
 
     @Autowired AuditService auditService;
     @Autowired JdbcTemplate jdbcTemplate;
-    @Autowired JdbcTemplate auditJdbcTemplate;
+    @Autowired @Qualifier("auditJdbcTemplate") JdbcTemplate auditJdbcTemplate;
+
+    @BeforeEach
+    void cleanAuditLogs() {
+        // primary (app_role = superuser) can truncate despite REVOKE; keeps chain isolation per test
+        jdbcTemplate.execute("TRUNCATE TABLE audit_logs RESTART IDENTITY");
+    }
 
     @Test
     void firstLog_usesGenesisAsPrevHash() {
@@ -63,6 +74,8 @@ class AuditServiceIT {
 
         assertThatThrownBy(() -> auditJdbcTemplate.update(
                 "UPDATE audit_logs SET action = 'X' WHERE action = 'USER_LOGIN_SUCCESS'"))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class)
+                .cause()
                 .hasMessageContaining("permission denied");
     }
 
@@ -73,6 +86,8 @@ class AuditServiceIT {
 
         assertThatThrownBy(() -> auditJdbcTemplate.update(
                 "DELETE FROM audit_logs WHERE action = 'USER_LOGIN_SUCCESS'"))
+                .isInstanceOf(org.springframework.dao.DataAccessException.class)
+                .cause()
                 .hasMessageContaining("permission denied");
     }
 

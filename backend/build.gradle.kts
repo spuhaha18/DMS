@@ -7,6 +7,10 @@ plugins {
 group = "com.lab"
 version = "0.1.0-SNAPSHOT"
 
+// Override Spring Boot BOM's testcontainers version (1.19.8 uses Docker API 1.32,
+// but current Docker daemon requires API >= 1.40; 1.20.x ships docker-java 3.3.x which uses 1.41+).
+extra["testcontainers.version"] = "1.20.3"
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -38,4 +42,10 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // Docker Engine 29.x requires API >= 1.40; testcontainers shaded docker-java defaults to 1.32.
+    // Pass via both system property (api.version) and env var.
+    environment("DOCKER_HOST", System.getenv("DOCKER_HOST") ?: "unix:///var/run/docker.sock")
+    environment("DOCKER_API_VERSION", "1.41")
+    systemProperty("api.version", "1.41")
+    systemProperty("DOCKER_HOST", System.getenv("DOCKER_HOST") ?: "unix:///var/run/docker.sock")
 }
