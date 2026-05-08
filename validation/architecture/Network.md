@@ -22,7 +22,10 @@
 
 ## 2. Zone 정의
 
-EDMS는 인터넷 연결이 없는 **완전 폐쇄망(Air-gapped)**으로 운영된다. 4개 Zone으로 분리한다.
+EDMS는 인터넷 outbound가 차단된 **폐쇄망(Closed Network)**으로 운영된다. 4개 Zone으로 분리한다.
+
+> **Part 11 §11.3(b)(7) "Closed System" 해석**: FDA가 정의하는 closed system은 "인터넷 미연결"이 아니라 **"전자기록에 대한 접근이 시스템을 운영하는 조직의 책임자에 의해 통제되는 환경"**을 의미한다. 본 EDMS는 사내 사용자만 접근하고, 계정 발급·권한 부여·접근 로그를 조직이 완전히 통제하므로 closed system 요건을 충족한다.  
+> **비고**: Nexus 패키지 미러, SMTP Relay, NTP, CA 서버, DR 링크는 내부 네트워크 연결이며 인터넷 outbound가 아니다. "Air-gapped"(완전 물리적 단절) 수준은 사이트 보안 정책에 따라 별도 결정한다.
 
 | Zone | VLAN ID (예시) | 용도 | 주요 호스트 |
 |---|---|---|---|

@@ -67,14 +67,28 @@
 
 ```sql
 -- 전날 audit_logs에서 해시체인 연속성 확인
-SELECT a.id, a.prev_hash, b.this_hash AS expected_prev,
-       CASE WHEN a.prev_hash = b.this_hash THEN 'OK' ELSE 'BROKEN' END AS status
-FROM audit_logs a
-LEFT JOIN audit_logs b ON b.id = a.id - 1
-WHERE a.server_ts >= NOW() - INTERVAL '2 days'
-  AND a.server_ts < NOW() - INTERVAL '1 day'
-  AND (a.prev_hash != b.this_hash OR (a.id > 1 AND b.id IS NULL));
+-- LAG() 사용: PostgreSQL sequence gap(id 불연속)에 의한 false positive 방지
+WITH chain AS (
+  SELECT id,
+         server_ts,
+         prev_hash,
+         this_hash,
+         LAG(this_hash) OVER (ORDER BY id) AS expected_prev
+  FROM audit_logs
+  WHERE server_ts >= NOW() - INTERVAL '2 days'
+    AND server_ts < NOW() - INTERVAL '1 day'
+)
+SELECT id, prev_hash, expected_prev,
+       CASE
+         WHEN expected_prev IS NULL THEN 'FIRST_ROW'  -- 해당 기간 첫 행, 별도 genesis/이전앵커 검증 필요
+         WHEN prev_hash = expected_prev THEN 'OK'
+         ELSE 'BROKEN'
+       END AS status
+FROM chain
+WHERE expected_prev IS NULL OR prev_hash != expected_prev;
 ```
+
+> **참고**: `b.id = a.id - 1` JOIN 방식은 PostgreSQL sequence gap (트랜잭션 롤백, advisory lock 경쟁 등으로 발생하는 정상적 id 불연속) 시 false positive를 유발한다. `LAG(this_hash) OVER (ORDER BY id)`는 실제 삽입 순서를 기준으로 체인을 검증한다.
 
 - 결과가 1건 이상이면 **즉시 알림**: Admin + QA에 이메일 + 시스템 알림 발송
 - 알림 메시지: `[CRITICAL] 감사추적 해시 단절 감지 — audit_log.id={id}, 즉시 SOP-INCIDENT-001 발동`

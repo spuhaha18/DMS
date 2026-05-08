@@ -170,30 +170,41 @@
 
 ## 6. 요약 — 조항별 준수 상태
 
-| 조항 | 요구사항 요약 | 준수 상태 | 비고 |
-|---|---|---|---|
-| §11.1(a)(b) | 적용 범위 | ✅ 완전 준수 | |
-| §11.2(a)(b) | 기록·서명 법적 효력 | ✅ 완전 준수 | |
-| §11.10(a) | 검증 | ✅ 완전 준수 | GAMP 5 Cat 5 |
-| §11.10(b) | 정확한 사본 생성 | ✅ 완전 준수 | PDF 변환 + 워터마크 |
-| §11.10(c) | 기록 보호 | ✅ 완전 준수 | MinIO WORM + DR |
-| §11.10(d) | 접근 제한 | ✅ 완전 준수 | RBAC 3차원 |
-| §11.10(e) | 감사추적 | ✅ 완전 준수 | INSERT-only + 해시체인 |
-| §11.10(f) | 단계 순서 | ✅ 완전 준수 | 7단계 상태머신 |
-| §11.10(g) | 권한 확인 | ✅ 완전 준수 | @PreAuthorize |
-| §11.10(h) | 장치 확인 | ⚠️ 부분 준수 | IP 기록. 장치 바인딩 Phase 2 |
-| §11.10(i) | 인력 자격 | ✅ 완전 준수 | SOP-TRAINING-001 |
-| §11.10(j) | 책임성 | ✅ 완전 준수 | 계정공유 금지 + 감사추적 |
-| §11.10(k) | 문서 통제 | ✅ 완전 준수 | SOP 전 세트 |
-| §11.30 | Open system | ➖ N/A | 폐쇄망 |
-| §11.50(a)(b) | 서명 표시 | ✅ 완전 준수 | 매니페스트 + PDF stamp |
-| §11.70 | 서명-기록 연결 | ✅ 완전 준수 | SHA-256 해시체인 |
-| §11.100(a)(b)(c) | 서명 고유성 | ✅ 완전 준수 | unique constraint + 신원 확인 |
-| §11.200(a) | ID+PW 구성요소 | ✅ 완전 준수 | 첫 서명 ID+PW |
-| §11.200(b) | 생체인식 | ➖ N/A | 미사용 |
-| §11.300(a)~(e) | 비밀번호 통제 | ✅ 완전 준수 | BCrypt + SOP-USER-001 |
+> **상태 정의**  
+> - 🔵 **Planned** — 설계 및 구현 계획 완료, 구현 미완료  
+> - 🟡 **Implemented** — 코드 구현 완료, OQ/PQ 검증 미완료  
+> - ✅ **Verified** — OQ/PQ 실행 및 QA 승인 완료 (운영 적용 가능)  
+> - ⚠️ **Partial** — 부분 충족, 제약사항 명시  
+> - ➖ **N/A** — 해당 없음  
+>
+> **현재 프로젝트 상태**: Phase 1.a 구현 진행 중 (M1~M4 완료 목표). 아래 상태는 설계 기준이며, "Verified"는 M12 OQ/PQ 실행 후 갱신된다.
 
-> §11.10(h) 장치 확인: 웹 기반 시스템 특성상 IP 기록으로 부분 충족. 장치 인증서 또는 디바이스 등록은 Phase 2에서 검토.
+| 조항 | 요구사항 요약 | 준수 상태 | 설계 근거 / 제약 |
+|---|---|---|---|
+| §11.1(a)(b) | 적용 범위 | 🔵 Planned | 폐쇄망 운영, GAMP 5 Cat 5 |
+| §11.2(a)(b) | 기록·서명 법적 효력 | 🔵 Planned | SOP-DATA-INTEGRITY-001 |
+| §11.10(a) | 검증 | 🔵 Planned | ValidationPlan.md, IQ/OQ/PQ 미실행 |
+| §11.10(b) | 정확한 사본 생성 | 🔵 Planned | PDF 변환 + 워터마크 (M7) |
+| §11.10(c) | 기록 보호 | 🔵 Planned | MinIO WORM COMPLIANCE + DR (M5) |
+| §11.10(d) | 접근 제한 | 🔵 Planned | RBAC 3차원 (M2) |
+| §11.10(e) | 감사추적 | 🔵 Planned | INSERT-only + 전체 필드 해시체인 (M1/M5); payload에 before/after/reason/ip 포함 |
+| §11.10(f) | 단계 순서 | 🔵 Planned | 7단계 상태머신 (M4) |
+| §11.10(g) | 권한 확인 | 🔵 Planned | @PreAuthorize (M2) |
+| §11.10(h) | 장치 확인 | ⚠️ Partial | IP 기록. 장치 바인딩 Phase 2 |
+| §11.10(i) | 인력 자격 | 🔵 Planned | SOP-TRAINING-001 |
+| §11.10(j) | 책임성 | 🔵 Planned | 계정공유 금지 + 감사추적 |
+| §11.10(k) | 문서 통제 | 🔵 Planned | SOP 11종 |
+| §11.30 | Open system | ➖ N/A | 폐쇄망 운영 (Network.md 참조) |
+| §11.50(a)(b) | 서명 표시 | 🔵 Planned | 매니페스트 + PDF stamp (M6/M7) |
+| §11.70 | 서명-기록 연결 | 🔵 Planned | canonical snapshot 해시 (version_id + file_sha256 + doc_number + revision + status) (M6) |
+| §11.100(a)(b)(c) | 서명 고유성 | 🔵 Planned | unique constraint + 신원 확인 (M6) |
+| §11.200(a) | ID+PW 구성요소 | 🔵 Planned | 첫 서명 ID+PW (M6) |
+| §11.200(b) | 생체인식 | ➖ N/A | 미사용 |
+| §11.300(a)~(e) | 비밀번호 통제 | 🔵 Planned | BCrypt rounds=12 + SOP-USER-001 (M1) |
+
+> **§11.10(h)**: 웹 기반 시스템 특성상 IP 기록으로 부분 충족. 장치 인증서/디바이스 등록은 Phase 2.  
+> **§11.70**: 서명 payload에 파일 SHA-256, 문서번호, 리비전, 상태를 포함하여 서명-기록 불분리 연결 보장.  
+> **상태 갱신 기준**: 각 마일스톤 OQ 통과 시 해당 조항을 "Implemented"로, M12 QA 승인 후 "Verified"로 갱신한다.
 
 ---
 

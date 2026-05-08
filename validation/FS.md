@@ -762,7 +762,8 @@ subsequent_signature:
      "anchor_hash": "c9d2..."
    }
 4. MinIO Object Lock 버킷에 저장 (파일명: audit-anchor-2026-05-07.json)
-   Object Lock: GOVERNANCE mode, retention 3650일(10년)
+   Object Lock: COMPLIANCE mode, retention 3650일(10년)
+   -- GOVERNANCE는 권한자가 우회 가능하므로 감사 anchor에 부적합; COMPLIANCE 필수
 5. DB에 anchor 레코드 저장 (체크포인트 이력 관리)
 ```
 
