@@ -23,7 +23,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .ignoringRequestMatchers("/api/v1/auth/login"))
+                        .ignoringRequestMatchers("/api/v1/auth/**"))
                 .sessionManagement(s -> s
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                         .maximumSessions(1)
