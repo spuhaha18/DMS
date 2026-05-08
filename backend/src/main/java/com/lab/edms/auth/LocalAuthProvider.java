@@ -33,12 +33,16 @@ public class LocalAuthProvider implements AuthProvider {
     public AuthResult authenticate(String userId, String rawPassword, String clientIp) {
         Optional<User> opt = userRepo.findByUserId(userId);
         if (opt.isEmpty()) {
-            return new AuthResult.InvalidCredentials(MAX_FAILED_ATTEMPTS);
+            return new AuthResult.InvalidCredentials(MAX_FAILED_ATTEMPTS - 1);
         }
         User u = opt.get();
 
         if (u.getStatus() == UserStatus.DISABLED) return new AuthResult.AccountDisabled();
         if (u.getStatus() == UserStatus.LOCKED)   return new AuthResult.AccountLocked();
+
+        if (u.getPasswordHash() == null) {
+            return new AuthResult.InvalidCredentials(MAX_FAILED_ATTEMPTS - 1);
+        }
 
         if (!encoder.matches(rawPassword, u.getPasswordHash())) {
             int next = u.getFailedAttempts() + 1;
@@ -46,9 +50,11 @@ public class LocalAuthProvider implements AuthProvider {
             if (next >= MAX_FAILED_ATTEMPTS) {
                 u.setStatus(UserStatus.LOCKED);
                 u.setLockedAt(OffsetDateTime.now());
+                userRepo.save(u);
+                return new AuthResult.AccountLocked();
             }
             userRepo.save(u);
-            return new AuthResult.InvalidCredentials(Math.max(0, MAX_FAILED_ATTEMPTS - next));
+            return new AuthResult.InvalidCredentials(MAX_FAILED_ATTEMPTS - next);
         }
 
         u.setFailedAttempts(0);
