@@ -59,6 +59,7 @@ public class LocalAuthProvider implements AuthProvider {
 
         u.setFailedAttempts(0);
         userRepo.save(u);
+        u.getRoles().size(); // initialize roles while transaction is open
 
         if (u.isForceChangePw()) return new AuthResult.ForcePasswordChange(u);
         return new AuthResult.Success(u);

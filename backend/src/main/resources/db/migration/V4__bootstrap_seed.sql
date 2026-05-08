@@ -21,7 +21,7 @@ INSERT INTO users (
     password_hash, force_change_pw, created_at, updated_at
 ) VALUES (
     'admin', '시스템 관리자', 'admin@lab.internal', 'IT', '시스템 관리자', 'ACTIVE',
-    '$2a$12$M.HkGlKf8uG7NQsd8h2X5e0wKpVqwYxVBbZUz/JVlQAzEK1E8yQbS',
+    '$2a$12$N53NGbN0nF36eHb8CmN5A.qJ1/h5j51ge7n6swGWv.byo8S1lmTeq',
     TRUE, NOW(), NOW()
 );
 
