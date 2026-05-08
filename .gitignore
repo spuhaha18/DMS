@@ -27,3 +27,4 @@ org/
 # Logs
 *.log
 logs/
+.gstack/
