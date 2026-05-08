@@ -90,6 +90,28 @@ public class AuthController {
                 u.getUserId(), u.getFullName(), u.getEmail(), u.getDepartment(), roles));
     }
 
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestBody @Valid ChangePasswordRequest req,
+                                            HttpServletRequest http) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        var outcome = authService.changePassword(
+                auth.getName(), req.currentPassword(), req.newPassword(), http.getRemoteAddr());
+        return switch (outcome) {
+            case OK -> ResponseEntity.noContent().build();
+            case WRONG_CURRENT -> ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ProblemDetail.of("AUTH_004", "Current password is incorrect", null));
+            case POLICY_VIOLATION -> ResponseEntity.badRequest()
+                    .body(ProblemDetail.of("AUTH_005",
+                            "Password does not meet policy (min 8 chars, 3 of 4 character classes)", null));
+            case REUSED_RECENT -> ResponseEntity.badRequest()
+                    .body(ProblemDetail.of("AUTH_006",
+                            "Password matches one of your last 5 passwords", null));
+        };
+    }
+
     private void installSession(User u, HttpServletRequest http) {
         var authorities = u.getRoles().stream()
                 .map(ur -> new SimpleGrantedAuthority("ROLE_" + ur.getRole().getRoleCode()))
