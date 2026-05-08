@@ -1,0 +1,14 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+edms:
+  audit:
+    datasource:
+      # In tests, the audit role connects to the same Testcontainers DB.
+      # The URL is filled in dynamically by AuditDataSourceConfig from the spring.datasource.url
+      # plus username/password override.
+      username: audit_role
+      password: audit_test_password
