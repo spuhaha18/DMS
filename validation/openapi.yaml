@@ -1,0 +1,2218 @@
+openapi: 3.1.0
+info:
+  title: EDMS API
+  version: 1.0.0
+  description: |
+    제약 연구소 전자문서관리시스템(EDMS) REST API
+    21 CFR Part 11 / EU GMP Annex 11 준수
+  contact:
+    name: EDMS System Admin
+    email: edms-admin@lab.internal
+  license:
+    name: Proprietary — Internal Use Only
+
+servers:
+  - url: https://edms-dev.lab.internal/api/v1
+    description: 개발 환경
+  - url: https://edms-iq.lab.internal/api/v1
+    description: 검증(IQ/OQ) 환경
+  - url: https://edms.lab.internal/api/v1
+    description: 운영 환경
+
+security:
+  - cookieAuth: []
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: JSESSIONID
+      description: HttpOnly + Secure + SameSite=Strict 세션 쿠키
+
+  schemas:
+    # ─────────────────────────────────────────────
+    # 공통
+    # ─────────────────────────────────────────────
+    ProblemDetail:
+      type: object
+      required: [code, message, timestamp]
+      properties:
+        code:
+          type: string
+          example: AUTH_001
+        message:
+          type: string
+          example: 자격증명이 올바르지 않습니다.
+        timestamp:
+          type: string
+          format: date-time
+        detail:
+          type: string
+        remaining_attempts:
+          type: integer
+        locked_until:
+          type: string
+          format: date-time
+
+    Page:
+      type: object
+      properties:
+        content:
+          type: array
+          items: {}
+        total_elements:
+          type: integer
+          format: int64
+        total_pages:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+
+    # ─────────────────────────────────────────────
+    # 인증·사용자
+    # ─────────────────────────────────────────────
+    LoginRequest:
+      type: object
+      required: [user_id, password]
+      properties:
+        user_id:
+          type: string
+          example: jsmith
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+        full_name:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        department:
+          type: string
+        force_change_pw:
+          type: boolean
+
+    ChangePasswordRequest:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password:
+          type: string
+          format: password
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: string
+        full_name:
+          type: string
+        email:
+          type: string
+          format: email
+        department:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, LOCKED, DISABLED]
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+        valid_from:
+          type: string
+          format: date
+          nullable: true
+        valid_until:
+          type: string
+          format: date
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        force_change_pw:
+          type: boolean
+
+    CreateUserRequest:
+      type: object
+      required: [user_id, full_name, email, department, password]
+      properties:
+        user_id:
+          type: string
+          minLength: 2
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9.\-]+$'
+        full_name:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        department:
+          type: string
+        title:
+          type: string
+        password:
+          type: string
+          format: password
+          minLength: 8
+        role_codes:
+          type: array
+          items:
+            type: string
+        valid_from:
+          type: string
+          format: date
+          nullable: true
+        valid_until:
+          type: string
+          format: date
+          nullable: true
+        remarks:
+          type: string
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+        email:
+          type: string
+          format: email
+        department:
+          type: string
+        title:
+          type: string
+        valid_from:
+          type: string
+          format: date
+          nullable: true
+        valid_until:
+          type: string
+          format: date
+          nullable: true
+        remarks:
+          type: string
+
+    DisableUserRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 5
+
+    Role:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        role_code:
+          type: string
+          enum: [AUTHOR, REVIEWER, APPROVER, QA, RA, READER, ADMIN, AUDITOR]
+        role_name:
+          type: string
+        description:
+          type: string
+        is_system:
+          type: boolean
+
+    Permission:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        role_id:
+          type: integer
+          format: int64
+        role_code:
+          type: string
+        category_id:
+          type: integer
+          format: int64
+        category_code:
+          type: string
+        department:
+          type: string
+          nullable: true
+          description: null이면 전 부서 적용
+        can_view:
+          type: boolean
+        can_download:
+          type: boolean
+        can_create:
+          type: boolean
+        can_edit_draft:
+          type: boolean
+        can_review:
+          type: boolean
+        can_approve:
+          type: boolean
+        can_retire:
+          type: boolean
+
+    UpsertPermissionRequest:
+      type: object
+      required: [role_id, category_id, can_view, can_download, can_create, can_edit_draft, can_review, can_approve, can_retire]
+      properties:
+        role_id:
+          type: integer
+          format: int64
+        category_id:
+          type: integer
+          format: int64
+        department:
+          type: string
+          nullable: true
+        can_view:
+          type: boolean
+        can_download:
+          type: boolean
+        can_create:
+          type: boolean
+        can_edit_draft:
+          type: boolean
+        can_review:
+          type: boolean
+        can_approve:
+          type: boolean
+        can_retire:
+          type: boolean
+
+    # ─────────────────────────────────────────────
+    # 마스터 데이터
+    # ─────────────────────────────────────────────
+    DocumentCategory:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        category_code:
+          type: string
+          example: SOP
+        category_name:
+          type: string
+        review_period_months:
+          type: integer
+          example: 24
+        qa_mandatory:
+          type: boolean
+        is_active:
+          type: boolean
+
+    NumberingTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        category_id:
+          type: integer
+          format: int64
+        category_code:
+          type: string
+        format_pattern:
+          type: string
+          example: "{TYPE}-{DEPT}-{SEQ:3}"
+          description: "플레이스홀더: {TYPE}, {DEPT}, {PROD}, {YEAR}, {SEQ:N}"
+        counter_scope:
+          type: string
+          enum: [PER_DEPT, PER_PRODUCT, PER_YEAR, GLOBAL]
+
+    NumberingPreviewRequest:
+      type: object
+      required: [category_id, department]
+      properties:
+        category_id:
+          type: integer
+          format: int64
+        department:
+          type: string
+        project_code:
+          type: string
+          nullable: true
+
+    NumberingPreviewResponse:
+      type: object
+      properties:
+        preview:
+          type: string
+          example: SOP-QC-001
+        next_seq:
+          type: integer
+
+    WorkflowTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        category_id:
+          type: integer
+          format: int64
+        template_name:
+          type: string
+        is_active:
+          type: boolean
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowTemplateStep'
+
+    WorkflowTemplateStep:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        step_order:
+          type: integer
+        step_type:
+          type: string
+          enum: [REVIEW, APPROVAL]
+        role_code:
+          type: string
+        min_signers:
+          type: integer
+        parallel:
+          type: boolean
+        auto_assign:
+          type: boolean
+        qa_required:
+          type: boolean
+
+    # ─────────────────────────────────────────────
+    # 문서·버전
+    # ─────────────────────────────────────────────
+    Document:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        doc_number:
+          type: string
+          example: SOP-QC-001
+        category_code:
+          type: string
+        department:
+          type: string
+        project_code:
+          type: string
+          nullable: true
+        title:
+          type: string
+        owner_id:
+          type: integer
+          format: int64
+        owner_name:
+          type: string
+        confidential:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        current_version:
+          $ref: '#/components/schemas/DocumentVersionSummary'
+
+    DocumentVersionSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        revision:
+          type: integer
+          nullable: true
+          description: "null이면 미승인(DRAFT) 상태"
+        state:
+          type: string
+          enum: [DRAFT, UNDER_REVIEW, UNDER_APPROVAL, EFFECTIVE, UNDER_REVISION, SUPERSEDED, RETIRED]
+        pdf_status:
+          type: string
+          enum: [PENDING, CONVERTING, DONE, FAILED]
+        updated_at:
+          type: string
+          format: date-time
+
+    DocumentVersion:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        document_id:
+          type: integer
+          format: int64
+        doc_number:
+          type: string
+        revision:
+          type: integer
+          nullable: true
+        state:
+          type: string
+          enum: [DRAFT, UNDER_REVIEW, UNDER_APPROVAL, EFFECTIVE, UNDER_REVISION, SUPERSEDED, RETIRED]
+        title:
+          type: string
+        change_summary:
+          type: string
+          nullable: true
+        reason_for_change:
+          type: string
+          nullable: true
+        pdf_status:
+          type: string
+          enum: [PENDING, CONVERTING, DONE, FAILED]
+        effective_date:
+          type: string
+          format: date
+          nullable: true
+        expiry_date:
+          type: string
+          format: date
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        available_transitions:
+          type: array
+          items:
+            type: string
+          example: [submit, reject]
+
+    CreateDocumentRequest:
+      type: object
+      required: [category_code, department, title, change_reason]
+      properties:
+        category_code:
+          type: string
+          example: SOP
+        department:
+          type: string
+          example: QC
+        project_code:
+          type: string
+          nullable: true
+        title:
+          type: string
+          maxLength: 500
+        change_reason:
+          type: string
+        confidential:
+          type: boolean
+          default: false
+
+    CreateDocumentResponse:
+      type: object
+      properties:
+        doc_id:
+          type: integer
+          format: int64
+        doc_number:
+          type: string
+          example: SOP-QC-001
+        version_id:
+          type: integer
+          format: int64
+        state:
+          type: string
+          example: DRAFT
+
+    DocumentFile:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        file_type:
+          type: string
+          enum: [ORIGINAL, RENDITION]
+        file_name:
+          type: string
+        file_size_bytes:
+          type: integer
+          format: int64
+        content_type:
+          type: string
+        sha256_hash:
+          type: string
+        uploaded_at:
+          type: string
+          format: date-time
+
+    # ─────────────────────────────────────────────
+    # 워크플로 인스턴스
+    # ─────────────────────────────────────────────
+    WorkflowInstance:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        version_id:
+          type: integer
+          format: int64
+        state:
+          type: string
+          enum: [IN_PROGRESS, COMPLETED, REJECTED, CANCELLED]
+        current_step:
+          type: integer
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowStepInstance'
+
+    WorkflowStepInstance:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        step_order:
+          type: integer
+        step_type:
+          type: string
+          enum: [REVIEW, APPROVAL]
+        role_code:
+          type: string
+        min_signers:
+          type: integer
+        parallel:
+          type: boolean
+        qa_required:
+          type: boolean
+        state:
+          type: string
+          enum: [PENDING, IN_PROGRESS, COMPLETED, REJECTED]
+        assignees:
+          type: array
+          items:
+            type: object
+            properties:
+              user_id:
+                type: integer
+                format: int64
+              user_name:
+                type: string
+              assigned_at:
+                type: string
+                format: date-time
+        signatures:
+          type: array
+          items:
+            $ref: '#/components/schemas/SignatureManifestSummary'
+        rejection_reason:
+          type: string
+          nullable: true
+
+    RejectRequest:
+      type: object
+      required: [reason, password]
+      properties:
+        reason:
+          type: string
+          minLength: 5
+        password:
+          type: string
+          format: password
+
+    # ─────────────────────────────────────────────
+    # 전자서명
+    # ─────────────────────────────────────────────
+    SignRequest:
+      type: object
+      required: [password, meaning]
+      properties:
+        password:
+          type: string
+          format: password
+          description: 재인증용 비밀번호 (세션 첫 서명 시 user_id도 포함 — 서버에서 판별)
+        user_id_confirm:
+          type: string
+          description: 세션 첫 서명 시에만 필요 (Part 11 §11.200(a) ID 확인)
+          nullable: true
+        meaning:
+          type: string
+          enum: [REVIEWED, APPROVED, QA_APPROVED, ACKNOWLEDGED, RETIRED]
+        comment:
+          type: string
+          nullable: true
+
+    SignResponse:
+      type: object
+      properties:
+        signature_id:
+          type: integer
+          format: int64
+        signed_at:
+          type: string
+          format: date-time
+        signer_name:
+          type: string
+        meaning:
+          type: string
+        this_hash:
+          type: string
+          description: SHA-256 해시 (16진수 64자)
+
+    SignatureManifest:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        version_id:
+          type: integer
+          format: int64
+        signer_id:
+          type: integer
+          format: int64
+        signer_user_id:
+          type: string
+        signer_name:
+          type: string
+        meaning:
+          type: string
+          enum: [REVIEWED, APPROVED, QA_APPROVED, ACKNOWLEDGED, RETIRED]
+        comment:
+          type: string
+          nullable: true
+        signed_at:
+          type: string
+          format: date-time
+        this_hash:
+          type: string
+
+    SignatureManifestSummary:
+      type: object
+      properties:
+        signer_name:
+          type: string
+        meaning:
+          type: string
+        signed_at:
+          type: string
+          format: date-time
+
+    # ─────────────────────────────────────────────
+    # 감사로그
+    # ─────────────────────────────────────────────
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        actor_user_id:
+          type: string
+        actor_name:
+          type: string
+          nullable: true
+        action:
+          type: string
+          example: DOCUMENT_SUBMITTED
+        entity_type:
+          type: string
+          example: DOCUMENT_VERSION
+        entity_id:
+          type: string
+        before_value:
+          type: string
+          nullable: true
+        after_value:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        client_ip:
+          type: string
+        server_ts:
+          type: string
+          format: date-time
+        this_hash:
+          type: string
+
+    AuditCheckpoint:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        checkpoint_date:
+          type: string
+          format: date
+        merkle_root:
+          type: string
+        record_count:
+          type: integer
+          format: int64
+        first_log_id:
+          type: integer
+          format: int64
+        last_log_id:
+          type: integer
+          format: int64
+        minio_key:
+          type: string
+        generated_at:
+          type: string
+          format: date-time
+
+    VerifyHashChainRequest:
+      type: object
+      required: [from_date, to_date]
+      properties:
+        from_date:
+          type: string
+          format: date
+        to_date:
+          type: string
+          format: date
+
+    VerifyHashChainResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        checked_records:
+          type: integer
+        first_broken_id:
+          type: integer
+          format: int64
+          nullable: true
+        details:
+          type: string
+
+    # ─────────────────────────────────────────────
+    # 검색
+    # ─────────────────────────────────────────────
+    SearchResult:
+      type: object
+      properties:
+        doc_number:
+          type: string
+        title:
+          type: string
+        category_code:
+          type: string
+        department:
+          type: string
+        state:
+          type: string
+        revision:
+          type: integer
+          nullable: true
+        effective_date:
+          type: string
+          format: date
+          nullable: true
+        rank:
+          type: number
+          format: float
+
+    # ─────────────────────────────────────────────
+    # 알림
+    # ─────────────────────────────────────────────
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        type:
+          type: string
+          example: WORKFLOW_ASSIGNED
+        title:
+          type: string
+        body:
+          type: string
+        ref_entity_type:
+          type: string
+          nullable: true
+        ref_entity_id:
+          type: string
+          nullable: true
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    # ─────────────────────────────────────────────
+    # 교육
+    # ─────────────────────────────────────────────
+    TrainingAssignment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        user_name:
+          type: string
+        version_id:
+          type: integer
+          format: int64
+        doc_number:
+          type: string
+        assigned_at:
+          type: string
+          format: date-time
+        due_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+  responses:
+    Unauthorized:
+      description: 인증 필요
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    Forbidden:
+      description: 권한 없음
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    NotFound:
+      description: 리소스 없음
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    Conflict:
+      description: 상태 충돌 (예: 잘못된 라이프사이클 전이)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    UnprocessableEntity:
+      description: 유효성 오류
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+paths:
+  # ═══════════════════════════════════════════════
+  # 인증
+  # ═══════════════════════════════════════════════
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: 로그인
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              user_id: jsmith
+              password: Passw0rd!@#
+      responses:
+        '200':
+          description: 로그인 성공 (세션 쿠키 설정)
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: JSESSIONID=abc123; HttpOnly; Secure; SameSite=Strict; Path=/
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: 자격증명 오류 (remainingAttempts 포함)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '423':
+          description: 계정 잠금 (5회 실패)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: 로그아웃 (세션 무효화)
+      responses:
+        '204':
+          description: 로그아웃 성공
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: 현재 세션 사용자 정보 조회
+      responses:
+        '200':
+          description: 사용자 정보
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: 비밀번호 변경
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: 변경 성공
+        '400':
+          description: 정책 위반 (최소 길이, 이전 비밀번호 재사용 등)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ═══════════════════════════════════════════════
+  # 사용자 관리 (Admin)
+  # ═══════════════════════════════════════════════
+  /admin/users:
+    get:
+      tags: [Admin - Users]
+      summary: 사용자 목록 조회
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, LOCKED, DISABLED]
+        - name: department
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 사용자 목록 (Page)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Page'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/User'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Admin - Users]
+      summary: 사용자 생성
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '409':
+          description: user_id 또는 email 중복
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /admin/users/{userId}:
+    get:
+      tags: [Admin - Users]
+      summary: 사용자 상세 조회
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Admin - Users]
+      summary: 사용자 정보 수정
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /admin/users/{userId}/roles:
+    put:
+      tags: [Admin - Users]
+      summary: 사용자 역할 변경
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role_codes]
+              properties:
+                role_codes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /admin/users/{userId}/disable:
+    post:
+      tags: [Admin - Users]
+      summary: 사용자 계정 비활성화
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisableUserRequest'
+      responses:
+        '204':
+          description: 비활성화 성공 (활성 세션 즉시 만료)
+
+  /admin/users/{userId}/password-reset:
+    post:
+      tags: [Admin - Users]
+      summary: 임시 비밀번호 발급 및 이메일 발송
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 임시 비밀번호 발송 완료
+
+  # ═══════════════════════════════════════════════
+  # 역할 관리 (Admin)
+  # ═══════════════════════════════════════════════
+  /admin/roles:
+    get:
+      tags: [Admin - Roles]
+      summary: 역할 목록
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+
+  # ═══════════════════════════════════════════════
+  # 권한 매트릭스 (Admin)
+  # ═══════════════════════════════════════════════
+  /admin/permissions:
+    get:
+      tags: [Admin - Permissions]
+      summary: 권한 매트릭스 전체 조회
+      parameters:
+        - name: role_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: category_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Permission'
+    put:
+      tags: [Admin - Permissions]
+      summary: 권한 추가/수정 (Upsert)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertPermissionRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Permission'
+
+  /admin/permissions/{permissionId}:
+    delete:
+      tags: [Admin - Permissions]
+      summary: 권한 삭제
+      parameters:
+        - name: permissionId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 삭제 성공
+
+  # ═══════════════════════════════════════════════
+  # 카테고리 (Admin)
+  # ═══════════════════════════════════════════════
+  /admin/categories:
+    get:
+      tags: [Admin - Categories]
+      summary: 문서 카테고리 목록
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentCategory'
+    post:
+      tags: [Admin - Categories]
+      summary: 카테고리 생성
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentCategory'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentCategory'
+
+  /admin/categories/{categoryId}:
+    put:
+      tags: [Admin - Categories]
+      summary: 카테고리 수정
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentCategory'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentCategory'
+
+  # ═══════════════════════════════════════════════
+  # 채번 템플릿 (Admin)
+  # ═══════════════════════════════════════════════
+  /admin/numbering-templates:
+    get:
+      tags: [Admin - Numbering]
+      summary: 채번 템플릿 목록
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NumberingTemplate'
+    post:
+      tags: [Admin - Numbering]
+      summary: 채번 템플릿 생성
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NumberingTemplate'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NumberingTemplate'
+
+  /admin/numbering-templates/{templateId}:
+    put:
+      tags: [Admin - Numbering]
+      summary: 채번 템플릿 수정
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NumberingTemplate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NumberingTemplate'
+
+  /admin/numbering-counters/preview:
+    post:
+      tags: [Admin - Numbering]
+      summary: 채번 미리보기 (실제 채번 없음)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NumberingPreviewRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NumberingPreviewResponse'
+
+  # ═══════════════════════════════════════════════
+  # 워크플로 템플릿 (Admin)
+  # ═══════════════════════════════════════════════
+  /admin/workflow-templates:
+    get:
+      tags: [Admin - Workflows]
+      summary: 워크플로 템플릿 목록
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowTemplate'
+    post:
+      tags: [Admin - Workflows]
+      summary: 워크플로 템플릿 생성
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowTemplate'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowTemplate'
+
+  /admin/workflow-templates/{templateId}:
+    put:
+      tags: [Admin - Workflows]
+      summary: 워크플로 템플릿 수정
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowTemplate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowTemplate'
+
+  # ═══════════════════════════════════════════════
+  # 문서
+  # ═══════════════════════════════════════════════
+  /documents:
+    get:
+      tags: [Documents]
+      summary: 문서 목록 (권한 필터 자동 적용)
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: department
+          in: query
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+            enum: [DRAFT, UNDER_REVIEW, UNDER_APPROVAL, EFFECTIVE, UNDER_REVISION, SUPERSEDED, RETIRED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: sort
+          in: query
+          schema:
+            type: string
+            default: createdAt,desc
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Page'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Document'
+    post:
+      tags: [Documents]
+      summary: 문서 생성 (채번 + 초안 버전 생성)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDocumentRequest'
+            example:
+              category_code: SOP
+              department: QC
+              title: 원료 수탁시험 절차
+              change_reason: 신규 작성
+              confidential: false
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDocumentResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /documents/{docId}:
+    get:
+      tags: [Documents]
+      summary: 문서 상세 조회
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /documents/{docId}/versions:
+    get:
+      tags: [Documents]
+      summary: 문서 버전 목록
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DocumentVersion'
+
+  /documents/{docId}/versions/{verId}:
+    get:
+      tags: [Documents]
+      summary: 버전 상세 조회
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: verId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentVersion'
+
+  /documents/{docId}/versions/{verId}/files:
+    post:
+      tags: [Documents]
+      summary: 원본 파일 업로드 (DRAFT 상태에서만 허용)
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: verId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: ".docx/.xlsx/.pptx/.pdf (최대 100MB)"
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentFile'
+        '415':
+          description: 허용되지 않는 파일 형식
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /documents/{docId}/versions/{verId}/pdf:
+    get:
+      tags: [Documents]
+      summary: PDF 스트리밍 (pdf.js 뷰어용, Range 지원)
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: verId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: PDF 스트림
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '202':
+          description: PDF 변환 중 (pdf_status=CONVERTING)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /documents/{docId}/versions/{verId}/pdf/download:
+    get:
+      tags: [Documents]
+      summary: PDF 다운로드 (can_download 권한 필요)
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: verId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: PDF 파일 (Content-Disposition attachment)
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ═══════════════════════════════════════════════
+  # 라이프사이클 전이
+  # ═══════════════════════════════════════════════
+  /documents/{docId}/versions/{verId}/submit:
+    post:
+      tags: [Lifecycle]
+      summary: 검토 요청 (DRAFT → UNDER_REVIEW, T-01)
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: verId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentVersion'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /documents/{docId}/versions/{verId}/reject:
+    post:
+      tags: [Lifecycle]
+      summary: 반려 (T-04 또는 T-05)
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: verId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentVersion'
+
+  /documents/{docId}/versions/{verId}/revise:
+    post:
+      tags: [Lifecycle]
+      summary: 개정 시작 (EFFECTIVE → UNDER_REVISION, T-06)
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: verId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '201':
+          description: 새 개정 버전 생성
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDocumentResponse'
+
+  /documents/{docId}/versions/{verId}/retire:
+    post:
+      tags: [Lifecycle]
+      summary: 폐기 (T-08 또는 T-09)
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: verId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentVersion'
+
+  /documents/{docId}/versions/{verId}/workflow:
+    get:
+      tags: [Lifecycle]
+      summary: 워크플로 현황 조회
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: verId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowInstance'
+
+  # ═══════════════════════════════════════════════
+  # 전자서명
+  # ═══════════════════════════════════════════════
+  /documents/{docId}/versions/{verId}/sign:
+    post:
+      tags: [Signatures]
+      summary: 전자서명 (비밀번호 재인증 + 해시체인)
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: verId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignRequest'
+            example:
+              password: Passw0rd!@#
+              meaning: REVIEWED
+              comment: 내용 확인 완료
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignResponse'
+        '401':
+          description: 비밀번호 오류 (SIG_001)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: 서명 권한 없음 또는 워크플로 단계 불일치
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /documents/{docId}/versions/{verId}/signatures:
+    get:
+      tags: [Signatures]
+      summary: 서명 목록 조회
+      parameters:
+        - name: docId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: verId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SignatureManifest'
+
+  # ═══════════════════════════════════════════════
+  # 감사로그
+  # ═══════════════════════════════════════════════
+  /audit-logs:
+    get:
+      tags: [Audit]
+      summary: 감사로그 조회 (Auditor/Admin 전용)
+      parameters:
+        - name: actor_user_id
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Page'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AuditLog'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /audit-logs/export:
+    get:
+      tags: [Audit]
+      summary: 감사로그 CSV 내보내기
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: CSV 파일
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /audit-logs/checkpoints:
+    get:
+      tags: [Audit]
+      summary: 일별 WORM 앵커 체크포인트 목록
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditCheckpoint'
+
+  /audit-logs/checkpoints/verify:
+    post:
+      tags: [Audit]
+      summary: 해시체인 무결성 검증 (범위 지정)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyHashChainRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyHashChainResponse'
+
+  # ═══════════════════════════════════════════════
+  # 검색
+  # ═══════════════════════════════════════════════
+  /search:
+    get:
+      tags: [Search]
+      summary: 통합 검색 (tsvector + mecab-ko)
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: department
+          in: query
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Page'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SearchResult'
+
+  # ═══════════════════════════════════════════════
+  # 알림
+  # ═══════════════════════════════════════════════
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: 알림 목록
+      parameters:
+        - name: is_read
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Page'
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Notification'
+
+  /notifications/{notificationId}/read:
+    put:
+      tags: [Notifications]
+      summary: 알림 읽음 처리
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: 읽음 처리 완료
+
+  /notifications/stream:
+    get:
+      tags: [Notifications]
+      summary: SSE 알림 스트림 (text/event-stream)
+      description: |
+        Server-Sent Events 연결. 5분 timeout 후 클라이언트가 자동 재연결.
+        이벤트 형식: data: {"id":1,"type":"WORKFLOW_ASSIGNED","title":"..."}
+      responses:
+        '200':
+          description: SSE 스트림
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  # ═══════════════════════════════════════════════
+  # 교육
+  # ═══════════════════════════════════════════════
+  /training:
+    get:
+      tags: [Training]
+      summary: 교육 과제 목록 (내 과제 또는 전체 — 권한에 따라)
+      parameters:
+        - name: user_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+          description: Admin/QA만 타인 조회 가능
+        - name: completed
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrainingAssignment'
+
+  /training/{assignmentId}/acknowledge:
+    post:
+      tags: [Training]
+      summary: 열람 확인 서명 (ACKNOWLEDGED 의미 서명과 동일 흐름)
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignResponse'
