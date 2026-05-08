@@ -1,6 +1,6 @@
 # DMS — Pharmaceutical R&D EDMS
 
-GxP-compliant electronic document management system. See **[CONTEXT.md](./CONTEXT.md)** for project overview, tech stack, repository map, and getting-started guide.
+GxP-compliant electronic document management system. See **[CONTEXT.md](./CONTEXT.md)** for project entry point, tech stack, repository map, and getting-started guide.
 
 ## Quick start (development)
 
@@ -18,5 +18,5 @@ cd frontend && npm install && npm run dev
 ## Documentation
 
 - `CONTEXT.md` — project overview and document map
-- `validation/` — GxP validation documents (URS, FS, DS, SOPs, etc.)
+- `validation/` — 31 GxP validation documents (URS, FS, DS, SOPs, etc.)
 - `docs/superpowers/plans/` — implementation plans
