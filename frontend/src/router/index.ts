@@ -24,6 +24,15 @@ const routes = [
   { path: '/admin/permissions', name: 'admin-permissions',
     component: () => import('../views/admin/PermissionMatrixView.vue'),
     meta: { requiresAuth: true, requiresRole: ['ADMIN'] } },
+  { path: '/admin/departments', name: 'admin-departments',
+    component: () => import('../views/admin/DepartmentAdminView.vue'),
+    meta: { requiresAuth: true, requiresRole: ['ADMIN'] } },
+  { path: '/admin/categories', name: 'admin-categories',
+    component: () => import('../views/admin/CategoryAdminView.vue'),
+    meta: { requiresAuth: true, requiresRole: ['ADMIN'] } },
+  { path: '/admin/numbering-templates', name: 'admin-numbering',
+    component: () => import('../views/admin/NumberingTemplateAdminView.vue'),
+    meta: { requiresAuth: true, requiresRole: ['ADMIN'] } },
 ];
 
 export const router = createRouter({

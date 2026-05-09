@@ -100,3 +100,78 @@ export interface UpsertPermissionRequest {
   can_approve: boolean;
   can_retire: boolean;
 }
+
+// M3 — Departments
+export interface DepartmentAlias {
+  id: number;
+  aliasName: string;
+  locale?: string | null;
+}
+
+export interface Department {
+  id: number;
+  deptCode: string;
+  primaryName: string;
+  source: string;
+  active: boolean;
+  createdAt: string;
+  aliases: DepartmentAlias[];
+}
+
+export interface UpsertDepartmentRequest {
+  deptCode: string;
+  primaryName: string;
+}
+
+export interface UpsertAliasRequest {
+  aliasName: string;
+  locale?: string | null;
+}
+
+// M3 — Document Categories
+export interface DocumentCategory {
+  id: number;
+  categoryCode: string;
+  categoryName: string;
+  description?: string | null;
+  reviewPeriodMonths: number;
+  qaMandatory: boolean;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface UpsertCategoryRequest {
+  categoryCode: string;
+  categoryName: string;
+  description?: string | null;
+  reviewPeriodMonths: number;
+  qaMandatory: boolean;
+  active: boolean;
+}
+
+// M3 — Numbering Templates
+export interface NumberingTemplate {
+  id: number;
+  categoryId: number;
+  categoryCode: string;
+  formatPattern: string;
+  counterScope: 'PER_DEPT' | 'PER_PRODUCT' | 'PER_YEAR' | 'GLOBAL';
+  updatedAt: string;
+}
+
+export interface UpsertNumberingTemplateRequest {
+  categoryId: number;
+  formatPattern: string;
+  counterScope: 'PER_DEPT' | 'PER_PRODUCT' | 'PER_YEAR' | 'GLOBAL';
+}
+
+export interface NumberingPreviewRequest {
+  categoryId: number;
+  department?: string | null;
+  projectCode?: string | null;
+}
+
+export interface NumberingPreviewResponse {
+  nextDocNumber: string;
+  nextSeq: number;
+}
