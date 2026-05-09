@@ -1,11 +1,9 @@
 package com.lab.edms.department;
 
 import jakarta.persistence.*;
-import org.hibernate.envers.Audited;
 import java.time.OffsetDateTime;
 
 @Entity
-@Audited
 @Table(name = "departments")
 public class Department {
 
