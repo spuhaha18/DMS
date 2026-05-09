@@ -15,8 +15,6 @@ import com.lab.edms.user.RoleRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 
 @Service
@@ -80,10 +78,12 @@ public class PermissionAdminService {
         permRepo.save(p);
 
         AuditAction action = isNew ? AuditAction.PERMISSION_GRANTED : AuditAction.PERMISSION_UPDATED;
-        audit.log(new AuditEvent(actor, action, "PERMISSION",
-                String.valueOf(p.getId()), before,
-                payloadSerializer.toJson(PermissionDto.fromEntity(p, role.getRoleCode(), cat.getCategoryCode())),
-                null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
+        audit.log(AuditEvent.of(actor, action)
+                .entity("PERMISSION", String.valueOf(p.getId()))
+                .before(before)
+                .after(payloadSerializer.toJson(PermissionDto.fromEntity(p, role.getRoleCode(), cat.getCategoryCode())))
+                .ip(clientIp)
+                .build());
 
         return PermissionDto.fromEntity(p, role.getRoleCode(), cat.getCategoryCode());
     }
@@ -94,9 +94,11 @@ public class PermissionAdminService {
                 .orElseThrow(() -> new NotFoundException("permission not found"));
         String before = payloadSerializer.toJson(p);
         permRepo.delete(p);
-        audit.log(new AuditEvent(actor, AuditAction.PERMISSION_REVOKED, "PERMISSION",
-                String.valueOf(permissionId), before, null,
-                null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
+        audit.log(AuditEvent.of(actor, AuditAction.PERMISSION_REVOKED)
+                .entity("PERMISSION", String.valueOf(permissionId))
+                .before(before)
+                .ip(clientIp)
+                .build());
     }
 
 }

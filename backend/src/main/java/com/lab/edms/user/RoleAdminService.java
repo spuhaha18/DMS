@@ -10,8 +10,6 @@ import com.lab.edms.user.dto.UpdateRoleRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 
@@ -43,11 +41,13 @@ public class RoleAdminService {
         r.setDescription(req.description());
         repo.save(r);
 
-        audit.log(new AuditEvent(actor, AuditAction.ROLE_UPDATED, "ROLE",
-                String.valueOf(r.getId()), before,
-                payloadSerializer.toJson(Map.of("role_name", r.getRoleName(),
-                              "description", String.valueOf(r.getDescription()))),
-                null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
+        audit.log(AuditEvent.of(actor, AuditAction.ROLE_UPDATED)
+                .entity("ROLE", String.valueOf(r.getId()))
+                .before(before)
+                .after(payloadSerializer.toJson(Map.of("role_name", r.getRoleName(),
+                              "description", String.valueOf(r.getDescription()))))
+                .ip(clientIp)
+                .build());
         return RoleDto.fromEntity(r);
     }
 
