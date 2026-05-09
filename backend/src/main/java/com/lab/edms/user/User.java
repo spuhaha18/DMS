@@ -61,6 +61,9 @@ public class User {
     @Column(name = "valid_until")
     private LocalDate validUntil;
 
+    @Column(name = "last_login_at")
+    private OffsetDateTime lastLoginAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -111,4 +114,6 @@ public class User {
     public void setForceChangePw(boolean v) { this.forceChangePw = v; }
     public void setFailedAttempts(int n) { this.failedAttempts = n; }
     public void setLockedAt(OffsetDateTime t) { this.lockedAt = t; }
+    public OffsetDateTime getLastLoginAt() { return lastLoginAt; }
+    public void setLastLoginAt(OffsetDateTime t) { this.lastLoginAt = t; }
 }
