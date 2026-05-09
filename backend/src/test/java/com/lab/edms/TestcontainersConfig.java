@@ -23,7 +23,7 @@ public class TestcontainersConfig {
     }
 
     private static final MinIOContainer MINIO =
-            new MinIOContainer(DockerImageName.parse("minio/minio:RELEASE.2025-01-20T22-07-31Z"))
+            new MinIOContainer(DockerImageName.parse("minio/minio:latest"))
                     .withUserName("minio_test")
                     .withPassword("minio_test_pass");
 
