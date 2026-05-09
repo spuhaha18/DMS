@@ -4,6 +4,7 @@ import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.TreeSet;
@@ -68,6 +69,6 @@ public class UserRoleManager {
         }
 
         em.flush();
-        return new RoleDelta(added, removed);
+        return new RoleDelta(Collections.unmodifiableSet(added), Collections.unmodifiableSet(removed));
     }
 }
