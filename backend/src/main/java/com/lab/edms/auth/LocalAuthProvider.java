@@ -7,6 +7,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 
@@ -40,6 +41,13 @@ public class LocalAuthProvider implements AuthProvider {
         if (u.getStatus() == UserStatus.DISABLED) return new AuthResult.AccountDisabled();
         if (u.getStatus() == UserStatus.LOCKED)   return new AuthResult.AccountLocked();
 
+        // BR-USER-014/015 validity window
+        LocalDate today = LocalDate.now();
+        if (u.getValidFrom() != null && today.isBefore(u.getValidFrom())) return new AuthResult.AccountDisabled();
+        if (u.getValidUntil() != null && !today.isBefore(u.getValidUntil().plusDays(1))) {
+            return new AuthResult.AccountDisabled();
+        }
+
         if (u.getPasswordHash() == null) {
             return new AuthResult.InvalidCredentials(MAX_FAILED_ATTEMPTS - 1);
         }
@@ -58,6 +66,7 @@ public class LocalAuthProvider implements AuthProvider {
         }
 
         u.setFailedAttempts(0);
+        u.setLastLoginAt(OffsetDateTime.now());
         userRepo.save(u);
 
         if (u.isForceChangePw()) return new AuthResult.ForcePasswordChange(u);
