@@ -4,6 +4,7 @@ import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
@@ -26,7 +27,7 @@ public class UserRoleManager {
             UserRole ur = new UserRole();
             ur.setUser(user);
             ur.setRole(r);
-            ur.setAssignedAt(OffsetDateTime.now());
+            ur.setAssignedAt(OffsetDateTime.now(ZoneOffset.UTC));
             em.persist(ur);
         }
         em.flush();
@@ -62,7 +63,7 @@ public class UserRoleManager {
                 UserRole ur = new UserRole();
                 ur.setUser(user);
                 ur.setRole(r);
-                ur.setAssignedAt(OffsetDateTime.now());
+                ur.setAssignedAt(OffsetDateTime.now(ZoneOffset.UTC));
                 em.persist(ur);
                 added.add(r.getRoleCode());
             }
