@@ -31,7 +31,7 @@ public class LocalAuthProvider implements AuthProvider {
     @Override
     @Transactional
     public AuthResult authenticate(String userId, String rawPassword, String clientIp) {
-        Optional<User> opt = userRepo.findByUserId(userId);
+        Optional<User> opt = userRepo.findByUserIdWithRoles(userId);
         if (opt.isEmpty()) {
             return new AuthResult.InvalidCredentials(MAX_FAILED_ATTEMPTS - 1);
         }
@@ -59,7 +59,6 @@ public class LocalAuthProvider implements AuthProvider {
 
         u.setFailedAttempts(0);
         userRepo.save(u);
-        u.getRoles().size(); // initialize roles while transaction is open
 
         if (u.isForceChangePw()) return new AuthResult.ForcePasswordChange(u);
         return new AuthResult.Success(u);

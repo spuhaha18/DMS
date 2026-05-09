@@ -5,13 +5,17 @@ import com.lab.edms.user.User;
 import com.lab.edms.user.UserRepository;
 import com.lab.edms.user.UserRole;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,6 +27,8 @@ public class AuthController {
 
     private final AuthService authService;
     private final UserRepository userRepo;
+    private final SecurityContextRepository securityContextRepository =
+            new HttpSessionSecurityContextRepository();
 
     public AuthController(AuthService authService, UserRepository userRepo) {
         this.authService = authService;
@@ -31,16 +37,17 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody @Valid LoginRequest req,
-                                   HttpServletRequest http) {
+                                   HttpServletRequest http,
+                                   HttpServletResponse response) {
         AuthResult result = authService.login(req.userId(), req.password(), http.getRemoteAddr());
         return switch (result) {
             case AuthResult.Success s -> {
-                installSession(s.user(), http);
+                installSession(s.user(), http, response);
                 yield ResponseEntity.ok(new LoginResponse(
                         s.user().getUserId(), s.user().getFullName(), false));
             }
             case AuthResult.ForcePasswordChange f -> {
-                installSession(f.user(), http);
+                installSession(f.user(), http, response);
                 yield ResponseEntity.ok(new LoginResponse(
                         f.user().getUserId(), f.user().getFullName(), true));
             }
@@ -81,7 +88,7 @@ public class AuthController {
         if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        User u = userRepo.findByUserId(auth.getName()).orElseThrow();
+        User u = userRepo.findByUserIdWithRoles(auth.getName()).orElseThrow();
         List<String> roles = u.getRoles().stream()
                 .map(UserRole::getRole)
                 .map(r -> r.getRoleCode())
@@ -112,14 +119,16 @@ public class AuthController {
         };
     }
 
-    private void installSession(User u, HttpServletRequest http) {
+    private void installSession(User u, HttpServletRequest request, HttpServletResponse response) {
         var authorities = u.getRoles().stream()
                 .map(ur -> new SimpleGrantedAuthority("ROLE_" + ur.getRole().getRoleCode()))
                 .collect(Collectors.toList());
         var token = new UsernamePasswordAuthenticationToken(u.getUserId(), null, authorities);
-        SecurityContextHolder.getContext().setAuthentication(token);
-        // Ensure a session exists before changing ID (session fixation protection)
-        http.getSession(true);
-        http.changeSessionId();
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(token);
+        SecurityContextHolder.setContext(context);
+        request.getSession(true);
+        request.changeSessionId();
+        securityContextRepository.saveContext(context, request, response);
     }
 }
