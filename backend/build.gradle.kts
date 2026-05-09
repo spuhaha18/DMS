@@ -31,6 +31,7 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql:10.20.1")
     implementation("org.hibernate.orm:hibernate-envers")
     implementation("org.postgresql:postgresql")
+    implementation("com.github.f4b6a3:ulid-creator:5.2.3")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
