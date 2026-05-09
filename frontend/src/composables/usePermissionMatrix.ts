@@ -34,10 +34,11 @@ export function usePermissionMatrix() {
   }
 
   async function togglePermission(p: Permission, field: keyof Permission) {
+    const prev = (p as unknown as Record<string, unknown>)[field as string];
     loading.value = true;
     error.value = null;
     try {
-      (p as unknown as Record<string, unknown>)[field as string] = !(p as unknown as Record<string, unknown>)[field as string];
+      (p as unknown as Record<string, unknown>)[field as string] = !prev;
       await permissionsApi.upsert({
         role_id: p.role_id,
         category_id: p.category_id,
@@ -51,6 +52,7 @@ export function usePermissionMatrix() {
         can_retire: p.can_retire,
       });
     } catch (e: unknown) {
+      (p as unknown as Record<string, unknown>)[field as string] = prev;
       error.value = e instanceof Error ? e.message : '권한 변경에 실패했습니다.';
     } finally {
       loading.value = false;
