@@ -38,6 +38,7 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.testcontainers:junit-jupiter:1.20.3")
     testImplementation("org.testcontainers:postgresql:1.20.3")
+    testImplementation("org.testcontainers:minio:1.20.3")
     testImplementation("org.assertj:assertj-core")
 }
 
