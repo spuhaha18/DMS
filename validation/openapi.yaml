@@ -159,7 +159,7 @@ components:
           type: string
           minLength: 2
           maxLength: 50
-          pattern: '^[a-zA-Z0-9.\-]+$'
+          pattern: '^[a-zA-Z0-9._\-]{2,50}$'
         full_name:
           type: string
           maxLength: 100
@@ -921,7 +921,7 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     Conflict:
-      description: 상태 충돌 (예: 잘못된 라이프사이클 전이)
+      description: '상태 충돌 (예: 잘못된 라이프사이클 전이)'
       content:
         application/json:
           schema:
@@ -1167,8 +1167,8 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
+            pattern: '^[a-zA-Z0-9._\-]{2,50}$'
       requestBody:
         required: true
         content:
@@ -1188,11 +1188,33 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
+            pattern: '^[a-zA-Z0-9._\-]{2,50}$'
       responses:
         '204':
           description: 임시 비밀번호 발송 완료
+
+  /admin/users/export:
+    get:
+      tags: [Admin - Users]
+      summary: 사용자/접근권한 CSV 다운로드 (분기 접근검토)
+      parameters:
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [csv]
+            default: csv
+      responses:
+        '200':
+          description: CSV 파일
+          content:
+            text/csv:
+              schema:
+                type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   # ═══════════════════════════════════════════════
   # 역할 관리 (Admin)
@@ -1209,6 +1231,33 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Role'
+
+  /admin/roles/{roleId}:
+    put:
+      tags: [Admin - Roles]
+      summary: 역할 이름·설명 수정 (role_code/is_system 불변)
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role_name]
+              properties:
+                role_name: { type: string, maxLength: 100 }
+                description: { type: string, maxLength: 1000 }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Role' }
 
   # ═══════════════════════════════════════════════
   # 권한 매트릭스 (Admin)
