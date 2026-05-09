@@ -34,4 +34,7 @@ public class Role {
     public String getDescription() { return description; }
     public boolean isSystem() { return system; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
+
+    public void setRoleName(String v) { this.roleName = v; }
+    public void setDescription(String v) { this.description = v; }
 }
