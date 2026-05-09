@@ -116,4 +116,7 @@ public class User {
     public void setLockedAt(OffsetDateTime t) { this.lockedAt = t; }
     public OffsetDateTime getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(OffsetDateTime t) { this.lastLoginAt = t; }
+    public void setTitle(String v) { this.title = v; }
+    public void setValidFrom(java.time.LocalDate v) { this.validFrom = v; }
+    public void setValidUntil(java.time.LocalDate v) { this.validUntil = v; }
 }

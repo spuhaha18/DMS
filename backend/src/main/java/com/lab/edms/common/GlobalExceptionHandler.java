@@ -39,6 +39,24 @@ public class GlobalExceptionHandler {
                 .body(ProblemDetail.of("AUTHZ_001", "Access denied", null));
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ProblemDetail> handleConflict(ConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ProblemDetail.of(ex.getCode(), ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(UnprocessableEntityException.class)
+    public ResponseEntity<ProblemDetail> handleUnprocessable(UnprocessableEntityException ex) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ProblemDetail.of(ex.getCode(), ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleNotFound(NotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ProblemDetail.of("NOT_FOUND", ex.getMessage(), null));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleGeneric(Exception ex) {
         log.error("Unhandled exception", ex);

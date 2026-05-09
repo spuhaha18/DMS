@@ -28,4 +28,8 @@ public class UserRole {
     public User getUser() { return user; }
     public Role getRole() { return role; }
     public OffsetDateTime getAssignedAt() { return assignedAt; }
+
+    public void setUser(User user) { this.user = user; }
+    public void setRole(Role role) { this.role = role; }
+    public void setAssignedAt(OffsetDateTime assignedAt) { this.assignedAt = assignedAt; }
 }
