@@ -53,12 +53,14 @@ public class UserAdminService {
         this.sessionRegistry = sessionRegistry;
     }
 
+    @Transactional(readOnly = true)
     public Page<UserDto> list(UserStatus status, String department, int page, int size, String actor) {
         Page<User> p = userRepo.searchAdmin(status, department, PageRequest.of(page, size));
         p.getContent().forEach(u -> u.getRoles().size());
         return p.map(UserDto::fromEntity);
     }
 
+    @Transactional(readOnly = true)
     public UserDto get(Long userPk) {
         User u = userRepo.findById(userPk).orElseThrow(() -> new NotFoundException("user not found"));
         u.getRoles().size();
@@ -76,13 +78,18 @@ public class UserAdminService {
 
         Set<Role> roles = resolveRoles(req.roleCodes());
 
+        String temp = generateTempPassword(16);
+
         User u = new User();
         u.setUserId(req.userId());
         u.setFullName(req.fullName());
         u.setEmail(req.email());
         u.setDepartment(req.department());
+        u.setTitle(req.title());
+        u.setValidFrom(req.validFrom());
+        u.setValidUntil(req.validUntil());
         u.setStatus(UserStatus.ACTIVE);
-        u.setPasswordHash(encoder.encode(req.password()));
+        u.setPasswordHash(encoder.encode(temp));
         u.setForceChangePw(true);
         userRepo.save(u);
 
@@ -107,7 +114,7 @@ public class UserAdminService {
                     null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
         }
 
-        email.sendInitialPassword(u.getEmail(), u.getUserId(), req.password(), true);
+        email.sendInitialPassword(u.getEmail(), u.getUserId(), temp, true);
         return UserDto.fromEntity(u);
     }
 

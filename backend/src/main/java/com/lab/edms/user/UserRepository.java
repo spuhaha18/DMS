@@ -29,7 +29,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
                            @Param("department") String department,
                            Pageable pageable);
 
-    @Query("SELECT u FROM User u WHERE u.validUntil IS NOT NULL AND u.validUntil <= CURRENT_DATE AND u.status = 'ACTIVE'")
+    @Query("SELECT u FROM User u WHERE u.validUntil IS NOT NULL AND u.validUntil < CURRENT_DATE AND u.status = 'ACTIVE'")
     List<User> findExpiredAuditors();
 
     @Query("SELECT u FROM User u WHERE u.validUntil IS NOT NULL AND u.validUntil = :targetDate AND u.status = 'ACTIVE'")

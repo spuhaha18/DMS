@@ -30,7 +30,7 @@ class UserAdminServiceIT {
     void create_assignsRoles_setsForceChangePw_storesBcryptHash() {
         UserDto created = svc.create(new CreateUserRequest(
                 "ann_qa", "Ann QA", "ann@lab.test", "QA", "Officer",
-                "Initial!Pw1234", List.of("AUTHOR", "READER"), null, null), "admin", "10.0.0.1");
+                List.of("AUTHOR", "READER"), null, null), "admin", "10.0.0.1");
 
         assertThat(created.userId()).isEqualTo("ann_qa");
         assertThat(created.forceChangePw()).isTrue();
@@ -42,11 +42,11 @@ class UserAdminServiceIT {
 
     @Test
     void create_duplicateUserId_throwsConflict() {
-        svc.create(new CreateUserRequest("dupe", "D", "d1@t", "QC", null, "Initial!Pw1234",
+        svc.create(new CreateUserRequest("dupe", "D", "d1@t", "QC", null,
                 List.of("AUTHOR"), null, null), "admin", "10.0.0.1");
 
         assertThatThrownBy(() -> svc.create(new CreateUserRequest(
-                "dupe", "D2", "d2@t", "QC", null, "Initial!Pw1234",
+                "dupe", "D2", "d2@t", "QC", null,
                 List.of("AUTHOR"), null, null), "admin", "10.0.0.1"))
                 .isInstanceOf(ConflictException.class);
     }
@@ -54,7 +54,7 @@ class UserAdminServiceIT {
     @Test
     void create_invalidRole_throwsUnprocessable() {
         assertThatThrownBy(() -> svc.create(new CreateUserRequest(
-                "bad", "B", "b@t", "QC", null, "Initial!Pw1234",
+                "bad", "B", "b@t", "QC", null,
                 List.of("NOPE"), null, null), "admin", "10.0.0.1"))
                 .isInstanceOf(UnprocessableEntityException.class);
     }

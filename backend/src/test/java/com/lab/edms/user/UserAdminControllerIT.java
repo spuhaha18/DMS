@@ -36,7 +36,7 @@ class UserAdminControllerIT {
     @WithMockUser(username = "admin", roles = "ADMIN")
     void postUsers_validBody_returns201() throws Exception {
         var req = new CreateUserRequest("ann_qa", "Ann", "ann@t.lab", "QA", null,
-                "Initial!Pw1234", List.of("AUTHOR"), null, null);
+                List.of("AUTHOR"), null, null);
 
         mvc.perform(post("/api/v1/admin/users").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -51,7 +51,7 @@ class UserAdminControllerIT {
     @WithMockUser(username = "admin", roles = "ADMIN")
     void postUsers_invalidUserIdPattern_returns400() throws Exception {
         var req = new CreateUserRequest("space user", "X", "x@t.lab", "QA", null,
-                "Initial!Pw1234", List.of("AUTHOR"), null, null);
+                List.of("AUTHOR"), null, null);
 
         mvc.perform(post("/api/v1/admin/users").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -64,7 +64,7 @@ class UserAdminControllerIT {
     @WithMockUser(username = "ann", roles = "AUTHOR")
     void postUsers_nonAdmin_returns403() throws Exception {
         var req = new CreateUserRequest("ann_qa", "Ann", "ann@t.lab", "QA", null,
-                "Initial!Pw1234", List.of("AUTHOR"), null, null);
+                List.of("AUTHOR"), null, null);
 
         mvc.perform(post("/api/v1/admin/users").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)

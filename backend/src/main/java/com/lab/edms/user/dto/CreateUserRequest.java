@@ -26,9 +26,6 @@ public record CreateUserRequest(
         @Size(max = 50)
         String title,
 
-        @NotBlank @Size(min = 8, max = 100)
-        String password,
-
         @JsonProperty("role_codes")
         @NotEmpty(message = "at least one role is required")
         List<@NotBlank String> roleCodes,

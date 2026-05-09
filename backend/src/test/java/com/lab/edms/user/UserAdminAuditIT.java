@@ -29,7 +29,7 @@ class UserAdminAuditIT {
     @Test
     void create_writesUserCreatedAndRoleAssignedAuditRows() {
         svc.create(new CreateUserRequest("ann_aud", "Ann", "ann_aud@t.lab", "QA", null,
-                "Initial!Pw1234", List.of("AUTHOR", "READER"), null, null), "admin", "10.0.0.1");
+                List.of("AUTHOR", "READER"), null, null), "admin", "10.0.0.1");
 
         List<Map<String, Object>> rows = jdbc.queryForList(
                 "SELECT action, actor_user_id FROM audit_logs ORDER BY id DESC LIMIT 10");

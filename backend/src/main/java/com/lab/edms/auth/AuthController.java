@@ -6,6 +6,7 @@ import com.lab.edms.user.UserRepository;
 import com.lab.edms.user.UserRole;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
@@ -27,12 +29,15 @@ public class AuthController {
 
     private final AuthService authService;
     private final UserRepository userRepo;
+    private final SessionRegistry sessionRegistry;
     private final SecurityContextRepository securityContextRepository =
             new HttpSessionSecurityContextRepository();
 
-    public AuthController(AuthService authService, UserRepository userRepo) {
+    public AuthController(AuthService authService, UserRepository userRepo,
+                          SessionRegistry sessionRegistry) {
         this.authService = authService;
         this.userRepo = userRepo;
+        this.sessionRegistry = sessionRegistry;
     }
 
     @PostMapping("/login")
@@ -127,8 +132,9 @@ public class AuthController {
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(token);
         SecurityContextHolder.setContext(context);
-        request.getSession(true);
+        HttpSession session = request.getSession(true);
         request.changeSessionId();
+        sessionRegistry.registerNewSession(session.getId(), u.getUserId());
         securityContextRepository.saveContext(context, request, response);
     }
 }
