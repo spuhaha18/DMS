@@ -1,44 +1,25 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { usersApi } from '../../api/admin';
-import type { PageResponse, User } from '../../types';
+import { useUserAdmin } from '../../composables/useUserAdmin';
 
-const page = ref<PageResponse<User> | null>(null);
-const status = ref('');
-const department = ref('');
 const router = useRouter();
+const { users, loading, error, status, department, load, exportCsv, disableUser } = useUserAdmin();
 
-async function load(p = 0) {
-  page.value = await usersApi.list({
-    status: status.value || undefined,
-    department: department.value || undefined,
-    page: p, size: 20,
-  });
-}
+onMounted(() => load(0));
 
-onMounted(load);
-
-async function downloadCsv() {
-  const csv = await usersApi.exportCsv();
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'access-review.csv';
-  a.click();
-}
-
-async function disableUser(userId: string) {
+async function handleDisable(userId: string) {
   const reason = prompt('Disable reason (≥5 chars)');
   if (!reason || reason.length < 5) return;
-  await usersApi.disable(userId, { reason });
-  await load(page.value?.page ?? 0);
+  await disableUser(userId, reason);
 }
 </script>
 
 <template>
   <main style="max-width: 1100px; margin: 24px auto; font-family: inherit;">
     <h1>사용자 관리</h1>
+    <div v-if="loading">로딩 중...</div>
+    <div v-if="error" style="color: red;">{{ error }}</div>
     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
       <select v-model="status" @change="load(0)">
         <option value="">전체 상태</option>
@@ -48,9 +29,9 @@ async function disableUser(userId: string) {
       </select>
       <input v-model="department" placeholder="부서" @change="load(0)" />
       <button @click="router.push({ name: 'admin-user-create' })">신규 사용자</button>
-      <button @click="downloadCsv">CSV 다운로드</button>
+      <button @click="exportCsv">CSV 다운로드</button>
     </div>
-    <table v-if="page" style="width: 100%; border-collapse: collapse;">
+    <table v-if="users" style="width: 100%; border-collapse: collapse;">
       <thead>
         <tr style="background: #f0f0f0;">
           <th style="padding: 6px;">ID</th><th>이름</th><th>이메일</th>
@@ -58,7 +39,7 @@ async function disableUser(userId: string) {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="u in page.content" :key="u.id" style="border-top: 1px solid #ddd;">
+        <tr v-for="u in users.content" :key="u.id" style="border-top: 1px solid #ddd;">
           <td style="padding: 6px;">{{ u.user_id }}</td>
           <td>{{ u.full_name }}</td>
           <td>{{ u.email }}</td>
@@ -68,15 +49,15 @@ async function disableUser(userId: string) {
           <td>{{ u.last_login_at ?? '-' }}</td>
           <td>
             <button @click="router.push({ name: 'admin-user-edit', params: { userPk: u.id } })">수정</button>
-            <button v-if="u.status !== 'DISABLED'" @click="disableUser(u.user_id)">비활성화</button>
+            <button v-if="u.status !== 'DISABLED'" @click="handleDisable(u.user_id)">비활성화</button>
           </td>
         </tr>
       </tbody>
     </table>
-    <div v-if="page" style="margin-top: 12px;">
-      <button :disabled="page.page === 0" @click="load(page.page - 1)">이전</button>
-      <span style="margin: 0 8px;">{{ page.page + 1 }} / {{ page.totalPages }}</span>
-      <button :disabled="page.page + 1 >= page.totalPages" @click="load(page.page + 1)">다음</button>
+    <div v-if="users" style="margin-top: 12px;">
+      <button :disabled="users.page === 0" @click="load(users.page - 1)">이전</button>
+      <span style="margin: 0 8px;">{{ users.page + 1 }} / {{ users.totalPages }}</span>
+      <button :disabled="users.page + 1 >= users.totalPages" @click="load(users.page + 1)">다음</button>
     </div>
   </main>
 </template>

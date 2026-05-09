@@ -1,15 +1,14 @@
 package com.lab.edms.user;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lab.edms.audit.AuditAction;
 import com.lab.edms.audit.AuditEvent;
 import com.lab.edms.audit.AuditService;
+import com.lab.edms.common.AuditPayloadSerializer;
 import com.lab.edms.common.ConflictException;
 import com.lab.edms.common.NotFoundException;
 import com.lab.edms.common.UnprocessableEntityException;
 import com.lab.edms.notification.EmailNotificationService;
 import com.lab.edms.user.dto.*;
-import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.session.SessionInformation;
@@ -19,8 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.*;
 
 @Service
@@ -32,25 +29,27 @@ public class UserAdminService {
 
     private final UserRepository userRepo;
     private final RoleRepository roleRepo;
-    private final EntityManager em;
+    private final UserRoleManager userRoleManager;
     private final AuditService audit;
     private final BCryptPasswordEncoder encoder;
     private final EmailNotificationService email;
     private final SessionRegistry sessionRegistry;
-    private final ObjectMapper json = new ObjectMapper();
+    private final AuditPayloadSerializer payloadSerializer;
 
     public UserAdminService(UserRepository userRepo, RoleRepository roleRepo,
-                            EntityManager em, AuditService audit,
+                            UserRoleManager userRoleManager, AuditService audit,
                             BCryptPasswordEncoder encoder,
                             EmailNotificationService email,
-                            SessionRegistry sessionRegistry) {
+                            SessionRegistry sessionRegistry,
+                            AuditPayloadSerializer payloadSerializer) {
         this.userRepo = userRepo;
         this.roleRepo = roleRepo;
-        this.em = em;
+        this.userRoleManager = userRoleManager;
         this.audit = audit;
         this.encoder = encoder;
         this.email = email;
         this.sessionRegistry = sessionRegistry;
+        this.payloadSerializer = payloadSerializer;
     }
 
     @Transactional(readOnly = true)
@@ -93,25 +92,20 @@ public class UserAdminService {
         u.setForceChangePw(true);
         userRepo.save(u);
 
-        for (Role r : roles) {
-            UserRole ur = new UserRole();
-            ur.setUser(u);
-            ur.setRole(r);
-            ur.setAssignedAt(OffsetDateTime.now());
-            em.persist(ur);
-        }
-        em.flush();
-        em.refresh(u);
+        userRoleManager.assignRoles(u, roles);
 
-        audit.log(new AuditEvent(actorUserId, AuditAction.USER_CREATED, "USER",
-                String.valueOf(u.getId()), null, jsonOf(UserDto.fromEntity(u)),
-                null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
+        audit.log(AuditEvent.of(actorUserId, AuditAction.USER_CREATED)
+                .entity("USER", String.valueOf(u.getId()))
+                .after(payloadSerializer.toJson(UserDto.fromEntity(u)))
+                .ip(clientIp)
+                .build());
 
         for (Role r : roles) {
-            audit.log(new AuditEvent(actorUserId, AuditAction.ROLE_ASSIGNED, "USER_ROLE",
-                    u.getUserId() + ":" + r.getRoleCode(),
-                    null, jsonOf(Map.of("role_code", r.getRoleCode())),
-                    null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
+            audit.log(AuditEvent.of(actorUserId, AuditAction.ROLE_ASSIGNED)
+                    .entity("USER_ROLE", u.getUserId() + ":" + r.getRoleCode())
+                    .after(payloadSerializer.toJson(Map.of("role_code", r.getRoleCode())))
+                    .ip(clientIp)
+                    .build());
         }
 
         email.sendInitialPassword(u.getEmail(), u.getUserId(), temp, true);
@@ -121,7 +115,7 @@ public class UserAdminService {
     @Transactional
     public UserDto update(Long userPk, UpdateUserRequest req, String actorUserId, String clientIp) {
         User u = userRepo.findById(userPk).orElseThrow(() -> new NotFoundException("user not found"));
-        String before = jsonOf(UserDto.fromEntity(u));
+        String before = payloadSerializer.toJson(UserDto.fromEntity(u));
 
         if (!u.getEmail().equalsIgnoreCase(req.email()) &&
                 userRepo.existsByEmailIgnoreCase(req.email())) {
@@ -136,9 +130,12 @@ public class UserAdminService {
         u.setValidUntil(req.validUntil());
         userRepo.save(u);
 
-        audit.log(new AuditEvent(actorUserId, AuditAction.USER_UPDATED, "USER",
-                String.valueOf(u.getId()), before, jsonOf(UserDto.fromEntity(u)),
-                null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
+        audit.log(AuditEvent.of(actorUserId, AuditAction.USER_UPDATED)
+                .entity("USER", String.valueOf(u.getId()))
+                .before(before)
+                .after(payloadSerializer.toJson(UserDto.fromEntity(u)))
+                .ip(clientIp)
+                .build());
         return UserDto.fromEntity(u);
     }
 
@@ -149,38 +146,21 @@ public class UserAdminService {
         }
         User u = userRepo.findById(userPk).orElseThrow(() -> new NotFoundException("user not found"));
         Set<Role> target = resolveRoles(roleCodes);
-        Set<String> targetCodes = new TreeSet<>();
-        for (Role r : target) targetCodes.add(r.getRoleCode());
+        RoleDelta delta = userRoleManager.applyRoleDelta(u, target);
 
-        Set<String> existing = new TreeSet<>();
-        for (UserRole ur : u.getRoles()) existing.add(ur.getRole().getRoleCode());
-
-        Iterator<UserRole> it = u.getRoles().iterator();
-        while (it.hasNext()) {
-            UserRole ur = it.next();
-            if (!targetCodes.contains(ur.getRole().getRoleCode())) {
-                String code = ur.getRole().getRoleCode();
-                em.remove(ur);
-                it.remove();
-                audit.log(new AuditEvent(actorUserId, AuditAction.ROLE_REVOKED, "USER_ROLE",
-                        u.getUserId() + ":" + code, null, null,
-                        null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
-            }
+        for (String code : delta.removed()) {
+            audit.log(AuditEvent.of(actorUserId, AuditAction.ROLE_REVOKED)
+                    .entity("USER_ROLE", u.getUserId() + ":" + code)
+                    .ip(clientIp)
+                    .build());
         }
-        for (Role r : target) {
-            if (!existing.contains(r.getRoleCode())) {
-                UserRole ur = new UserRole();
-                ur.setUser(u);
-                ur.setRole(r);
-                ur.setAssignedAt(OffsetDateTime.now());
-                em.persist(ur);
-                audit.log(new AuditEvent(actorUserId, AuditAction.ROLE_ASSIGNED, "USER_ROLE",
-                        u.getUserId() + ":" + r.getRoleCode(),
-                        null, jsonOf(Map.of("role_code", r.getRoleCode())),
-                        null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
-            }
+        for (String code : delta.added()) {
+            audit.log(AuditEvent.of(actorUserId, AuditAction.ROLE_ASSIGNED)
+                    .entity("USER_ROLE", u.getUserId() + ":" + code)
+                    .after(payloadSerializer.toJson(Map.of("role_code", code)))
+                    .ip(clientIp)
+                    .build());
         }
-        em.flush();
         terminateSessions(u.getUserId());
         return UserDto.fromEntity(u);
     }
@@ -194,11 +174,13 @@ public class UserAdminService {
         u.setStatus(UserStatus.DISABLED);
         userRepo.save(u);
 
-        audit.log(new AuditEvent(actorUserId, AuditAction.USER_DISABLED, "USER",
-                String.valueOf(u.getId()),
-                jsonOf(Map.of("status", "ACTIVE")),
-                jsonOf(Map.of("status", "DISABLED")),
-                reason, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
+        audit.log(AuditEvent.of(actorUserId, AuditAction.USER_DISABLED)
+                .entity("USER", String.valueOf(u.getId()))
+                .before(payloadSerializer.toJson(Map.of("status", "ACTIVE")))
+                .after(payloadSerializer.toJson(Map.of("status", "DISABLED")))
+                .reason(reason)
+                .ip(clientIp)
+                .build());
 
         terminateSessions(u.getUserId());
     }
@@ -214,9 +196,11 @@ public class UserAdminService {
         u.setLockedAt(null);
         userRepo.save(u);
 
-        audit.log(new AuditEvent(actorUserId, AuditAction.USER_PASSWORD_RESET, "USER",
-                String.valueOf(u.getId()), null, null,
-                "admin password reset", clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
+        audit.log(AuditEvent.of(actorUserId, AuditAction.USER_PASSWORD_RESET)
+                .entity("USER", String.valueOf(u.getId()))
+                .reason("admin password reset")
+                .ip(clientIp)
+                .build());
 
         email.sendPasswordReset(u.getEmail(), u.getUserId(), temp);
     }
@@ -249,7 +233,4 @@ public class UserAdminService {
         return sb.toString();
     }
 
-    private String jsonOf(Object o) {
-        try { return json.writeValueAsString(o); } catch (Exception e) { return "{}"; }
-    }
 }
