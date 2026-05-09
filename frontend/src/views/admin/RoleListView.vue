@@ -1,21 +1,22 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { rolesApi } from '../../api/admin';
-import type { Role } from '../../types';
+import { onMounted } from 'vue';
+import { useRoleAdmin } from '../../composables/useRoleAdmin';
 
-const roles = ref<Role[]>([]);
+const { roles, loading, error, load, saveRole } = useRoleAdmin();
 
-onMounted(async () => { roles.value = await rolesApi.list(); });
+onMounted(load);
 
-async function save(r: Role) {
-  await rolesApi.update(r.id, { role_name: r.role_name, description: r.description ?? undefined });
-  alert('저장됨');
+async function save(r: import('../../types').Role) {
+  await saveRole(r);
+  if (!error.value) alert('저장됨');
 }
 </script>
 
 <template>
   <main style="max-width: 800px; margin: 24px auto;">
     <h1>역할 관리</h1>
+    <div v-if="loading">로딩 중...</div>
+    <div v-if="error" style="color: red;">{{ error }}</div>
     <table style="width: 100%; border-collapse: collapse;">
       <thead><tr style="background: #f0f0f0;">
         <th>코드</th><th>이름</th><th>설명</th><th>System</th><th></th>
