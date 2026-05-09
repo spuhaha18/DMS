@@ -9,7 +9,6 @@ import com.lab.edms.common.NotFoundException;
 import com.lab.edms.common.UnprocessableEntityException;
 import com.lab.edms.notification.EmailNotificationService;
 import com.lab.edms.user.dto.*;
-import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.session.SessionInformation;
@@ -19,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
-import java.time.OffsetDateTime;
 import java.util.*;
 
 @Service
@@ -31,7 +29,7 @@ public class UserAdminService {
 
     private final UserRepository userRepo;
     private final RoleRepository roleRepo;
-    private final EntityManager em;
+    private final UserRoleManager userRoleManager;
     private final AuditService audit;
     private final BCryptPasswordEncoder encoder;
     private final EmailNotificationService email;
@@ -39,14 +37,14 @@ public class UserAdminService {
     private final AuditPayloadSerializer payloadSerializer;
 
     public UserAdminService(UserRepository userRepo, RoleRepository roleRepo,
-                            EntityManager em, AuditService audit,
+                            UserRoleManager userRoleManager, AuditService audit,
                             BCryptPasswordEncoder encoder,
                             EmailNotificationService email,
                             SessionRegistry sessionRegistry,
                             AuditPayloadSerializer payloadSerializer) {
         this.userRepo = userRepo;
         this.roleRepo = roleRepo;
-        this.em = em;
+        this.userRoleManager = userRoleManager;
         this.audit = audit;
         this.encoder = encoder;
         this.email = email;
@@ -94,15 +92,7 @@ public class UserAdminService {
         u.setForceChangePw(true);
         userRepo.save(u);
 
-        for (Role r : roles) {
-            UserRole ur = new UserRole();
-            ur.setUser(u);
-            ur.setRole(r);
-            ur.setAssignedAt(OffsetDateTime.now());
-            em.persist(ur);
-        }
-        em.flush();
-        em.refresh(u);
+        userRoleManager.assignRoles(u, roles);
 
         audit.log(AuditEvent.of(actorUserId, AuditAction.USER_CREATED)
                 .entity("USER", String.valueOf(u.getId()))
@@ -156,40 +146,21 @@ public class UserAdminService {
         }
         User u = userRepo.findById(userPk).orElseThrow(() -> new NotFoundException("user not found"));
         Set<Role> target = resolveRoles(roleCodes);
-        Set<String> targetCodes = new TreeSet<>();
-        for (Role r : target) targetCodes.add(r.getRoleCode());
+        RoleDelta delta = userRoleManager.applyRoleDelta(u, target);
 
-        Set<String> existing = new TreeSet<>();
-        for (UserRole ur : u.getRoles()) existing.add(ur.getRole().getRoleCode());
-
-        Iterator<UserRole> it = u.getRoles().iterator();
-        while (it.hasNext()) {
-            UserRole ur = it.next();
-            if (!targetCodes.contains(ur.getRole().getRoleCode())) {
-                String code = ur.getRole().getRoleCode();
-                em.remove(ur);
-                it.remove();
-                audit.log(AuditEvent.of(actorUserId, AuditAction.ROLE_REVOKED)
-                        .entity("USER_ROLE", u.getUserId() + ":" + code)
-                        .ip(clientIp)
-                        .build());
-            }
+        for (String code : delta.removed()) {
+            audit.log(AuditEvent.of(actorUserId, AuditAction.ROLE_REVOKED)
+                    .entity("USER_ROLE", u.getUserId() + ":" + code)
+                    .ip(clientIp)
+                    .build());
         }
-        for (Role r : target) {
-            if (!existing.contains(r.getRoleCode())) {
-                UserRole ur = new UserRole();
-                ur.setUser(u);
-                ur.setRole(r);
-                ur.setAssignedAt(OffsetDateTime.now());
-                em.persist(ur);
-                audit.log(AuditEvent.of(actorUserId, AuditAction.ROLE_ASSIGNED)
-                        .entity("USER_ROLE", u.getUserId() + ":" + r.getRoleCode())
-                        .after(payloadSerializer.toJson(Map.of("role_code", r.getRoleCode())))
-                        .ip(clientIp)
-                        .build());
-            }
+        for (String code : delta.added()) {
+            audit.log(AuditEvent.of(actorUserId, AuditAction.ROLE_ASSIGNED)
+                    .entity("USER_ROLE", u.getUserId() + ":" + code)
+                    .after(payloadSerializer.toJson(Map.of("role_code", code)))
+                    .ip(clientIp)
+                    .build());
         }
-        em.flush();
         terminateSessions(u.getUserId());
         return UserDto.fromEntity(u);
     }
