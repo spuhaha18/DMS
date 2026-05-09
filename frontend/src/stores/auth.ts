@@ -37,5 +37,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   function isAuthenticated(): boolean { return me.value !== null; }
 
-  return { me, forceChangePw, login, logout, fetchMe, isAuthenticated };
+  function hasRole(code: string): boolean {
+    return me.value?.roles?.includes(code) ?? false;
+  }
+
+  return { me, forceChangePw, login, logout, fetchMe, isAuthenticated, hasRole };
 });
