@@ -17,7 +17,7 @@ public record AuditEvent(
     public AuditEvent {
         if (action == null) throw new IllegalArgumentException("action required");
         if (entityType == null) throw new IllegalArgumentException("entityType required");
-        if (serverTs == null) serverTs = OffsetDateTime.now();
+        if (serverTs == null) serverTs = OffsetDateTime.now(ZoneOffset.UTC);
     }
 
     /** Start building an AuditEvent with the two required fields. */
@@ -67,6 +67,7 @@ public record AuditEvent(
             return this;
         }
 
+        /** Set server timestamp. Primarily for testing purposes; normally auto-populated. */
         public Builder serverTs(OffsetDateTime ts) {
             this.serverTs = ts;
             return this;
