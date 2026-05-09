@@ -33,6 +33,15 @@ const routes = [
   { path: '/admin/numbering-templates', name: 'admin-numbering',
     component: () => import('../views/admin/NumberingTemplateAdminView.vue'),
     meta: { requiresAuth: true, requiresRole: ['ADMIN'] } },
+  { path: '/documents', name: 'document-list',
+    component: () => import('../views/documents/DocumentListView.vue'),
+    meta: { requiresAuth: true } },
+  { path: '/documents/new', name: 'document-create',
+    component: () => import('../views/documents/DocumentCreateView.vue'),
+    meta: { requiresAuth: true } },
+  { path: '/documents/:docId', name: 'document-detail',
+    component: () => import('../views/documents/DocumentDetailView.vue'),
+    meta: { requiresAuth: true } },
 ];
 
 export const router = createRouter({

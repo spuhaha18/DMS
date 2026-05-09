@@ -18,6 +18,9 @@ async function logout() {
   <main style="max-width: 720px; margin: 40px auto;">
     <h1>EDMS 대시보드</h1>
     <p v-if="auth.me">{{ auth.me.fullName }}님 환영합니다 ({{ auth.me.roles.join(', ') }})</p>
+    <nav style="margin: 16px 0; display: flex; flex-wrap: wrap; gap: 8px;">
+      <a href="/documents">문서 목록</a> |
+    </nav>
     <nav v-if="auth.hasRole('ADMIN')" style="margin: 16px 0; display: flex; flex-wrap: wrap; gap: 8px;">
       <a href="/admin/users">사용자</a> |
       <a href="/admin/roles">역할</a> |

@@ -175,3 +175,62 @@ export interface NumberingPreviewResponse {
   nextDocNumber: string;
   nextSeq: number;
 }
+
+// M3 — Documents
+export interface DocumentSummary {
+  id: number;
+  docNumber: string;
+  categoryId: number;
+  categoryCode: string;
+  department: string;
+  projectCode?: string | null;
+  title: string;
+  ownerId: number;
+  confidential: boolean;
+  createdAt: string;
+}
+
+export interface DocumentDetail extends DocumentSummary {
+  versions: DocumentVersionSummary[];
+}
+
+export interface DocumentVersionSummary {
+  id: number;
+  documentId: number;
+  revision?: number | null;
+  state: string;
+  title?: string | null;
+  changeSummary?: string | null;
+  reasonForChange?: string | null;
+  sourceFileKey?: string | null;
+  pdfStatus: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentFileSummary {
+  id: number;
+  versionId: number;
+  fileType: string;
+  minioKey: string;
+  fileName: string;
+  fileSizeBytes: number;
+  contentType?: string | null;
+  sha256Hash: string;
+  uploadedAt: string;
+}
+
+export interface CreateDocumentRequest {
+  categoryCode: string;
+  department: string;
+  projectCode?: string | null;
+  title: string;
+  confidential: boolean;
+}
+
+export interface CreateDocumentResponse {
+  docId: number;
+  versionId: number;
+  docNumber: string;
+  state: string;
+}
