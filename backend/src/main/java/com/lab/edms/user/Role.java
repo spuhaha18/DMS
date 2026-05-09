@@ -31,6 +31,7 @@ public class Role {
     public Long getId() { return id; }
     public String getRoleCode() { return roleCode; }
     public String getRoleName() { return roleName; }
+    public String getDescription() { return description; }
     public boolean isSystem() { return system; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
 }
