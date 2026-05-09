@@ -252,6 +252,109 @@
 
 ---
 
+## 5A. OQ-USER: 사용자·역할·권한 관리
+
+### OQ-USER-001: 신규 사용자 생성 — force_change_pw 강제
+
+**FS 참조**: FS-USER-001 (BR-USER-003) | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | Admin이 신규 사용자 생성 시 force_change_pw=TRUE 자동 설정 확인 |
+| **절차** | 1. oq-admin-01으로 로그인 → 2. POST /api/v1/admin/users (user_id=oq-temp-01, role=AUTHOR) → 3. DB 확인 |
+| **예상 결과** | 응답 201, force_change_pw=true, 신규 사용자 첫 로그인 시 ForcePasswordChange 응답 |
+| **판정** | ☐ Pass ☐ Fail |
+
+### OQ-USER-002: user_id 패턴 검증
+
+**FS 참조**: FS-USER-001 (BR-USER-001) | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | user_id 패턴 `^[a-zA-Z0-9._-]{2,50}$` 위반 시 400 응답 확인 |
+| **절차** | POST /api/v1/admin/users with user_id="bad id" (공백 포함) |
+| **예상 결과** | 400 Bad Request, code=VALIDATION_001 |
+| **판정** | ☐ Pass ☐ Fail |
+
+### OQ-USER-003: user_id 중복 거부
+
+**FS 참조**: FS-USER-001 (BR-USER-001)
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | 기존 user_id로 POST 시 409 응답 확인 |
+| **절차** | POST /api/v1/admin/users with user_id="admin" |
+| **예상 결과** | 409 Conflict, code=USER_001 |
+| **판정** | ☐ Pass ☐ Fail |
+
+### OQ-USER-004: 자기 자신 비활성화 거부 (BR-USER-010)
+
+**FS 참조**: FS-USER-002 (BR-USER-010) | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | Admin이 자기 자신을 disable할 수 없음을 확인 |
+| **절차** | oq-admin-01 로그인 후 POST /api/v1/admin/users/oq-admin-01/disable |
+| **예상 결과** | 422 Unprocessable Entity, code=USER_005 |
+| **판정** | ☐ Pass ☐ Fail |
+
+### OQ-USER-005: 사용자 비활성화 후 활성 세션 즉시 만료
+
+**FS 참조**: FS-USER-002 (BR-USER-006) | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | DISABLED 전환 시 해당 사용자의 활성 세션이 즉시 만료됨을 확인 |
+| **절차** | 1. oq-author-01 브라우저 A 로그인 → 2. oq-admin-01이 oq-author-01 disable → 3. 브라우저 A 페이지 클릭 |
+| **예상 결과** | 브라우저 A → 401, 로그인 화면으로 |
+| **판정** | ☐ Pass ☐ Fail |
+
+### OQ-USER-006: 역할 변경 즉시 적용 + 감사로그
+
+**FS 참조**: FS-USER-003 (BR-USER-012) + FS-AUD-001
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | 역할 추가/제거가 즉시 적용되고 audit_logs에 ROLE_ASSIGNED/ROLE_REVOKED 기록 |
+| **절차** | PUT /api/v1/admin/users/{pk}/roles with new role list |
+| **예상 결과** | 200 OK + DB audit_logs에 두 종류 행 존재 |
+| **판정** | ☐ Pass ☐ Fail |
+
+### OQ-USER-007: Auditor 유효기간 시작 전 로그인 거부 (BR-USER-014)
+
+**FS 참조**: FS-USER-004 (BR-USER-014) | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | valid_from > today 인 계정 로그인 거부 확인 |
+| **절차** | Auditor 계정 valid_from=tomorrow 설정 → 로그인 시도 |
+| **예상 결과** | 401 AUTH_003 (Account is disabled) |
+| **판정** | ☐ Pass ☐ Fail |
+
+### OQ-USER-008: Auditor 유효기간 종료 후 자동 비활성 (BR-USER-015)
+
+**FS 참조**: FS-USER-004 (BR-USER-015) | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | 일일 00:00 KST 스케줄러가 valid_until 만료 계정을 DISABLED로 전환 |
+| **절차** | valid_until=yesterday 사용자 → AuditorExpirySessionScheduler 트리거 → DB 확인 |
+| **예상 결과** | status=DISABLED, audit_logs에 AUDITOR_EXPIRED 기록 |
+| **판정** | ☐ Pass ☐ Fail |
+
+### OQ-USER-009: 권한 매트릭스 3D 조회 — Role × Category × Department
+
+**FS 참조**: FS-ACC-001 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | (role, category, department) 3D 매칭 + NULL department 매칭 동작 확인 |
+| **절차** | 1. AUTHOR/SOP/QC 권한 upsert → GET /api/v1/admin/permissions?role_id=&category_id= → 2. AUTHOR/SOP/NULL 권한 upsert → 동일 GET |
+| **예상 결과** | 두 행이 별도 PK로 존재; 동일한 (role,cat,NULL) upsert 시 PK 동일 (UNIQUE NULLS NOT DISTINCT) |
+| **판정** | ☐ Pass ☐ Fail |
+
+---
+
 ## 6. OQ-DOC: 문서 관리
 
 ### OQ-DOC-002: 채번 — SOP 문서 자동 채번
@@ -707,6 +810,7 @@
 
 | 섹션 | 테스트 케이스 수 | Pass | Fail | 이탈 |
 |---|---|---|---|---|
+| OQ-USER (사용자·역할·권한) | 9 | | | |
 | OQ-AUTH (인증) | 13 | | | |
 | OQ-ACC (접근통제) | 11 | | | |
 | OQ-DOC (문서관리) | 14 | | | |
@@ -717,7 +821,7 @@
 | OQ-NTFY (알림) | 5 | | | |
 | OQ-PERF (성능) | 4 | | | |
 | OQ-SEC (보안) | 6 | | | |
-| **합계** | **102** | | | |
+| **합계** | **111** | | | |
 
 > 본 프로토콜 내 케이스는 대표 케이스이며, 실제 OQ 수행 시 세부 케이스가 추가될 수 있다.
 
