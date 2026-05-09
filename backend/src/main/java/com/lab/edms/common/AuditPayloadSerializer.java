@@ -6,7 +6,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class AuditPayloadSerializer {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    public AuditPayloadSerializer(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     public String toJson(Object o) {
         try { return objectMapper.writeValueAsString(o); } catch (Exception e) { return "{}"; }
