@@ -1,9 +1,9 @@
 package com.lab.edms.user;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lab.edms.audit.AuditAction;
 import com.lab.edms.audit.AuditEvent;
 import com.lab.edms.audit.AuditService;
+import com.lab.edms.common.AuditPayloadSerializer;
 import com.lab.edms.common.NotFoundException;
 import com.lab.edms.user.dto.RoleDto;
 import com.lab.edms.user.dto.UpdateRoleRequest;
@@ -20,11 +20,13 @@ public class RoleAdminService {
 
     private final RoleRepository repo;
     private final AuditService audit;
-    private final ObjectMapper json = new ObjectMapper();
+    private final AuditPayloadSerializer payloadSerializer;
 
-    public RoleAdminService(RoleRepository repo, AuditService audit) {
+    public RoleAdminService(RoleRepository repo, AuditService audit,
+                            AuditPayloadSerializer payloadSerializer) {
         this.repo = repo;
         this.audit = audit;
+        this.payloadSerializer = payloadSerializer;
     }
 
     public List<RoleDto> list() {
@@ -34,7 +36,7 @@ public class RoleAdminService {
     @Transactional
     public RoleDto update(Long roleId, UpdateRoleRequest req, String actor, String clientIp) {
         Role r = repo.findById(roleId).orElseThrow(() -> new NotFoundException("role not found"));
-        String before = jsonOf(Map.of(
+        String before = payloadSerializer.toJson(Map.of(
                 "role_name", r.getRoleName(),
                 "description", String.valueOf(r.getDescription())));
         r.setRoleName(req.roleName());
@@ -43,13 +45,10 @@ public class RoleAdminService {
 
         audit.log(new AuditEvent(actor, AuditAction.ROLE_UPDATED, "ROLE",
                 String.valueOf(r.getId()), before,
-                jsonOf(Map.of("role_name", r.getRoleName(),
+                payloadSerializer.toJson(Map.of("role_name", r.getRoleName(),
                               "description", String.valueOf(r.getDescription()))),
                 null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
         return RoleDto.fromEntity(r);
     }
 
-    private String jsonOf(Object o) {
-        try { return json.writeValueAsString(o); } catch (Exception e) { return "{}"; }
-    }
 }

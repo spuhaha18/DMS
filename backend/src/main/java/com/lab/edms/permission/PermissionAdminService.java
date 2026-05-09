@@ -1,11 +1,11 @@
 package com.lab.edms.permission;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lab.edms.audit.AuditAction;
 import com.lab.edms.audit.AuditEvent;
 import com.lab.edms.audit.AuditService;
 import com.lab.edms.category.DocumentCategory;
 import com.lab.edms.category.DocumentCategoryRepository;
+import com.lab.edms.common.AuditPayloadSerializer;
 import com.lab.edms.common.NotFoundException;
 import com.lab.edms.common.UnprocessableEntityException;
 import com.lab.edms.permission.dto.PermissionDto;
@@ -26,14 +26,16 @@ public class PermissionAdminService {
     private final RoleRepository roleRepo;
     private final DocumentCategoryRepository catRepo;
     private final AuditService audit;
-    private final ObjectMapper json = new ObjectMapper();
+    private final AuditPayloadSerializer payloadSerializer;
 
     public PermissionAdminService(PermissionRepository permRepo, RoleRepository roleRepo,
-                                  DocumentCategoryRepository catRepo, AuditService audit) {
+                                  DocumentCategoryRepository catRepo, AuditService audit,
+                                  AuditPayloadSerializer payloadSerializer) {
         this.permRepo = permRepo;
         this.roleRepo = roleRepo;
         this.catRepo = catRepo;
         this.audit = audit;
+        this.payloadSerializer = payloadSerializer;
     }
 
     public List<PermissionDto> list(Long roleId, Long categoryId) {
@@ -63,7 +65,7 @@ public class PermissionAdminService {
                 .orElseGet(Permission::new);
 
         boolean isNew = p.getId() == null;
-        String before = isNew ? null : jsonOf(PermissionDto.fromEntity(p, role.getRoleCode(), cat.getCategoryCode()));
+        String before = isNew ? null : payloadSerializer.toJson(PermissionDto.fromEntity(p, role.getRoleCode(), cat.getCategoryCode()));
 
         p.setRoleId(req.roleId());
         p.setCategoryId(req.categoryId());
@@ -80,7 +82,7 @@ public class PermissionAdminService {
         AuditAction action = isNew ? AuditAction.PERMISSION_GRANTED : AuditAction.PERMISSION_UPDATED;
         audit.log(new AuditEvent(actor, action, "PERMISSION",
                 String.valueOf(p.getId()), before,
-                jsonOf(PermissionDto.fromEntity(p, role.getRoleCode(), cat.getCategoryCode())),
+                payloadSerializer.toJson(PermissionDto.fromEntity(p, role.getRoleCode(), cat.getCategoryCode())),
                 null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
 
         return PermissionDto.fromEntity(p, role.getRoleCode(), cat.getCategoryCode());
@@ -90,14 +92,11 @@ public class PermissionAdminService {
     public void delete(Long permissionId, String actor, String clientIp) {
         Permission p = permRepo.findById(permissionId)
                 .orElseThrow(() -> new NotFoundException("permission not found"));
-        String before = jsonOf(p);
+        String before = payloadSerializer.toJson(p);
         permRepo.delete(p);
         audit.log(new AuditEvent(actor, AuditAction.PERMISSION_REVOKED, "PERMISSION",
                 String.valueOf(permissionId), before, null,
                 null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
     }
 
-    private String jsonOf(Object o) {
-        try { return json.writeValueAsString(o); } catch (Exception e) { return "{}"; }
-    }
 }

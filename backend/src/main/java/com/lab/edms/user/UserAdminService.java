@@ -1,9 +1,9 @@
 package com.lab.edms.user;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lab.edms.audit.AuditAction;
 import com.lab.edms.audit.AuditEvent;
 import com.lab.edms.audit.AuditService;
+import com.lab.edms.common.AuditPayloadSerializer;
 import com.lab.edms.common.ConflictException;
 import com.lab.edms.common.NotFoundException;
 import com.lab.edms.common.UnprocessableEntityException;
@@ -37,13 +37,14 @@ public class UserAdminService {
     private final BCryptPasswordEncoder encoder;
     private final EmailNotificationService email;
     private final SessionRegistry sessionRegistry;
-    private final ObjectMapper json = new ObjectMapper();
+    private final AuditPayloadSerializer payloadSerializer;
 
     public UserAdminService(UserRepository userRepo, RoleRepository roleRepo,
                             EntityManager em, AuditService audit,
                             BCryptPasswordEncoder encoder,
                             EmailNotificationService email,
-                            SessionRegistry sessionRegistry) {
+                            SessionRegistry sessionRegistry,
+                            AuditPayloadSerializer payloadSerializer) {
         this.userRepo = userRepo;
         this.roleRepo = roleRepo;
         this.em = em;
@@ -51,6 +52,7 @@ public class UserAdminService {
         this.encoder = encoder;
         this.email = email;
         this.sessionRegistry = sessionRegistry;
+        this.payloadSerializer = payloadSerializer;
     }
 
     @Transactional(readOnly = true)
@@ -104,13 +106,13 @@ public class UserAdminService {
         em.refresh(u);
 
         audit.log(new AuditEvent(actorUserId, AuditAction.USER_CREATED, "USER",
-                String.valueOf(u.getId()), null, jsonOf(UserDto.fromEntity(u)),
+                String.valueOf(u.getId()), null, payloadSerializer.toJson(UserDto.fromEntity(u)),
                 null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
 
         for (Role r : roles) {
             audit.log(new AuditEvent(actorUserId, AuditAction.ROLE_ASSIGNED, "USER_ROLE",
                     u.getUserId() + ":" + r.getRoleCode(),
-                    null, jsonOf(Map.of("role_code", r.getRoleCode())),
+                    null, payloadSerializer.toJson(Map.of("role_code", r.getRoleCode())),
                     null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
         }
 
@@ -121,7 +123,7 @@ public class UserAdminService {
     @Transactional
     public UserDto update(Long userPk, UpdateUserRequest req, String actorUserId, String clientIp) {
         User u = userRepo.findById(userPk).orElseThrow(() -> new NotFoundException("user not found"));
-        String before = jsonOf(UserDto.fromEntity(u));
+        String before = payloadSerializer.toJson(UserDto.fromEntity(u));
 
         if (!u.getEmail().equalsIgnoreCase(req.email()) &&
                 userRepo.existsByEmailIgnoreCase(req.email())) {
@@ -137,7 +139,7 @@ public class UserAdminService {
         userRepo.save(u);
 
         audit.log(new AuditEvent(actorUserId, AuditAction.USER_UPDATED, "USER",
-                String.valueOf(u.getId()), before, jsonOf(UserDto.fromEntity(u)),
+                String.valueOf(u.getId()), before, payloadSerializer.toJson(UserDto.fromEntity(u)),
                 null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
         return UserDto.fromEntity(u);
     }
@@ -176,7 +178,7 @@ public class UserAdminService {
                 em.persist(ur);
                 audit.log(new AuditEvent(actorUserId, AuditAction.ROLE_ASSIGNED, "USER_ROLE",
                         u.getUserId() + ":" + r.getRoleCode(),
-                        null, jsonOf(Map.of("role_code", r.getRoleCode())),
+                        null, payloadSerializer.toJson(Map.of("role_code", r.getRoleCode())),
                         null, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
             }
         }
@@ -196,8 +198,8 @@ public class UserAdminService {
 
         audit.log(new AuditEvent(actorUserId, AuditAction.USER_DISABLED, "USER",
                 String.valueOf(u.getId()),
-                jsonOf(Map.of("status", "ACTIVE")),
-                jsonOf(Map.of("status", "DISABLED")),
+                payloadSerializer.toJson(Map.of("status", "ACTIVE")),
+                payloadSerializer.toJson(Map.of("status", "DISABLED")),
                 reason, clientIp, OffsetDateTime.now(ZoneOffset.UTC)));
 
         terminateSessions(u.getUserId());
@@ -249,7 +251,4 @@ public class UserAdminService {
         return sb.toString();
     }
 
-    private String jsonOf(Object o) {
-        try { return json.writeValueAsString(o); } catch (Exception e) { return "{}"; }
-    }
 }
