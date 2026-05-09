@@ -1095,8 +1095,8 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
+            pattern: '^[a-zA-Z0-9._\-]{2,50}$'
       responses:
         '200':
           content:
@@ -1113,8 +1113,8 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
+            pattern: '^[a-zA-Z0-9._\-]{2,50}$'
       requestBody:
         required: true
         content:
@@ -1137,8 +1137,8 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
+            pattern: '^[a-zA-Z0-9._\-]{2,50}$'
       requestBody:
         required: true
         content:
@@ -1255,6 +1255,7 @@ paths:
                 description: { type: string, maxLength: 1000 }
       responses:
         '200':
+          description: 역할 수정 성공
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Role' }
