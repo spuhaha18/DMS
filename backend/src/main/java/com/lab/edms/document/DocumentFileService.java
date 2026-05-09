@@ -55,10 +55,14 @@ public class DocumentFileService {
         User actor = userRepo.findByUserId(actorUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "actor not found"));
 
-        // 2. Load document (404 if not found)
-        docRepo.findById(docId)
+        // 2. Load document (404 if not found), then authorize (403 if not owner)
+        Document doc = docRepo.findById(docId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "document not found: " + docId));
+        if (!doc.getOwnerId().equals(actor.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "only the document owner may upload files");
+        }
 
         // 3. Load document version (must belong to docId, 404 if not)
         DocumentVersion version = versionRepo.findById(verId)

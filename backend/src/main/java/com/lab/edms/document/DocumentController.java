@@ -29,8 +29,13 @@ public class DocumentController {
     }
 
     @GetMapping
-    public Page<DocumentDto> list(Pageable pageable, Authentication auth) {
-        return documentService.list(auth.getName(), pageable);
+    public Page<DocumentDto> list(
+            @RequestParam(required = false) String categoryCode,
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String state,
+            Pageable pageable,
+            Authentication auth) {
+        return documentService.list(auth.getName(), categoryCode, department, state, pageable);
     }
 
     @GetMapping("/{docId}")

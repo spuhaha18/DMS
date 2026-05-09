@@ -20,8 +20,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class DocumentService {
@@ -140,19 +142,38 @@ public class DocumentService {
     }
 
     @Transactional(readOnly = true)
-    public Page<DocumentDto> list(String actorUserId, Pageable pageable) {
+    public Page<DocumentDto> list(String actorUserId,
+                                   String categoryCode, String department, String state,
+                                   Pageable pageable) {
         User actor = userRepo.findByUserId(actorUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "actor not found"));
 
         VisibilityScope scope = permissionResolver.resolveViewable(actorUserId);
 
-        // Build a category code cache for the results
-        Page<Document> docs = docRepo.searchVisible(
-                scope.categoryIds().isEmpty() ? null : scope.categoryIds(),
-                scope.deptCodes(),
-                scope.allDepts(),
-                actor.getId(),
-                pageable);
+        // Apply user-requested category filter on top of permission scope
+        Collection<Long> catIds = scope.categoryIds().isEmpty() ? null : scope.categoryIds();
+        if (categoryCode != null && !categoryCode.isBlank()) {
+            var cat = catRepo.findByCategoryCode(categoryCode);
+            if (cat.isEmpty()) return org.springframework.data.domain.Page.empty(pageable);
+            Long filterCatId = cat.get().getId();
+            if (catIds != null && !catIds.contains(filterCatId))
+                return org.springframework.data.domain.Page.empty(pageable);
+            catIds = Set.of(filterCatId);
+        }
+
+        // Apply user-requested department filter on top of permission scope
+        Collection<String> depts = scope.deptCodes();
+        boolean allDepts = scope.allDepts();
+        if (department != null && !department.isBlank()) {
+            if (!allDepts && !depts.contains(department))
+                return org.springframework.data.domain.Page.empty(pageable);
+            depts = Set.of(department);
+            allDepts = false;
+        }
+
+        String stateFilter = (state != null && !state.isBlank()) ? state : null;
+
+        Page<Document> docs = docRepo.searchVisible(catIds, depts, allDepts, actor.getId(), stateFilter, pageable);
 
         return docs.map(doc -> {
             String catCode = catRepo.findById(doc.getCategoryId())

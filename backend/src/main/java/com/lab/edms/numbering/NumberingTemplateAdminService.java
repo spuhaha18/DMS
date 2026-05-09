@@ -5,9 +5,12 @@ import com.lab.edms.audit.AuditEvent;
 import com.lab.edms.audit.AuditService;
 import com.lab.edms.category.DocumentCategoryRepository;
 import com.lab.edms.numbering.dto.*;
+import com.lab.edms.user.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -20,15 +23,18 @@ public class NumberingTemplateAdminService {
     private final DocumentCategoryRepository categoryRepo;
     private final NumberingService numberingService;
     private final AuditService auditService;
+    private final UserRepository userRepo;
 
     public NumberingTemplateAdminService(NumberingTemplateRepository templateRepo,
                                           DocumentCategoryRepository categoryRepo,
                                           NumberingService numberingService,
-                                          AuditService auditService) {
+                                          AuditService auditService,
+                                          UserRepository userRepo) {
         this.templateRepo = templateRepo;
         this.categoryRepo = categoryRepo;
         this.numberingService = numberingService;
         this.auditService = auditService;
+        this.userRepo = userRepo;
     }
 
     public List<NumberingTemplateDto> findAll() {
@@ -38,12 +44,13 @@ public class NumberingTemplateAdminService {
     @Transactional
     public NumberingTemplateDto create(UpsertNumberingTemplateRequest req, String actorUserId) {
         validateScope(req.counterScope());
+        Long actorId = resolveActorId(actorUserId);
         NumberingTemplate t = new NumberingTemplate();
         t.setCategoryId(req.categoryId());
         t.setFormatPattern(req.formatPattern());
         t.setCounterScope(req.counterScope());
-        t.setCreatedBy(0L); // system placeholder
-        t.setUpdatedBy(0L);
+        t.setCreatedBy(actorId);
+        t.setUpdatedBy(actorId);
         NumberingTemplate saved = templateRepo.save(t);
         auditService.log(new AuditEvent(actorUserId, AuditAction.NUMBERING_TEMPLATE_CREATED,
                 "numbering_template", String.valueOf(saved.getId()), null, saved.getFormatPattern(),
@@ -54,11 +61,13 @@ public class NumberingTemplateAdminService {
     @Transactional
     public NumberingTemplateDto update(Long id, UpsertNumberingTemplateRequest req, String actorUserId) {
         validateScope(req.counterScope());
+        Long actorId = resolveActorId(actorUserId);
         NumberingTemplate t = templateRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Template not found: " + id));
         String before = t.getFormatPattern();
         t.setFormatPattern(req.formatPattern());
         t.setCounterScope(req.counterScope());
+        t.setUpdatedBy(actorId);
         NumberingTemplate saved = templateRepo.save(t);
         auditService.log(new AuditEvent(actorUserId, AuditAction.NUMBERING_TEMPLATE_UPDATED,
                 "numbering_template", String.valueOf(id), before, saved.getFormatPattern(),
@@ -70,6 +79,12 @@ public class NumberingTemplateAdminService {
         var result = numberingService.peek(req.categoryId(),
                 new NumberingService.IssueContext(req.department(), req.projectCode()));
         return new NumberingPreviewResponse(result.docNumber(), result.seq());
+    }
+
+    private Long resolveActorId(String userId) {
+        return userRepo.findByUserId(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "actor not found"))
+                .getId();
     }
 
     private void validateScope(String scope) {

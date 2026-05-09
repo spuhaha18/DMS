@@ -4,8 +4,7 @@ import com.lab.edms.department.dto.*;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -34,23 +33,23 @@ public class DepartmentAdminController {
     @PostMapping("/admin/departments")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<DepartmentDto> create(@Valid @RequestBody UpsertDepartmentRequest req,
-                                                  @AuthenticationPrincipal UserDetails user) {
-        return ResponseEntity.status(201).body(service.create(req, user.getUsername()));
+                                                  Authentication auth) {
+        return ResponseEntity.status(201).body(service.create(req, auth.getName()));
     }
 
     @PutMapping("/admin/departments/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public DepartmentDto update(@PathVariable Long id,
                                   @Valid @RequestBody UpsertDepartmentRequest req,
-                                  @AuthenticationPrincipal UserDetails user) {
-        return service.update(id, req, user.getUsername());
+                                  Authentication auth) {
+        return service.update(id, req, auth.getName());
     }
 
     @DeleteMapping("/admin/departments/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deactivate(@PathVariable Long id,
-                                             @AuthenticationPrincipal UserDetails user) {
-        service.deactivate(id, user.getUsername());
+                                             Authentication auth) {
+        service.deactivate(id, auth.getName());
         return ResponseEntity.noContent().build();
     }
 
@@ -58,16 +57,16 @@ public class DepartmentAdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public DepartmentDto addAlias(@PathVariable Long id,
                                     @Valid @RequestBody UpsertAliasRequest req,
-                                    @AuthenticationPrincipal UserDetails user) {
-        return service.addAlias(id, req, user.getUsername());
+                                    Authentication auth) {
+        return service.addAlias(id, req, auth.getName());
     }
 
     @DeleteMapping("/admin/departments/{id}/aliases/{aliasId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> removeAlias(@PathVariable Long id,
                                               @PathVariable Long aliasId,
-                                              @AuthenticationPrincipal UserDetails user) {
-        service.removeAlias(id, aliasId, user.getUsername());
+                                              Authentication auth) {
+        service.removeAlias(id, aliasId, auth.getName());
         return ResponseEntity.noContent().build();
     }
 }
