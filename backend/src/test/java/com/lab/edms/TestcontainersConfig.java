@@ -22,7 +22,7 @@ public class TestcontainersConfig {
                 .withInitScript("init/create-audit-role.sql");
     }
 
-    private static final MinIOContainer MINIO =
+    public static final MinIOContainer MINIO =
             new MinIOContainer(DockerImageName.parse("minio/minio:latest"))
                     .withUserName("minio_test")
                     .withPassword("minio_test_pass");
