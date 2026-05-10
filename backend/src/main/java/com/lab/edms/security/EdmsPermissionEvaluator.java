@@ -53,18 +53,10 @@ public class EdmsPermissionEvaluator implements PermissionEvaluator {
             return checkPermission(userId, doc.getCategoryId(), doc.getDepartment(), permStr);
         }
 
-        if (targetDomainObject instanceof Long id) {
-            // Try as documentId first, then as versionId
-            Document doc = documentRepo.findById(id).orElse(null);
-            if (doc != null) {
-                return checkPermission(userId, doc.getCategoryId(), doc.getDepartment(), permStr);
-            }
-            DocumentVersion version = documentVersionRepo.findById(id).orElse(null);
-            if (version != null) {
-                Document vDoc = documentRepo.findById(version.getDocumentId()).orElse(null);
-                if (vDoc == null) return false;
-                return checkPermission(userId, vDoc.getCategoryId(), vDoc.getDepartment(), permStr);
-            }
+        if (targetDomainObject instanceof Long) {
+            // 타입 정보 없이 ID만으로는 안전한 권한 판단 불가.
+            // hasPermission(auth, id, 'DOCUMENT', 'PERM') 4-arg 오버로드 사용 권장.
+            return false;
         }
 
         return false;
@@ -102,8 +94,9 @@ public class EdmsPermissionEvaluator implements PermissionEvaluator {
                 String cacheKey = userId + ":" + categoryId + ":" + department + ":" + flag;
                 return permissionCache.computeIfAbsent(cacheKey,
                     () -> permissionRepo.userHasPermission(userId, categoryId, department, flag));
-            } catch (Exception e) {
-                // Request scope 밖에서 호출된 경우 (예: 테스트 환경) 직접 쿼리
+            } catch (IllegalStateException | org.springframework.beans.factory.BeanCreationException e) {
+                // Request scope 밖에서 호출된 경우 (테스트, 스케줄러 등) — 직접 DB 쿼리
+                return permissionRepo.userHasPermission(userId, categoryId, department, flag);
             }
         }
         return permissionRepo.userHasPermission(userId, categoryId, department, flag);
