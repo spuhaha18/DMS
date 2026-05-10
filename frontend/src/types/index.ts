@@ -100,3 +100,137 @@ export interface UpsertPermissionRequest {
   can_approve: boolean;
   can_retire: boolean;
 }
+
+// M3 — Departments
+export interface DepartmentAlias {
+  id: number;
+  aliasName: string;
+  locale?: string | null;
+}
+
+export interface Department {
+  id: number;
+  deptCode: string;
+  primaryName: string;
+  source: string;
+  active: boolean;
+  createdAt: string;
+  aliases: DepartmentAlias[];
+}
+
+export interface UpsertDepartmentRequest {
+  deptCode: string;
+  primaryName: string;
+}
+
+export interface UpsertAliasRequest {
+  aliasName: string;
+  locale?: string | null;
+}
+
+// M3 — Document Categories
+export interface DocumentCategory {
+  id: number;
+  categoryCode: string;
+  categoryName: string;
+  description?: string | null;
+  reviewPeriodMonths: number;
+  qaMandatory: boolean;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface UpsertCategoryRequest {
+  categoryCode: string;
+  categoryName: string;
+  description?: string | null;
+  reviewPeriodMonths: number;
+  qaMandatory: boolean;
+  active: boolean;
+}
+
+// M3 — Numbering Templates
+export interface NumberingTemplate {
+  id: number;
+  categoryId: number;
+  categoryCode: string;
+  formatPattern: string;
+  counterScope: 'PER_DEPT' | 'PER_PRODUCT' | 'PER_YEAR' | 'GLOBAL';
+  updatedAt: string;
+}
+
+export interface UpsertNumberingTemplateRequest {
+  categoryId: number;
+  formatPattern: string;
+  counterScope: 'PER_DEPT' | 'PER_PRODUCT' | 'PER_YEAR' | 'GLOBAL';
+}
+
+export interface NumberingPreviewRequest {
+  categoryId: number;
+  department?: string | null;
+  projectCode?: string | null;
+}
+
+export interface NumberingPreviewResponse {
+  nextDocNumber: string;
+  nextSeq: number;
+}
+
+// M3 — Documents
+export interface DocumentSummary {
+  id: number;
+  docNumber: string;
+  categoryId: number;
+  categoryCode: string;
+  department: string;
+  projectCode?: string | null;
+  title: string;
+  ownerId: number;
+  confidential: boolean;
+  createdAt: string;
+}
+
+export interface DocumentDetail extends DocumentSummary {
+  versions: DocumentVersionSummary[];
+}
+
+export interface DocumentVersionSummary {
+  id: number;
+  documentId: number;
+  revision?: number | null;
+  state: string;
+  title?: string | null;
+  changeSummary?: string | null;
+  reasonForChange?: string | null;
+  sourceFileKey?: string | null;
+  pdfStatus: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentFileSummary {
+  id: number;
+  versionId: number;
+  fileType: string;
+  minioKey: string;
+  fileName: string;
+  fileSizeBytes: number;
+  contentType?: string | null;
+  sha256Hash: string;
+  uploadedAt: string;
+}
+
+export interface CreateDocumentRequest {
+  categoryCode: string;
+  department: string;
+  projectCode?: string | null;
+  title: string;
+  confidential: boolean;
+}
+
+export interface CreateDocumentResponse {
+  docId: number;
+  versionId: number;
+  docNumber: string;
+  state: string;
+}

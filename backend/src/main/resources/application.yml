@@ -1,6 +1,12 @@
 spring:
   application:
     name: edms
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 100MB
+      max-request-size: 105MB
+      file-size-threshold: 10MB
   jpa:
     open-in-view: false
     hibernate:
@@ -29,3 +35,10 @@ logging:
   level:
     root: INFO
     com.lab.edms: DEBUG
+
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket-original: ${MINIO_BUCKET_ORIGINAL:edms-documents-original}
+  bucket-rendition: ${MINIO_BUCKET_RENDITION:edms-documents-rendition}
