@@ -1,5 +1,8 @@
 package com.lab.edms.workflow;
 
+import com.lab.edms.common.ForbiddenException;
+import com.lab.edms.common.NotFoundException;
+import com.lab.edms.document.DocumentVersionRepository;
 import com.lab.edms.signature.SignatureManifest;
 import com.lab.edms.signature.SignatureService;
 import com.lab.edms.workflow.dto.*;
@@ -21,15 +24,18 @@ public class WorkflowController {
     private final SignatureService signatureService;
     private final WorkflowInstanceRepository wfInstanceRepo;
     private final WorkflowStepInstanceRepository wfStepRepo;
+    private final DocumentVersionRepository documentVersionRepo;
 
     public WorkflowController(WorkflowService workflowService,
                                SignatureService signatureService,
                                WorkflowInstanceRepository wfInstanceRepo,
-                               WorkflowStepInstanceRepository wfStepRepo) {
+                               WorkflowStepInstanceRepository wfStepRepo,
+                               DocumentVersionRepository documentVersionRepo) {
         this.workflowService = workflowService;
         this.signatureService = signatureService;
         this.wfInstanceRepo = wfInstanceRepo;
         this.wfStepRepo = wfStepRepo;
+        this.documentVersionRepo = documentVersionRepo;
     }
 
     @PostMapping("/documents/{docId}/versions/{verId}/submit")
@@ -79,6 +85,12 @@ public class WorkflowController {
     public ResponseEntity<WorkflowInstanceDto> getWorkflow(
             @PathVariable Long docId,
             @PathVariable Long verId) {
+        // IDOR 가드: version이 이 document에 속하는지 확인
+        documentVersionRepo.findById(verId).ifPresent(v -> {
+            if (!v.getDocumentId().equals(docId)) {
+                throw new ForbiddenException("해당 버전은 이 문서에 속하지 않습니다");
+            }
+        });
         WorkflowInstance wf = wfInstanceRepo.findActiveByVersion(verId)
                 .orElseGet(() -> {
                     // 완료/거부된 워크플로도 반환 (가장 최근)
