@@ -44,6 +44,12 @@ public class GlobalExceptionHandler {
                 .body(ProblemDetail.of("AUTHZ_001", "Access denied", null));
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ProblemDetail> handleForbidden(ForbiddenException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ProblemDetail.of("AUTHZ_002", ex.getMessage(), null));
+    }
+
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ProblemDetail> handleConflict(ConflictException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
