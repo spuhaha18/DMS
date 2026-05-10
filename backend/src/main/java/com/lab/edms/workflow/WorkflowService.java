@@ -79,6 +79,11 @@ public class WorkflowService {
         Document document = documentRepo.findById(docId)
                 .orElseThrow(() -> new NotFoundException("문서를 찾을 수 없음: " + docId));
 
+        // IDOR 방어: version이 이 document에 속하는지 확인
+        if (!version.getDocumentId().equals(docId)) {
+            throw new ForbiddenException("해당 버전은 이 문서에 속하지 않습니다");
+        }
+
         // 2. 권한: 제출자는 version.createdBy와 동일해야 함
         User actor = getUserByUserId(actorId);
         if (!version.getCreatedBy().equals(actor.getId())) {
@@ -95,13 +100,13 @@ public class WorkflowService {
             throw new UnprocessableEntityException("WORKFLOW_001", "파일을 먼저 업로드해야 합니다");
         }
 
-        // 5. 이미 진행 중인 워크플로 없는지 확인
+        // 5. SELECT FOR UPDATE (TOCTOU 방지: 락 획득 후 활성 워크플로 확인)
+        documentRepo.lockForUpdate(docId);
+
+        // 6. 이미 진행 중인 워크플로 없는지 확인 (락 안에서)
         wfInstanceRepo.findActiveByVersion(verId).ifPresent(wi -> {
             throw new UnprocessableEntityException("WORKFLOW_002", "이미 진행 중인 결재가 있습니다");
         });
-
-        // 6. SELECT FOR UPDATE
-        documentRepo.lockForUpdate(docId);
 
         // 7. 워크플로 템플릿 조회
         WorkflowTemplate template = templateRepo.findByCategoryIdAndActiveTrue(document.getCategoryId())
