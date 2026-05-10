@@ -12,3 +12,12 @@ edms:
       # plus username/password override.
       username: audit_role
       password: audit_test_password
+
+# MinIO test defaults — overridden at runtime by @DynamicPropertySource in test classes
+# that use MinIO. For tests that don't use MinIO directly, these credentials match
+# the shared MinIO Testcontainer started in TestcontainersConfig.
+minio:
+  access-key: minio_test
+  secret-key: minio_test_pass
+  bucket-original: test-edms-documents-original
+  bucket-rendition: test-edms-documents-rendition

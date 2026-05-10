@@ -31,12 +31,15 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql:10.20.1")
     implementation("org.hibernate.orm:hibernate-envers")
     implementation("org.postgresql:postgresql")
+    implementation("com.github.f4b6a3:ulid-creator:5.2.3")
+    implementation("io.minio:minio:8.5.10")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.testcontainers:junit-jupiter:1.20.3")
     testImplementation("org.testcontainers:postgresql:1.20.3")
+    testImplementation("org.testcontainers:minio:1.20.3")
     testImplementation("org.assertj:assertj-core")
 }
 

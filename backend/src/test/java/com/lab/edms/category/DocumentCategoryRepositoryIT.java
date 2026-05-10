@@ -22,14 +22,15 @@ class DocumentCategoryRepositoryIT {
 
     @Test
     void save_andFindByCategoryCode_roundTrips() {
+        // V12 seed inserts SOP/METHOD/SPEC/FORM — use a test-only code to avoid conflict
         DocumentCategory c = new DocumentCategory();
-        c.setCategoryCode("SOP");
-        c.setCategoryName("Standard Operating Procedure");
+        c.setCategoryCode("TEST_CAT");
+        c.setCategoryName("Test Category");
         c.setReviewPeriodMonths(24);
-        c.setQaMandatory(true);
+        c.setQaMandatory(false);
         c.setActive(true);
         repo.save(c);
 
-        assertThat(repo.findByCategoryCode("SOP")).isPresent();
+        assertThat(repo.findByCategoryCode("TEST_CAT")).isPresent();
     }
 }

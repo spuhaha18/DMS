@@ -28,3 +28,19 @@ org/
 *.log
 logs/
 .gstack/
+
+# AI / tooling
+.agents/
+.claire/
+.claude/
+AGENTS.md
+skills-lock.json
+
+# Planning docs
+docs/PRDs/
+docs/agents/
+docs/skills-workflow.md
+docs/superpowers/
+
+# Debug tests
+backend/src/test/java/com/lab/edms/auth/LoginDebugIT.java

@@ -14,6 +14,10 @@ edms:
       username: audit_role
       password: audit_dev_password
 
+minio:
+  access-key: minio_root
+  secret-key: minio_dev_password
+
 logging:
   file:
     name: /tmp/edms-dev.log
