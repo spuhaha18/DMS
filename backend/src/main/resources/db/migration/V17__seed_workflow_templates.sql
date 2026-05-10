@@ -7,9 +7,16 @@ DECLARE
     v_tpl_id     BIGINT;
 BEGIN
     SELECT id INTO v_sop_id    FROM document_categories WHERE category_code = 'SOP';
+    IF v_sop_id IS NULL THEN RAISE EXCEPTION 'V17 시드 실패: SOP 카테고리를 찾을 수 없습니다'; END IF;
+
     SELECT id INTO v_method_id FROM document_categories WHERE category_code = 'METHOD';
+    IF v_method_id IS NULL THEN RAISE EXCEPTION 'V17 시드 실패: METHOD 카테고리를 찾을 수 없습니다'; END IF;
+
     SELECT id INTO v_spec_id   FROM document_categories WHERE category_code = 'SPEC';
+    IF v_spec_id IS NULL THEN RAISE EXCEPTION 'V17 시드 실패: SPEC 카테고리를 찾을 수 없습니다'; END IF;
+
     SELECT id INTO v_form_id   FROM document_categories WHERE category_code = 'FORM';
+    IF v_form_id IS NULL THEN RAISE EXCEPTION 'V17 시드 실패: FORM 카테고리를 찾을 수 없습니다'; END IF;
 
     -- SOP: REVIEW(REVIEWER, parallel, min_signers=2) → APPROVAL(APPROVER) → APPROVAL(QA, qa_required)
     INSERT INTO workflow_templates(category_id, template_name, created_by, updated_by)
