@@ -1,5 +1,6 @@
 package com.lab.edms.category;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lab.edms.audit.AuditAction;
 import com.lab.edms.audit.AuditEvent;
 import com.lab.edms.audit.AuditService;
@@ -11,16 +12,22 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class CategoryAdminService {
 
     private final DocumentCategoryRepository repo;
     private final AuditService auditService;
+    private final ObjectMapper json = new ObjectMapper();
 
     public CategoryAdminService(DocumentCategoryRepository repo, AuditService auditService) {
         this.repo = repo;
         this.auditService = auditService;
+    }
+
+    private String jsonOf(Object o) {
+        try { return json.writeValueAsString(o); } catch (Exception e) { return "{}"; }
     }
 
     public List<CategoryDto> findAll() {
@@ -42,7 +49,8 @@ public class CategoryAdminService {
         if (req.active() != null) c.setActive(req.active());
         DocumentCategory saved = repo.save(c);
         auditService.log(new AuditEvent(actorUserId, AuditAction.DOCUMENT_CATEGORY_CREATED,
-                "document_category", String.valueOf(saved.getId()), null, saved.getCategoryCode(),
+                "document_category", String.valueOf(saved.getId()), null,
+                jsonOf(Map.of("code", saved.getCategoryCode(), "name", saved.getCategoryName())),
                 null, null, OffsetDateTime.now(ZoneOffset.UTC)));
         return toDto(saved);
     }
@@ -51,7 +59,7 @@ public class CategoryAdminService {
     public CategoryDto update(Long id, UpsertCategoryRequest req, String actorUserId) {
         DocumentCategory c = repo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Category not found: " + id));
-        String before = c.getCategoryCode();
+        String before = jsonOf(Map.of("code", c.getCategoryCode(), "name", c.getCategoryName(), "active", c.isActive()));
         c.setCategoryName(req.categoryName());
         c.setDescription(req.description());
         c.setReviewPeriodMonths(req.reviewPeriodMonths() > 0 ? req.reviewPeriodMonths() : c.getReviewPeriodMonths());
@@ -59,7 +67,8 @@ public class CategoryAdminService {
         if (req.active() != null) c.setActive(req.active());
         DocumentCategory saved = repo.save(c);
         auditService.log(new AuditEvent(actorUserId, AuditAction.DOCUMENT_CATEGORY_UPDATED,
-                "document_category", String.valueOf(id), before, saved.getCategoryCode(),
+                "document_category", String.valueOf(id), before,
+                jsonOf(Map.of("code", saved.getCategoryCode(), "name", saved.getCategoryName(), "active", saved.isActive())),
                 null, null, OffsetDateTime.now(ZoneOffset.UTC)));
         return toDto(saved);
     }

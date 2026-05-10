@@ -1,5 +1,6 @@
 package com.lab.edms.department;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lab.edms.audit.AuditAction;
 import com.lab.edms.audit.AuditEvent;
 import com.lab.edms.audit.AuditService;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class DepartmentAdminService {
@@ -18,6 +20,7 @@ public class DepartmentAdminService {
     private final DepartmentRepository deptRepo;
     private final DepartmentAliasRepository aliasRepo;
     private final AuditService auditService;
+    private final ObjectMapper json = new ObjectMapper();
 
     public DepartmentAdminService(DepartmentRepository deptRepo,
                                    DepartmentAliasRepository aliasRepo,
@@ -25,6 +28,10 @@ public class DepartmentAdminService {
         this.deptRepo = deptRepo;
         this.aliasRepo = aliasRepo;
         this.auditService = auditService;
+    }
+
+    private String jsonOf(Object o) {
+        try { return json.writeValueAsString(o); } catch (Exception e) { return "{}"; }
     }
 
     public List<DepartmentDto> findAll() {
@@ -44,7 +51,8 @@ public class DepartmentAdminService {
         if (req.active() != null) d.setActive(req.active());
         Department saved = deptRepo.save(d);
         auditService.log(new AuditEvent(actorUserId, AuditAction.DEPARTMENT_CREATED,
-                "department", String.valueOf(saved.getId()), null, saved.getDeptCode(),
+                "department", String.valueOf(saved.getId()), null,
+                jsonOf(Map.of("dept_code", saved.getDeptCode(), "name", saved.getPrimaryName())),
                 null, null, OffsetDateTime.now(ZoneOffset.UTC)));
         return toDto(saved);
     }
@@ -53,12 +61,13 @@ public class DepartmentAdminService {
     public DepartmentDto update(Long id, UpsertDepartmentRequest req, String actorUserId) {
         Department d = deptRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Department not found: " + id));
-        String before = d.getDeptCode();
+        String before = jsonOf(Map.of("dept_code", d.getDeptCode(), "name", d.getPrimaryName(), "active", d.isActive()));
         d.setPrimaryName(req.primaryName());
         if (req.active() != null) d.setActive(req.active());
         Department saved = deptRepo.save(d);
         auditService.log(new AuditEvent(actorUserId, AuditAction.DEPARTMENT_UPDATED,
-                "department", String.valueOf(id), before, saved.getDeptCode(),
+                "department", String.valueOf(id), before,
+                jsonOf(Map.of("dept_code", saved.getDeptCode(), "name", saved.getPrimaryName(), "active", saved.isActive())),
                 null, null, OffsetDateTime.now(ZoneOffset.UTC)));
         return toDto(saved);
     }
@@ -70,7 +79,8 @@ public class DepartmentAdminService {
         d.setActive(false);
         deptRepo.save(d);
         auditService.log(new AuditEvent(actorUserId, AuditAction.DEPARTMENT_UPDATED,
-                "department", String.valueOf(id), "active=true", "active=false",
+                "department", String.valueOf(id),
+                jsonOf(Map.of("active", true)), jsonOf(Map.of("active", false)),
                 null, null, OffsetDateTime.now(ZoneOffset.UTC)));
     }
 
