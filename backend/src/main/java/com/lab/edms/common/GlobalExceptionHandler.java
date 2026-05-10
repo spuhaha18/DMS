@@ -1,5 +1,6 @@
 package com.lab.edms.common;
 
+import com.lab.edms.lifecycle.IllegalTransitionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -53,6 +54,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleUnprocessable(UnprocessableEntityException ex) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                 .body(ProblemDetail.of(ex.getCode(), ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(IllegalTransitionException.class)
+    public ResponseEntity<ProblemDetail> handleIllegalTransition(IllegalTransitionException ex) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ProblemDetail.of("LIFECYCLE_001", ex.getMessage(), null));
     }
 
     @ExceptionHandler(NotFoundException.class)
