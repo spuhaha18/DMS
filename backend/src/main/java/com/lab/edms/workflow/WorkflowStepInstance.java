@@ -1,6 +1,8 @@
 package com.lab.edms.workflow;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,10 +40,12 @@ public class WorkflowStepInstance {
     private String state = "PENDING";
 
     @Convert(converter = AssigneeRefListConverter.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "assignees", columnDefinition = "jsonb")
     private List<AssigneeRef> assignees = new ArrayList<>();
 
     @Convert(converter = SignedRefListConverter.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "signed", columnDefinition = "jsonb")
     private List<SignedRef> signed = new ArrayList<>();
 
