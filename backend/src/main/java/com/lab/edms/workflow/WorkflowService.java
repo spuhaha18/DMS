@@ -227,6 +227,11 @@ public class WorkflowService {
         DocumentVersion version = documentVersionRepo.findById(verId)
                 .orElseThrow(() -> new NotFoundException("버전을 찾을 수 없음: " + verId));
 
+        // IDOR 가드: version이 이 document에 속하는지 확인
+        if (!version.getDocumentId().equals(docId)) {
+            throw new ForbiddenException("해당 버전은 이 문서에 속하지 않습니다");
+        }
+
         // 5. step.state = REJECTED
         step.setState("REJECTED");
         step.setRejectionReason(reason);
