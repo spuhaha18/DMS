@@ -9,7 +9,9 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -56,6 +58,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleNotFound(NotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ProblemDetail.of("NOT_FOUND", ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ProblemDetail> handleNoResource(NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ProblemDetail.of("NOT_FOUND", "No handler found for " + ex.getHttpMethod() + " " + ex.getResourcePath(), null));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ProblemDetail> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.badRequest()
+                .body(ProblemDetail.of("VALIDATION_002",
+                        "Invalid value for parameter '" + ex.getName() + "': " + ex.getValue(), null));
     }
 
     @ExceptionHandler(ResponseStatusException.class)
