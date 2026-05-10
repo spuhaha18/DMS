@@ -8,6 +8,8 @@ import com.lab.edms.common.NotFoundException;
 import com.lab.edms.common.UnprocessableEntityException;
 import com.lab.edms.user.User;
 import com.lab.edms.user.UserRepository;
+import com.lab.edms.document.DocumentVersion;
+import com.lab.edms.document.DocumentVersionRepository;
 import com.lab.edms.workflow.SignedRef;
 import com.lab.edms.workflow.WorkflowService;
 import com.lab.edms.workflow.WorkflowStepInstance;
@@ -37,6 +39,7 @@ public class SignatureService {
     private final SignatureManifestRepository manifestRepo;
     private final WorkflowStepInstanceRepository wfStepRepo;
     private final WorkflowInstanceRepository wfInstanceRepo;
+    private final DocumentVersionRepository documentVersionRepo;
     private final UserRepository userRepo;
     private final AuditService auditService;
     private final BCryptPasswordEncoder passwordEncoder;
@@ -46,6 +49,7 @@ public class SignatureService {
     public SignatureService(SignatureManifestRepository manifestRepo,
                             WorkflowStepInstanceRepository wfStepRepo,
                             WorkflowInstanceRepository wfInstanceRepo,
+                            DocumentVersionRepository documentVersionRepo,
                             UserRepository userRepo,
                             AuditService auditService,
                             BCryptPasswordEncoder passwordEncoder,
@@ -54,6 +58,7 @@ public class SignatureService {
         this.manifestRepo = manifestRepo;
         this.wfStepRepo = wfStepRepo;
         this.wfInstanceRepo = wfInstanceRepo;
+        this.documentVersionRepo = documentVersionRepo;
         this.userRepo = userRepo;
         this.auditService = auditService;
         this.passwordEncoder = passwordEncoder;
@@ -93,6 +98,11 @@ public class SignatureService {
         // IDOR 가드: workflow → version → document = docId 검증
         if (!wf.getVersionId().equals(verId)) {
             throw new ForbiddenException("버전이 일치하지 않습니다");
+        }
+        DocumentVersion version = documentVersionRepo.findById(verId)
+                .orElseThrow(() -> new NotFoundException("버전을 찾을 수 없음: " + verId));
+        if (!version.getDocumentId().equals(docId)) {
+            throw new ForbiddenException("해당 버전은 이 문서에 속하지 않습니다");
         }
 
         // 4. 가드: step.state == 'IN_PROGRESS'
