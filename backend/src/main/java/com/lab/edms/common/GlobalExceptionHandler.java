@@ -1,5 +1,6 @@
 package com.lab.edms.common;
 
+import com.lab.edms.lifecycle.IllegalTransitionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -37,10 +38,22 @@ public class GlobalExceptionHandler {
                 .body(ProblemDetail.of("AUTH_000", "Authentication required", null));
     }
 
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ProblemDetail> handleUnauthorized(UnauthorizedException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ProblemDetail.of("AUTH_007", ex.getMessage(), null));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ProblemDetail> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ProblemDetail.of("AUTHZ_001", "Access denied", null));
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ProblemDetail> handleForbidden(ForbiddenException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ProblemDetail.of("AUTHZ_002", ex.getMessage(), null));
     }
 
     @ExceptionHandler(ConflictException.class)
@@ -53,6 +66,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleUnprocessable(UnprocessableEntityException ex) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                 .body(ProblemDetail.of(ex.getCode(), ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(IllegalTransitionException.class)
+    public ResponseEntity<ProblemDetail> handleIllegalTransition(IllegalTransitionException ex) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ProblemDetail.of("LIFECYCLE_001", ex.getMessage(), null));
     }
 
     @ExceptionHandler(NotFoundException.class)

@@ -1,14 +1,22 @@
 package com.lab.edms.document;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
+import java.util.Optional;
 
 public interface DocumentRepository extends JpaRepository<Document, Long> {
+
+    // SELECT FOR UPDATE (단일 EFFECTIVE 보장 + T-06 race 차단용)
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT d FROM Document d WHERE d.id = :id")
+    Optional<Document> lockForUpdate(@Param("id") Long id);
 
     @Query("""
       SELECT d FROM Document d

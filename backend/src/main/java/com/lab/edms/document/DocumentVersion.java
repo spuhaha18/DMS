@@ -1,5 +1,6 @@
 package com.lab.edms.document;
 
+import com.lab.edms.lifecycle.DocumentState;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -99,4 +100,8 @@ public class DocumentVersion {
     public void setExpiryDate(LocalDate v) { this.expiryDate = v; }
     public void setCreatedBy(Long v) { this.createdBy = v; }
     public void setUpdatedBy(Long v) { this.updatedBy = v; }
+
+    public DocumentState getStateAsEnum() {
+        return DocumentState.parse(this.state);
+    }
 }
