@@ -14,4 +14,5 @@ public interface SignatureManifestRepository extends JpaRepository<SignatureMani
     // 해시체인 계산용: 같은 버전의 마지막 manifest (prev_hash 계산)
     @Query("SELECT sm FROM SignatureManifest sm WHERE sm.versionId = :verId ORDER BY sm.id DESC LIMIT 1")
     Optional<SignatureManifest> findLatestByVersionId(@Param("verId") Long verId);
+
 }

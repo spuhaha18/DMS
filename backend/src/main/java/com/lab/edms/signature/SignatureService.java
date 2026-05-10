@@ -128,7 +128,8 @@ public class SignatureService {
             throw new UnprocessableEntityException("WORKFLOW_011", "이미 서명하셨습니다");
         }
 
-        // 7. 해시체인 계산 (SELECT FOR UPDATE 후)
+        // 7. 해시체인 계산 — 병렬 서명 경쟁 조건 방지: version 행 락 후 prevHash 읽기
+        documentVersionRepo.lockForUpdate(verId);
         Instant signedAt = Instant.now();
         SignatureMeaning meaning = SignatureMeaning.valueOf(meaningStr);
 
