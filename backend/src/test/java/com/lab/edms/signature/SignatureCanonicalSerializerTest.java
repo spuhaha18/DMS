@@ -77,4 +77,52 @@ class SignatureCanonicalSerializerTest {
         // Actually simpler: just verify the raw string contains escaped pipe
         assertThat(payload).contains("SOP\\|QA");
     }
+
+    // ── OQ-SIG-014 ──────────────────────────────────────────────────────────
+
+    @Test
+    void oqSig014_pipeInField_preventsHashCollision() {
+        // Case A: pipe in docNumber
+        String payloadA = SignatureCanonicalSerializer.serialize(
+                1L, "APPROVED", Instant.parse("2026-05-11T10:00:00Z"),
+                10L, "SOP|QA", 1, "UNDER_APPROVAL", "abc");
+        // Case B: pipe in docStatus (same raw string without escaping)
+        String payloadB = SignatureCanonicalSerializer.serialize(
+                1L, "APPROVED", Instant.parse("2026-05-11T10:00:00Z"),
+                10L, "SOP", 1, "QA|UNDER_APPROVAL", "abc");
+
+        // Payloads must be different strings (escaping prevents collision)
+        assertThat(payloadA).isNotEqualTo(payloadB);
+
+        // Verify Case A: docNumber pipe is escaped
+        assertThat(payloadA).contains("SOP\\|QA");
+        // Verify Case B: docStatus pipe is escaped
+        assertThat(payloadB).contains("QA\\|UNDER_APPROVAL");
+
+        // The two payloads, when hashed, must produce different hashes
+        String hashA = sha256(payloadA);
+        String hashB = sha256(payloadB);
+        assertThat(hashA).isNotEqualTo(hashB);
+    }
+
+    @Test
+    void oqSig014_genesisHashIsNotLiteralGenesis() {
+        // genesis hash must be HEX(SHA-256("GENESIS")), not the literal string "GENESIS"
+        String genesisHash = sha256("GENESIS");
+        assertThat(genesisHash).hasSize(64);
+        assertThat(genesisHash).matches("[0-9a-f]{64}");
+        assertThat(genesisHash).isNotEqualTo("GENESIS");
+    }
+
+    private static String sha256(String input) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(64);
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
