@@ -34,9 +34,10 @@ class SignatureCanonicalSerializerTest {
 
     @Test
     void nfc_normalizes_korean_decomposed() {
-        // NFD 가 (U+1100 + U+1161) → NFC 가 (U+AC00)
-        String nfd = "가";  // decomposed ga
-        String nfc = "가";       // composed ga
+        // U+1100 (ᄀ) + U+1161 (ᅡ) → NFC U+AC00 (가)
+        // Use unicode escapes to guarantee NFD input regardless of source file encoding
+        String nfd = "가";
+        String nfc = "가";
         assertThat(SignatureCanonicalSerializer.nfc(nfd)).isEqualTo(nfc);
     }
 
