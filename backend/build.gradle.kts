@@ -33,6 +33,7 @@ dependencies {
     implementation("org.postgresql:postgresql")
     implementation("com.github.f4b6a3:ulid-creator:5.2.3")
     implementation("io.minio:minio:8.5.10")
+    implementation("com.bucket4j:bucket4j-core:8.10.1")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")

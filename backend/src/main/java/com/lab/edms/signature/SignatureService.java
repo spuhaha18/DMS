@@ -6,6 +6,7 @@ import com.lab.edms.audit.AuditService;
 import com.lab.edms.auth.LocalAuthProvider;
 import com.lab.edms.common.ForbiddenException;
 import com.lab.edms.common.NotFoundException;
+import com.lab.edms.common.TooManyRequestsException;
 import com.lab.edms.common.UnauthorizedException;
 import com.lab.edms.common.UnprocessableEntityException;
 import com.lab.edms.document.Document;
@@ -70,6 +71,7 @@ public class SignatureService {
     private final DocumentRepository documentRepo;
     private final DocumentFileRepository documentFileRepo;
     private final LocalAuthProvider localAuthProvider;
+    private final SignatureRateLimiter rateLimiter;
 
     public SignatureService(SignatureManifestRepository manifestRepo,
                             WorkflowStepInstanceRepository wfStepRepo,
@@ -82,7 +84,8 @@ public class SignatureService {
                             WorkflowService workflowService,
                             DocumentRepository documentRepo,
                             DocumentFileRepository documentFileRepo,
-                            LocalAuthProvider localAuthProvider) {
+                            LocalAuthProvider localAuthProvider,
+                            SignatureRateLimiter rateLimiter) {
         this.manifestRepo = manifestRepo;
         this.wfStepRepo = wfStepRepo;
         this.wfInstanceRepo = wfInstanceRepo;
@@ -95,6 +98,7 @@ public class SignatureService {
         this.documentRepo = documentRepo;
         this.documentFileRepo = documentFileRepo;
         this.localAuthProvider = localAuthProvider;
+        this.rateLimiter = rateLimiter;
     }
 
     @Transactional
@@ -104,6 +108,11 @@ public class SignatureService {
                                    Authentication auth, HttpSession session,
                                    String clientIp) {
         String actorUserId = auth.getName();
+
+        // 0. Rate limit: 5회/분 per userId+IP (브루트포스 1차 방어선)
+        if (!rateLimiter.tryConsume(actorUserId, clientIp)) {
+            throw new TooManyRequestsException("서명 요청이 너무 많습니다. 잠시 후 다시 시도하세요.");
+        }
 
         // 1. PW 재인증 (BCrypt verify)
         if (!verifyPassword(actorUserId, password)) {
