@@ -104,7 +104,7 @@ class SignatureLockoutRollbackIT {
         jdbc.execute("DELETE FROM document_versions");
         jdbc.execute("DELETE FROM documents");
         jdbc.execute("DELETE FROM permissions");
-        jdbc.execute("DELETE FROM user_roles");
+        jdbc.execute("DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE user_id LIKE 'lockout_test_%')");
         jdbc.execute("DELETE FROM users WHERE user_id LIKE 'lockout_test_%'");
         jdbc.execute("DELETE FROM audit_logs");
     }
