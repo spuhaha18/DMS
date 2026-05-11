@@ -19,4 +19,8 @@ public class SessionFirstSignTracker {
     public void markSigned(HttpSession session) {
         session.setAttribute(ATTR, java.time.Instant.now().toString());
     }
+
+    public void unmarkSigned(HttpSession session) {
+        session.removeAttribute(ATTR);
+    }
 }
