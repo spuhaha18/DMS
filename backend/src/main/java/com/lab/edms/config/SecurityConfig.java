@@ -31,6 +31,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/csrf").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/audit-logs/checkpoints/**")
+                                .hasAnyAuthority("ROLE_ADMIN", "ROLE_AUDITOR")
                         .anyRequest().authenticated())
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
