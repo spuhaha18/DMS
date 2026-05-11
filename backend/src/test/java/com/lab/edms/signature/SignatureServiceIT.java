@@ -182,7 +182,8 @@ class SignatureServiceIT {
 
         SignatureManifest manifest = signatureService.sign(
                 document.getId(), docVersion.getId(), stepInstance.getId(),
-                PLAIN_PASSWORD, "REVIEWED", auth, session, "127.0.0.1");
+                PLAIN_PASSWORD, "REVIEWED", reviewer1.getUserId(),
+                auth, session, "127.0.0.1");
 
         assertThat(manifest.getId()).isNotNull();
         assertThat(manifest.getSignerUserId()).isEqualTo(reviewer1.getUserId());
@@ -215,7 +216,8 @@ class SignatureServiceIT {
         // 첫 서명 (step1)
         signatureService.sign(
                 document.getId(), docVersion.getId(), stepInstance.getId(),
-                PLAIN_PASSWORD, "REVIEWED", auth, session, "127.0.0.1");
+                PLAIN_PASSWORD, "REVIEWED", reviewer1.getUserId(),
+                auth, session, "127.0.0.1");
 
         em.flush();
         em.clear();
@@ -239,7 +241,8 @@ class SignatureServiceIT {
 
         SignatureManifest manifest2 = signatureService.sign(
                 document.getId(), docVersion.getId(), step2.getId(),
-                PLAIN_PASSWORD, "REVIEWED", auth, session, "127.0.0.1");
+                PLAIN_PASSWORD, "REVIEWED", null,
+                auth, session, "127.0.0.1");
 
         assertThat(manifest2.isSessionFirst()).isFalse();
     }
@@ -254,7 +257,8 @@ class SignatureServiceIT {
         assertThatThrownBy(() ->
                 signatureService.sign(
                         document.getId(), docVersion.getId(), stepInstance.getId(),
-                        "WRONG_PASSWORD", "REVIEWED", auth, session, "127.0.0.1"))
+                        "WRONG_PASSWORD", "REVIEWED", reviewer1.getUserId(),
+                        auth, session, "127.0.0.1"))
                 .isInstanceOf(UnauthorizedException.class)
                 .hasMessageContaining("비밀번호");
 
@@ -276,7 +280,8 @@ class SignatureServiceIT {
         assertThatThrownBy(() ->
                 signatureService.sign(
                         document.getId(), docVersion.getId(), stepInstance.getId(),
-                        PLAIN_PASSWORD, "REVIEWED", auth, session, "127.0.0.1"))
+                        PLAIN_PASSWORD, "REVIEWED", outsider.getUserId(),
+                        auth, session, "127.0.0.1"))
                 .isInstanceOf(ForbiddenException.class)
                 .hasMessageContaining("결재 권한");
     }
@@ -298,7 +303,8 @@ class SignatureServiceIT {
         assertThatThrownBy(() ->
                 signatureService.sign(
                         document.getId(), docVersion.getId(), stepInstance.getId(),
-                        PLAIN_PASSWORD, "REVIEWED", auth, session, "127.0.0.1"))
+                        PLAIN_PASSWORD, "REVIEWED", reviewer1.getUserId(),
+                        auth, session, "127.0.0.1"))
                 .isInstanceOf(UnprocessableEntityException.class)
                 .hasMessageContaining("처리된 단계");
     }
@@ -335,7 +341,8 @@ class SignatureServiceIT {
         MockHttpSession session1 = new MockHttpSession();
         signatureService.sign(
                 docP.getId(), docVerP.getId(), parallelStep.getId(),
-                PLAIN_PASSWORD, "REVIEWED", authOf(reviewer1.getUserId()), session1, "127.0.0.1");
+                PLAIN_PASSWORD, "REVIEWED", reviewer1.getUserId(),
+                authOf(reviewer1.getUserId()), session1, "127.0.0.1");
 
         em.flush();
         em.clear();
@@ -347,7 +354,8 @@ class SignatureServiceIT {
         MockHttpSession session2 = new MockHttpSession();
         signatureService.sign(
                 docP.getId(), docVerP.getId(), parallelStep.getId(),
-                PLAIN_PASSWORD, "REVIEWED", authOf(reviewer2.getUserId()), session2, "127.0.0.1");
+                PLAIN_PASSWORD, "REVIEWED", reviewer2.getUserId(),
+                authOf(reviewer2.getUserId()), session2, "127.0.0.1");
 
         em.flush();
         em.clear();
@@ -364,7 +372,8 @@ class SignatureServiceIT {
         MockHttpSession session1 = new MockHttpSession();
         SignatureManifest manifest1 = signatureService.sign(
                 document.getId(), docVersion.getId(), stepInstance.getId(),
-                PLAIN_PASSWORD, "REVIEWED", authOf(reviewer1.getUserId()), session1, "127.0.0.1");
+                PLAIN_PASSWORD, "REVIEWED", reviewer1.getUserId(),
+                authOf(reviewer1.getUserId()), session1, "127.0.0.1");
         String hash1 = manifest1.getThisHash();
 
         em.flush();
@@ -396,7 +405,8 @@ class SignatureServiceIT {
         MockHttpSession session2 = new MockHttpSession();
         SignatureManifest manifest2 = signatureService.sign(
                 doc2.getId(), docVersion2.getId(), step2.getId(),
-                PLAIN_PASSWORD, "REVIEWED", authOf(reviewer1.getUserId()), session2, "127.0.0.1");
+                PLAIN_PASSWORD, "REVIEWED", reviewer1.getUserId(),
+                authOf(reviewer1.getUserId()), session2, "127.0.0.1");
         String hash2 = manifest2.getThisHash();
 
         // sha256이 다르면 canonical payload가 다르므로 thisHash도 달라야 함
@@ -438,7 +448,8 @@ class SignatureServiceIT {
         assertThatThrownBy(() ->
                 signatureService.sign(
                         doc3.getId(), docVersion3.getId(), step3.getId(),
-                        PLAIN_PASSWORD, "REVIEWED", auth, session, "127.0.0.1"))
+                        PLAIN_PASSWORD, "REVIEWED", reviewer1.getUserId(),
+                        auth, session, "127.0.0.1"))
                 .isInstanceOf(UnprocessableEntityException.class)
                 .satisfies(ex -> assertThat(((UnprocessableEntityException) ex).getCode())
                         .isEqualTo("SIGNATURE_001"));

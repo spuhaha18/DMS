@@ -179,7 +179,8 @@ class SignatureLockoutRollbackIT {
         assertThatThrownBy(() ->
                 signatureService.sign(
                         document.getId(), docVersion.getId(), stepInstance.getId(),
-                        "wrong_password_xyz", "REVIEWED", auth, session, "127.0.0.1"))
+                        "wrong_password_xyz", "REVIEWED", testUser.getUserId(),
+                        auth, session, "127.0.0.1"))
                 .isInstanceOf(UnauthorizedException.class);
 
         // REQUIRES_NEW 트랜잭션은 이미 커밋됨.
@@ -206,7 +207,8 @@ class SignatureLockoutRollbackIT {
             assertThatThrownBy(() ->
                     signatureService.sign(
                             document.getId(), docVersion.getId(), stepInstance.getId(),
-                            "wrong", "REVIEWED", auth, new MockHttpSession(), "127.0.0.1"))
+                            "wrong", "REVIEWED", testUser.getUserId(),
+                            auth, new MockHttpSession(), "127.0.0.1"))
                     .isInstanceOf(UnauthorizedException.class);
         }
 

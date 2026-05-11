@@ -187,19 +187,22 @@ class SignatureChainIntegrityIT {
         MockHttpSession session1 = new MockHttpSession();
         signatureService.sign(
                 document.getId(), versionId, stepInstance.getId(),
-                PLAIN_PASSWORD, "REVIEWED", authOf(user1.getUserId()), session1, "127.0.0.1");
+                PLAIN_PASSWORD, "REVIEWED", user1.getUserId(),
+                authOf(user1.getUserId()), session1, "127.0.0.1");
 
         // ── 2차 서명 (user2) ──
         MockHttpSession session2 = new MockHttpSession();
         signatureService.sign(
                 document.getId(), versionId, stepInstance.getId(),
-                PLAIN_PASSWORD, "REVIEWED", authOf(user2.getUserId()), session2, "127.0.0.2");
+                PLAIN_PASSWORD, "REVIEWED", user2.getUserId(),
+                authOf(user2.getUserId()), session2, "127.0.0.2");
 
         // ── 3차 서명 (user3) ──
         MockHttpSession session3 = new MockHttpSession();
         signatureService.sign(
                 document.getId(), versionId, stepInstance.getId(),
-                PLAIN_PASSWORD, "REVIEWED", authOf(user3.getUserId()), session3, "127.0.0.3");
+                PLAIN_PASSWORD, "REVIEWED", user3.getUserId(),
+                authOf(user3.getUserId()), session3, "127.0.0.3");
 
         // ── v_signature_chain_integrity 뷰 검증 ──
         Map<String, Object> row = jdbc.queryForMap(

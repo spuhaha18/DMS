@@ -162,7 +162,8 @@ class SignatureUniqueHashIT {
 
         SignatureManifest manifest1 = signatureService.sign(
                 document.getId(), docVersion.getId(), stepInstance.getId(),
-                PLAIN_PASSWORD, "REVIEWED", auth, session, "127.0.0.1");
+                PLAIN_PASSWORD, "REVIEWED", testUser.getUserId(),
+                auth, session, "127.0.0.1");
 
         String duplicateHash = manifest1.getThisHash();
 
@@ -197,7 +198,8 @@ class SignatureUniqueHashIT {
 
         signatureService.sign(
                 document.getId(), docVersion.getId(), stepInstance.getId(),
-                PLAIN_PASSWORD, "REVIEWED", auth, session, "127.0.0.1");
+                PLAIN_PASSWORD, "REVIEWED", testUser.getUserId(),
+                auth, session, "127.0.0.1");
 
         Integer brokenLinks = jdbc.queryForObject(
                 "SELECT broken_links FROM v_signature_chain_integrity WHERE version_id = ?",

@@ -180,8 +180,8 @@ class WorkflowServiceIT {
 
         // reviewer1 서명
         signatureService.sign(doc.getId(), ver.getId(), reviewStep.getId(),
-                PLAIN_PW, "REVIEWED", authOf(reviewer1.getUserId()),
-                new MockHttpSession(), "127.0.0.1");
+                PLAIN_PW, "REVIEWED", reviewer1.getUserId(),
+                authOf(reviewer1.getUserId()), new MockHttpSession(), "127.0.0.1");
         em.flush();
         em.clear();
 
@@ -191,8 +191,8 @@ class WorkflowServiceIT {
 
         // reviewer2 서명
         signatureService.sign(doc.getId(), ver.getId(), reviewStep.getId(),
-                PLAIN_PW, "REVIEWED", authOf(reviewer2.getUserId()),
-                new MockHttpSession(), "127.0.0.1");
+                PLAIN_PW, "REVIEWED", reviewer2.getUserId(),
+                authOf(reviewer2.getUserId()), new MockHttpSession(), "127.0.0.1");
         em.flush();
         em.clear();
 
@@ -209,8 +209,8 @@ class WorkflowServiceIT {
 
         // QA 서명 → T-03 EFFECTIVE (qa_required step 완료 → qa_mandatory 가드 통과)
         signatureService.sign(doc.getId(), ver.getId(), step2Refreshed.getId(),
-                PLAIN_PW, "QA_APPROVED", authOf(qaUser.getUserId()),
-                new MockHttpSession(), "127.0.0.1");
+                PLAIN_PW, "QA_APPROVED", qaUser.getUserId(),
+                authOf(qaUser.getUserId()), new MockHttpSession(), "127.0.0.1");
         em.flush();
         em.clear();
 
@@ -314,8 +314,8 @@ class WorkflowServiceIT {
 
         // reviewer1이 먼저 서명
         signatureService.sign(doc.getId(), ver.getId(), parallelStep.getId(),
-                PLAIN_PW, "REVIEWED", authOf(reviewer1.getUserId()),
-                new MockHttpSession(), "127.0.0.1");
+                PLAIN_PW, "REVIEWED", reviewer1.getUserId(),
+                authOf(reviewer1.getUserId()), new MockHttpSession(), "127.0.0.1");
         em.flush();
         em.clear();
 
@@ -352,8 +352,8 @@ class WorkflowServiceIT {
 
         assertThatThrownBy(() ->
                 signatureService.sign(doc.getId(), ver.getId(), step.getId(),
-                        PLAIN_PW, "REVIEWED", authOf(outsider.getUserId()),
-                        new MockHttpSession(), "127.0.0.1"))
+                        PLAIN_PW, "REVIEWED", outsider.getUserId(),
+                        authOf(outsider.getUserId()), new MockHttpSession(), "127.0.0.1"))
                 .isInstanceOf(ForbiddenException.class);
     }
 
@@ -389,8 +389,8 @@ class WorkflowServiceIT {
         // approver 서명 → advance() 호출 → qa_mandatory 가드에서 422
         assertThatThrownBy(() ->
                 signatureService.sign(doc.getId(), ver.getId(), approvalStep.getId(),
-                        PLAIN_PW, "APPROVED", authOf(approver.getUserId()),
-                        new MockHttpSession(), "127.0.0.1"))
+                        PLAIN_PW, "APPROVED", approver.getUserId(),
+                        authOf(approver.getUserId()), new MockHttpSession(), "127.0.0.1"))
                 .isInstanceOf(UnprocessableEntityException.class)
                 .hasMessageContaining("QA");
     }

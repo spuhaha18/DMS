@@ -99,6 +99,7 @@ public class SignatureService {
     @Transactional
     public SignatureManifest sign(Long docId, Long verId, Long stepInstanceId,
                                    String password, String meaningStr,
+                                   String signingUserId,
                                    Authentication auth, HttpSession session,
                                    String clientIp) {
         String actorUserId = auth.getName();
@@ -115,6 +116,17 @@ public class SignatureService {
 
         // 2. SessionFirstSignTracker — READ ONLY at entry, mark AFTER manifest INSERT
         boolean sessionFirst = sessionTracker.isFirstInSession(session);
+
+        // Part 11 §11.200(a) — session-first requires ID+PW
+        if (sessionFirst) {
+            if (signingUserId == null || signingUserId.isBlank()) {
+                throw new UnprocessableEntityException("SIGNATURE_002",
+                        "첫 번째 서명 시 사용자 ID가 필요합니다");
+            }
+            if (!signingUserId.equals(actorUserId)) {
+                throw new ForbiddenException("SIGNATURE_003: 서명자 ID가 일치하지 않습니다");
+            }
+        }
 
         // 3. WorkflowStepInstance 조회 + IDOR 가드
         WorkflowStepInstance step = wfStepRepo.findById(stepInstanceId)

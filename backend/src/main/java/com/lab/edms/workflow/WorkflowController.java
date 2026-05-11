@@ -60,10 +60,10 @@ public class WorkflowController {
             HttpSession session,
             HttpServletRequest httpRequest) {
         String clientIp = httpRequest.getRemoteAddr();
-        String signingUserId = req.getSigningUserId();  // optional; enforced in Task 18
         SignatureManifest manifest = signatureService.sign(
                 docId, verId, req.getStepInstanceId(),
                 req.getPassword(), req.getMeaning(),
+                req.getSigningUserId(),
                 auth, session, clientIp);
         return ResponseEntity.ok(manifest);
     }
