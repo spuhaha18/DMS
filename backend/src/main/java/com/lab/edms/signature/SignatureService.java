@@ -245,9 +245,10 @@ public class SignatureService {
     private String buildCanonicalPayload(DocumentVersion version, Document doc,
                                           Long signerId, String meaning,
                                           Instant signedAt, String sourceFileSha256) {
+        int revision = version.getRevision() != null ? version.getRevision() : 0;
         return SignatureCanonicalSerializer.serialize(
                 signerId, meaning, signedAt,
-                version.getId(), doc.getDocNumber(), version.getRevision(),
+                version.getId(), doc.getDocNumber(), revision,
                 version.getState(), sourceFileSha256);
     }
 }
