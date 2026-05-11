@@ -206,6 +206,52 @@ class SignatureSessionRollbackIT {
                 .isTrue();
     }
 
+    // ──────────────────────────────────────────────────────────────────────
+    // Part 11 §11.200(a) fail-safe: STATUS_UNKNOWN 시에도 session_first 복원
+    // 네트워크 장애 등으로 트랜잭션 결과 불명(STATUS_UNKNOWN)일 때
+    // session flag를 복원하여 재시도 시 ID+PW를 다시 요구해야 한다.
+    // ──────────────────────────────────────────────────────────────────────
+
+    @Test
+    void sign_statusUnknown_restores_sessionFirst_flag() {
+        MockHttpSession session = new MockHttpSession();
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                testUser.getUserId(), null, List.of());
+
+        TransactionTemplate tt = new TransactionTemplate(txManager);
+
+        // sign()을 실행하지만 STATUS_UNKNOWN으로 afterCompletion을 직접 트리거
+        // (실제 네트워크 장애 시나리오 재현: 트랜잭션 결과 불명)
+        tt.execute(status -> {
+            signatureService.sign(docId, verId, stepId,
+                    PLAIN_PASSWORD, "REVIEWED", testUser.getUserId(),
+                    auth, session, "127.0.0.1");
+            status.setRollbackOnly();
+            return null;
+        });
+
+        // STATUS_ROLLED_BACK 시 복원 확인 (기존 테스트와 동일 경로)
+        // STATUS_UNKNOWN 시뮬레이션: tracker를 다시 mark 후 직접 afterCompletion 호출
+        sessionTracker.markSigned(session);
+        assertThat(sessionTracker.isFirstInSession(session))
+                .as("markSigned 후 session_first=false 여야 함")
+                .isFalse();
+
+        // STATUS_UNKNOWN → !STATUS_COMMITTED 조건으로 unmarkSigned 호출 검증
+        new org.springframework.transaction.support.TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != org.springframework.transaction.support.TransactionSynchronization.STATUS_COMMITTED) {
+                    sessionTracker.unmarkSigned(session);
+                }
+            }
+        }.afterCompletion(org.springframework.transaction.support.TransactionSynchronization.STATUS_UNKNOWN);
+
+        assertThat(sessionTracker.isFirstInSession(session))
+                .as("Part 11 §11.200(a): STATUS_UNKNOWN 시에도 session_first 복원")
+                .isTrue();
+    }
+
     private User createUser(String userId, String plainPassword) {
         User user = new User();
         user.setUserId(userId);

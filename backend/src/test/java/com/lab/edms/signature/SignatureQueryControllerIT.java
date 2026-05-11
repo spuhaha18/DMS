@@ -78,6 +78,7 @@ class SignatureQueryControllerIT {
     private User reviewer1;
     private User reviewer2;
     private User noPermUser;
+    private User deptMismatchUser;
 
     @AfterEach
     void tearDown() {
@@ -111,15 +112,20 @@ class SignatureQueryControllerIT {
 
             sopCategoryId = catRepo.findByCategoryCode("FORM").orElseThrow().getId();
 
-            reviewer1   = createUser("sigqit_rev1",    PLAIN_PASSWORD);
-            reviewer2   = createUser("sigqit_rev2",    PLAIN_PASSWORD);
-            noPermUser  = createUser("sigqit_noperm",  PLAIN_PASSWORD); // no role, no permissions
+            reviewer1        = createUser("sigqit_rev1",         PLAIN_PASSWORD);
+            reviewer2        = createUser("sigqit_rev2",         PLAIN_PASSWORD);
+            noPermUser       = createUser("sigqit_noperm",       PLAIN_PASSWORD); // no role, no permissions
+            deptMismatchUser = createUser("sigqit_deptmismatch", PLAIN_PASSWORD);
 
             Role reviewerRole = roleRepo.findByRoleCode("REVIEWER").orElseThrow();
+            Role authorRole   = roleRepo.findByRoleCode("AUTHOR").orElseThrow();
             assignRole(reviewer1, reviewerRole);
             assignRole(reviewer2, reviewerRole);
+            // deptMismatchUser uses AUTHOR role with FORM+PROD (not QC) — dept mismatch테스트용
+            assignRole(deptMismatchUser, authorRole);
 
-            grantPermission(reviewerRole.getId(), sopCategoryId, "QC", true, false);
+            grantPermission(reviewerRole.getId(), sopCategoryId, "QC",   true, false);
+            grantPermission(authorRole.getId(),   sopCategoryId, "PROD",  false, false); // can_view only
             return null;
         });
     }
@@ -279,6 +285,39 @@ class SignatureQueryControllerIT {
     }
 
     // ──────────────────────────────────────────────────────────────────────
+    // OQ-SIG-013 (가시성-dept): FORM 카테고리는 허용이나 부서 불일치 → 403
+    // ──────────────────────────────────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = "sigqit_deptmismatch", authorities = {"ROLE_AUTHOR"})
+    void getSignatures_wrongDeptPermission_returns403() throws Exception {
+        // 문서는 QC dept / sigqit_deptmismatch는 PROD dept 권한만 보유
+        long[] ids = signOnce(reviewer1, TEST_SHA256);
+        long docId = ids[0];
+        long vid   = ids[1];
+
+        mockMvc.perform(get("/api/v1/documents/{docId}/versions/{vid}/signatures", docId, vid))
+                .andExpect(status().isForbidden());
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // OQ-SIG-013 (가시성-confidential): 기밀 문서 + 비오너 → 403
+    // ──────────────────────────────────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = "sigqit_rev2", authorities = {"ROLE_AUTHOR"})
+    void getSignatures_confidentialDoc_nonOwner_returns403() throws Exception {
+        // reviewer1 소유의 기밀 문서 생성 + 서명
+        long[] ids = signOnceConfidential(reviewer1, TEST_SHA256);
+        long docId = ids[0];
+        long vid   = ids[1];
+
+        // reviewer2: FORM+QC 권한은 있으나 문서 오너가 아님 → 403
+        mockMvc.perform(get("/api/v1/documents/{docId}/versions/{vid}/signatures", docId, vid))
+                .andExpect(status().isForbidden());
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
     // 헬퍼 메서드
     // ──────────────────────────────────────────────────────────────────────
 
@@ -389,6 +428,53 @@ class SignatureQueryControllerIT {
         p.setCanReview(canReview);
         p.setCanApprove(canApprove);
         permRepo.save(p);
+    }
+
+    private long[] signOnceConfidential(User signer, String sha256) {
+        long[] result = new long[2];
+        TransactionTemplate tt = new TransactionTemplate(txManager);
+        tt.execute(status -> {
+            Document doc = new Document();
+            doc.setDocNumber("SOP-QC-CONF-" + System.nanoTime());
+            doc.setCategoryId(sopCategoryId);
+            doc.setDepartment("QC");
+            doc.setTitle("기밀 테스트 문서");
+            doc.setOwnerId(signer.getId());
+            doc.setCreatedBy(signer.getId());
+            doc.setConfidential(true);
+            docRepo.save(doc);
+
+            DocumentVersion ver = createDocVersion(doc.getId(), signer.getId());
+            insertOriginalFile(ver.getId(), signer.getId(), sha256);
+
+            WorkflowInstance wf = createWorkflowInstance(ver.getId(), signer.getUserId());
+            WorkflowStepInstance step = createStepInstance(wf.getId(), 1,
+                    List.of(signer), 1, false, "REVIEW");
+            step.setState("IN_PROGRESS");
+            wfStepRepo.save(step);
+
+            result[0] = doc.getId();
+            result[1] = ver.getId();
+            return null;
+        });
+
+        long docId = result[0];
+        long vid   = result[1];
+        TransactionTemplate tt2 = new TransactionTemplate(txManager);
+        tt2.execute(status -> {
+            WorkflowStepInstance step = wfStepRepo.findAll().stream()
+                    .filter(s -> s.getWorkflowId() != null)
+                    .filter(s -> {
+                        WorkflowInstance wf = wfInstanceRepo.findById(s.getWorkflowId()).orElse(null);
+                        return wf != null && wf.getVersionId().equals(vid);
+                    })
+                    .findFirst().orElseThrow();
+            signatureService.sign(docId, vid, step.getId(),
+                    PLAIN_PASSWORD, "REVIEWED", signer.getUserId(),
+                    authOf(signer.getUserId()), new MockHttpSession(), "127.0.0.1");
+            return null;
+        });
+        return result;
     }
 
     private Document createDocument(User owner) {
