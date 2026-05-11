@@ -47,8 +47,10 @@ public class SignatureQueryController {
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
                             || a.getAuthority().equals("ROLE_AUDITOR"));
 
-        // Visibility guard: category/dept/confidential access (mirrors DocumentService.getById)
-        // ADMIN/AUDITOR have unrestricted access and skip this check
+        // Visibility guard: assertViewable fetches the Document by docId (one DB call).
+        // The IDOR guard above confirmed version→docId FK only (version entity, not document).
+        // Two separate entity fetches; not duplicate.
+        // ADMIN/AUDITOR have unrestricted access and skip this check.
         if (!privileged) {
             documentService.assertViewable(docId, auth.getName());
         }

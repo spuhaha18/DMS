@@ -213,6 +213,7 @@ public class DocumentService {
         return DocumentVersionDto.fromEntity(version);
     }
 
+    @Transactional(readOnly = true)
     public void assertViewable(Long docId, String actorUserId) {
         Document doc = docRepo.findById(docId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,

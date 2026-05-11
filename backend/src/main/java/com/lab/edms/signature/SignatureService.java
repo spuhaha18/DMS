@@ -223,7 +223,9 @@ public class SignatureService {
 
         // first flag: mark now, but undo on rollback — if wfStepRepo/workflowService/auditService
         // later fail and roll back the transaction, the session flag is reset so a retry
-        // still requires ID+PW (Part 11 §11.200(a))
+        // still requires ID+PW (Part 11 §11.200(a)).
+        // Note: concurrent sign requests in the same session depend on HTTP session
+        // serialization (e.g. Spring Session) for strict ordering of this flag.
         if (sessionFirst) {
             sessionTracker.markSigned(session);
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

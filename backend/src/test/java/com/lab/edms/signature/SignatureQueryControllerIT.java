@@ -77,6 +77,7 @@ class SignatureQueryControllerIT {
     private Long sopCategoryId;
     private User reviewer1;
     private User reviewer2;
+    private User noPermUser;
 
     @AfterEach
     void tearDown() {
@@ -110,8 +111,9 @@ class SignatureQueryControllerIT {
 
             sopCategoryId = catRepo.findByCategoryCode("FORM").orElseThrow().getId();
 
-            reviewer1 = createUser("sigqit_rev1", PLAIN_PASSWORD);
-            reviewer2 = createUser("sigqit_rev2", PLAIN_PASSWORD);
+            reviewer1   = createUser("sigqit_rev1",    PLAIN_PASSWORD);
+            reviewer2   = createUser("sigqit_rev2",    PLAIN_PASSWORD);
+            noPermUser  = createUser("sigqit_noperm",  PLAIN_PASSWORD); // no role, no permissions
 
             Role reviewerRole = roleRepo.findByRoleCode("REVIEWER").orElseThrow();
             assignRole(reviewer1, reviewerRole);
@@ -181,6 +183,23 @@ class SignatureQueryControllerIT {
 
         mockMvc.perform(get("/api/v1/documents/{docId}/versions/{vid}/signatures", docId, vid))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // OQ-SIG-013 (가시성): 문서 카테고리 권한 없는 사용자 → 403
+    // assertViewable() 호출 경로 회귀 테스트
+    // ──────────────────────────────────────────────────────────────────────
+
+    @Test
+    @WithMockUser(username = "sigqit_noperm", authorities = {"ROLE_AUTHOR"})
+    void getSignatures_withoutDocumentPermission_returns403() throws Exception {
+        long[] ids = signOnce(reviewer1, TEST_SHA256);
+        long docId = ids[0];
+        long vid   = ids[1];
+
+        // sigqit_noperm has no permission for FORM+QC → assertViewable throws 403
+        mockMvc.perform(get("/api/v1/documents/{docId}/versions/{vid}/signatures", docId, vid))
+                .andExpect(status().isForbidden());
     }
 
     // ──────────────────────────────────────────────────────────────────────
