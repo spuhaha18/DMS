@@ -62,5 +62,6 @@ public class TestcontainersConfig {
         registry.add("minio.secret-key",       MINIO::getPassword);
         registry.add("minio.bucket-original",  () -> "test-edms-documents-original");
         registry.add("minio.bucket-rendition", () -> "test-edms-documents-rendition");
+        registry.add("minio.bucket-anchors",   () -> "test-edms-audit-anchors");
     }
 }
