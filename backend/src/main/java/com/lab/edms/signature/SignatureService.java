@@ -231,7 +231,8 @@ public class SignatureService {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCompletion(int status) {
-                    if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
+                    // STATUS_UNKNOWN(네트워크 장애 등 결과 불명)도 fail-safe로 복원 — Part 11 §11.200(a)
+                    if (status != TransactionSynchronization.STATUS_COMMITTED) {
                         sessionTracker.unmarkSigned(session);
                     }
                 }

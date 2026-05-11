@@ -265,13 +265,17 @@ class SignatureQueryControllerIT {
             return null;
         });
 
-        mockMvc.perform(get("/api/v1/documents/{docId}/versions/{vid}/signatures", docId, vid))
+        String body = mockMvc.perform(get("/api/v1/documents/{docId}/versions/{vid}/signatures", docId, vid))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
-                // 첫 번째 요소의 signed_at ≤ 두 번째 요소의 signed_at (오름차순)
-                // jsonPath 문자열 비교로 ISO 8601 정렬 검증
-                .andExpect(jsonPath("$[0].signed_at").exists())
-                .andExpect(jsonPath("$[1].signed_at").exists());
+                .andReturn().getResponse().getContentAsString();
+
+        com.fasterxml.jackson.databind.JsonNode arr =
+                new com.fasterxml.jackson.databind.ObjectMapper().readTree(body);
+        OffsetDateTime t0 = OffsetDateTime.parse(arr.get(0).get("signed_at").asText());
+        OffsetDateTime t1 = OffsetDateTime.parse(arr.get(1).get("signed_at").asText());
+        // 오름차순: 첫 번째 서명 ≤ 두 번째 서명
+        org.assertj.core.api.Assertions.assertThat(t0).isBeforeOrEqualTo(t1);
     }
 
     // ──────────────────────────────────────────────────────────────────────
