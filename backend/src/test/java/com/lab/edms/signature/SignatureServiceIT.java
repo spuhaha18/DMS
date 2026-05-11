@@ -9,6 +9,8 @@ import com.lab.edms.common.UnprocessableEntityException;
 import com.lab.edms.department.Department;
 import com.lab.edms.department.DepartmentRepository;
 import com.lab.edms.document.Document;
+import com.lab.edms.document.DocumentFile;
+import com.lab.edms.document.DocumentFileRepository;
 import com.lab.edms.document.DocumentRepository;
 import com.lab.edms.document.DocumentVersion;
 import com.lab.edms.document.DocumentVersionRepository;
@@ -31,6 +33,8 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -49,6 +53,8 @@ import static org.assertj.core.api.Assertions.*;
  * 4. assignees에 없는 사용자 → 403
  * 5. step.state='COMPLETED' 후 재서명 → 422
  * 6. min_signers=2, parallel=true → 1차 서명 시 step IN_PROGRESS 유지, 2차 서명 시 COMPLETED
+ * 7. (신규) 서로 다른 sha256 가진 버전 서명 → thisHash 상이
+ * 8. (신규) ORIGINAL 파일 없음 → 422 SIGNATURE_001
  */
 @ActiveProfiles("test")
 @SpringBootTest
@@ -56,6 +62,26 @@ import static org.assertj.core.api.Assertions.*;
 @DirtiesContext
 @Transactional
 class SignatureServiceIT {
+
+    // ──── genesis hash (SHA-256("GENESIS")) ────
+    private static final String GENESIS_HASH;
+    static {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] d = md.digest("GENESIS".getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(64);
+            for (byte b : d) sb.append(String.format("%02x", b));
+            GENESIS_HASH = sb.toString();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // 테스트용 sha256 고정값
+    private static final String TEST_SHA256 =
+            "deadbeef1234567890abcdef1234567890abcdef1234567890abcdef12345678";
+    private static final String TEST_SHA256_ALT =
+            "aaaa0000000000000000000000000000000000000000000000000000bbbb1111";
 
     @Autowired SignatureService signatureService;
     @Autowired SignatureManifestRepository manifestRepo;
@@ -68,6 +94,7 @@ class SignatureServiceIT {
     @Autowired DocumentCategoryRepository catRepo;
     @Autowired DepartmentRepository deptRepo;
     @Autowired PermissionRepository permRepo;
+    @Autowired DocumentFileRepository docFileRepo;
     @Autowired BCryptPasswordEncoder passwordEncoder;
     @Autowired EntityManager em;
     @Autowired JdbcTemplate jdbc;
@@ -87,7 +114,9 @@ class SignatureServiceIT {
     @BeforeEach
     void setUp() {
         // 감사 로그 초기화 (해시체인 시작점 초기화)
-        jdbc.execute("TRUNCATE TABLE audit_logs RESTART IDENTITY");
+        // TRUNCATE는 AccessExclusiveLock을 획득하여 @Transactional 테스트 내에서 AuditService
+        // SELECT와 deadlock을 유발함 → DELETE로 대체 (RowExclusiveLock 사용, lock 충돌 없음)
+        jdbc.execute("DELETE FROM audit_logs");
 
         // 부서 생성
         if (deptRepo.findByDeptCode("QC").isEmpty()) {
@@ -121,6 +150,11 @@ class SignatureServiceIT {
         document = createDocument();
         docVersion = createDocVersion(document.getId(), reviewer1.getId());
 
+        // ORIGINAL 파일 행 삽입 (sign()의 documentFileRepo 조회를 위해 필수)
+        insertOriginalFile(docVersion.getId(), reviewer1.getId(), TEST_SHA256);
+        em.flush();
+        em.clear();
+
         // 워크플로 인스턴스 생성
         wfInstance = new WorkflowInstance();
         wfInstance.setVersionId(docVersion.getId());
@@ -153,8 +187,16 @@ class SignatureServiceIT {
         assertThat(manifest.getId()).isNotNull();
         assertThat(manifest.getSignerUserId()).isEqualTo(reviewer1.getUserId());
         assertThat(manifest.isSessionFirst()).isTrue();
-        assertThat(manifest.getPrevHash()).isEqualTo("GENESIS");
+        // genesis hash는 SHA-256("GENESIS") 64자 hex
+        assertThat(manifest.getPrevHash()).isEqualTo(GENESIS_HASH);
+        assertThat(manifest.getPrevHash()).hasSize(64);
         assertThat(manifest.getThisHash()).hasSize(64);
+        // v2 알고리즘 버전 확인
+        assertThat(manifest.getAlgorithmVersion()).isEqualTo("v2");
+        // canonical payload 형식 검증: signerId|meaning|...sha256 끝
+        assertThat(manifest.getCanonicalPayload())
+                .contains("|REVIEWED|")
+                .endsWith("|" + TEST_SHA256);
 
         // signed 목록에 추가됐는지 확인
         em.flush();
@@ -265,9 +307,16 @@ class SignatureServiceIT {
 
     @Test
     void parallel_minSigners2_2차서명시_COMPLETED() {
-        // 별도의 wf 인스턴스 사용 (다른 step과 충돌 없도록)
+        // setUp()의 docVersion은 이미 wfInstance와 연결돼 있어 uq_one_active_workflow_per_version 위반.
+        // 별도 문서/버전을 생성하여 독립 workflow 구성.
+        Document docP = createDocument();
+        DocumentVersion docVerP = createDocVersion(docP.getId(), reviewer1.getId());
+        insertOriginalFile(docVerP.getId(), reviewer1.getId(), TEST_SHA256);
+        em.flush();
+        em.clear();
+
         WorkflowInstance wfParallel = new WorkflowInstance();
-        wfParallel.setVersionId(docVersion.getId());
+        wfParallel.setVersionId(docVerP.getId());
         wfParallel.setTemplateId(1L);
         wfParallel.setState("IN_PROGRESS");
         wfParallel.setCurrentStep(1);
@@ -285,7 +334,7 @@ class SignatureServiceIT {
         // 1차 서명 (reviewer1)
         MockHttpSession session1 = new MockHttpSession();
         signatureService.sign(
-                document.getId(), docVersion.getId(), parallelStep.getId(),
+                docP.getId(), docVerP.getId(), parallelStep.getId(),
                 PLAIN_PASSWORD, "REVIEWED", authOf(reviewer1.getUserId()), session1, "127.0.0.1");
 
         em.flush();
@@ -297,7 +346,7 @@ class SignatureServiceIT {
         // 2차 서명 (reviewer2) → step COMPLETED, advance() → 다음 PENDING step 없음 → EFFECTIVE
         MockHttpSession session2 = new MockHttpSession();
         signatureService.sign(
-                document.getId(), docVersion.getId(), parallelStep.getId(),
+                docP.getId(), docVerP.getId(), parallelStep.getId(),
                 PLAIN_PASSWORD, "REVIEWED", authOf(reviewer2.getUserId()), session2, "127.0.0.1");
 
         em.flush();
@@ -305,6 +354,94 @@ class SignatureServiceIT {
         WorkflowStepInstance afterSecond = wfStepRepo.findById(parallelStep.getId()).orElseThrow();
         assertThat(afterSecond.getState()).isEqualTo("COMPLETED");  // 2명 서명 완료
         assertThat(afterSecond.getSigned()).hasSize(2);
+    }
+
+    // ──── 시나리오 7 (신규): 서로 다른 sha256 가진 두 버전 → thisHash 상이 ────
+
+    @Test
+    void sign_differentSourceFileSha256_producesDistinctHash() {
+        // 버전1은 setUp에서 생성 (TEST_SHA256) → reviewer1이 서명
+        MockHttpSession session1 = new MockHttpSession();
+        SignatureManifest manifest1 = signatureService.sign(
+                document.getId(), docVersion.getId(), stepInstance.getId(),
+                PLAIN_PASSWORD, "REVIEWED", authOf(reviewer1.getUserId()), session1, "127.0.0.1");
+        String hash1 = manifest1.getThisHash();
+
+        em.flush();
+        em.clear();
+
+        // 버전2: 다른 sha256으로 별도 문서버전 + workflow 생성
+        Document doc2 = createDocument();
+        DocumentVersion docVersion2 = createDocVersion(doc2.getId(), reviewer1.getId());
+        // TEST_SHA256_ALT 로 ORIGINAL 파일 삽입
+        insertOriginalFile(docVersion2.getId(), reviewer1.getId(), TEST_SHA256_ALT);
+        em.flush();
+        em.clear();
+
+        WorkflowInstance wf2 = new WorkflowInstance();
+        wf2.setVersionId(docVersion2.getId());
+        wf2.setTemplateId(1L);
+        wf2.setState("IN_PROGRESS");
+        wf2.setCurrentStep(1);
+        wf2.setStartedBy(reviewer1.getUserId());
+        wfInstanceRepo.save(wf2);
+
+        WorkflowStepInstance step2 = createStepInstance(wf2.getId(), 1,
+                List.of(reviewer1), 1, false, "REVIEW");
+        step2.setState("IN_PROGRESS");
+        wfStepRepo.save(step2);
+        em.flush();
+        em.clear();
+
+        MockHttpSession session2 = new MockHttpSession();
+        SignatureManifest manifest2 = signatureService.sign(
+                doc2.getId(), docVersion2.getId(), step2.getId(),
+                PLAIN_PASSWORD, "REVIEWED", authOf(reviewer1.getUserId()), session2, "127.0.0.1");
+        String hash2 = manifest2.getThisHash();
+
+        // sha256이 다르면 canonical payload가 다르므로 thisHash도 달라야 함
+        assertThat(hash1).isNotEqualTo(hash2);
+        // 각 manifest의 canonical payload가 해당 sha256으로 끝나는지 확인
+        assertThat(manifest1.getCanonicalPayload()).endsWith("|" + TEST_SHA256);
+        assertThat(manifest2.getCanonicalPayload()).endsWith("|" + TEST_SHA256_ALT);
+    }
+
+    // ──── 시나리오 8 (신규): ORIGINAL 파일 없음 → 422 SIGNATURE_001 ────
+
+    @Test
+    void sign_missingOriginalFile_returns422() {
+        // 새로운 버전을 생성하되 document_files 행을 삽입하지 않음
+        Document doc3 = createDocument();
+        DocumentVersion docVersion3 = createDocVersion(doc3.getId(), reviewer1.getId());
+        // document_files 행 없음 (의도적)
+        em.flush();
+        em.clear();
+
+        WorkflowInstance wf3 = new WorkflowInstance();
+        wf3.setVersionId(docVersion3.getId());
+        wf3.setTemplateId(1L);
+        wf3.setState("IN_PROGRESS");
+        wf3.setCurrentStep(1);
+        wf3.setStartedBy(reviewer1.getUserId());
+        wfInstanceRepo.save(wf3);
+
+        WorkflowStepInstance step3 = createStepInstance(wf3.getId(), 1,
+                List.of(reviewer1), 1, false, "REVIEW");
+        step3.setState("IN_PROGRESS");
+        wfStepRepo.save(step3);
+        em.flush();
+        em.clear();
+
+        MockHttpSession session = new MockHttpSession();
+        Authentication auth = authOf(reviewer1.getUserId());
+
+        assertThatThrownBy(() ->
+                signatureService.sign(
+                        doc3.getId(), docVersion3.getId(), step3.getId(),
+                        PLAIN_PASSWORD, "REVIEWED", auth, session, "127.0.0.1"))
+                .isInstanceOf(UnprocessableEntityException.class)
+                .satisfies(ex -> assertThat(((UnprocessableEntityException) ex).getCode())
+                        .isEqualTo("SIGNATURE_001"));
     }
 
     // ──── 헬퍼 메서드 ────
@@ -363,9 +500,28 @@ class SignatureServiceIT {
         v.setState("UNDER_REVIEW");
         v.setTitle("서명 테스트 버전");
         v.setSourceFileKey("test/source.pdf");
+        v.setRevision(1);  // SignatureCanonicalSerializer.serialize()에서 int 언박싱 필요
         v.setCreatedBy(createdBy);
         v.setUpdatedBy(createdBy);
         return versionRepo.save(v);
+    }
+
+    /**
+     * document_files ORIGINAL 행 삽입.
+     * minio_bucket, minio_key, file_name, file_size_bytes, uploaded_by, sha256_hash 모두 NOT NULL.
+     */
+    private void insertOriginalFile(Long versionId, Long uploaderId, String sha256) {
+        DocumentFile f = new DocumentFile();
+        f.setVersionId(versionId);
+        f.setFileType("ORIGINAL");
+        f.setMinioBucket("test-bucket");
+        f.setMinioKey("test/" + versionId + "/source.pdf");
+        f.setFileName("test.pdf");
+        f.setFileSizeBytes(1024L);
+        f.setContentType("application/pdf");
+        f.setSha256Hash(sha256);
+        f.setUploadedBy(uploaderId);
+        docFileRepo.save(f);
     }
 
     private WorkflowStepInstance createStepInstance(Long wfId, int order,
