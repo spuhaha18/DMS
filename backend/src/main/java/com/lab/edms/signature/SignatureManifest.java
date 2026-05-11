@@ -48,6 +48,9 @@ public class SignatureManifest {
     @Column(name = "session_first", nullable = false)
     private boolean sessionFirst = false;
 
+    @Column(name = "algorithm_version", nullable = false, length = 10)
+    private String algorithmVersion = "v2";
+
     @PrePersist
     protected void onCreate() {
         if (signedAt == null) signedAt = OffsetDateTime.now();
@@ -66,6 +69,7 @@ public class SignatureManifest {
     public String getPrevHash() { return prevHash; }
     public String getThisHash() { return thisHash; }
     public boolean isSessionFirst() { return sessionFirst; }
+    public String getAlgorithmVersion() { return algorithmVersion; }
 
     public void setVersionId(Long v) { this.versionId = v; }
     public void setWorkflowStepId(Long v) { this.workflowStepId = v; }
@@ -79,4 +83,5 @@ public class SignatureManifest {
     public void setPrevHash(String v) { this.prevHash = v; }
     public void setThisHash(String v) { this.thisHash = v; }
     public void setSessionFirst(boolean v) { this.sessionFirst = v; }
+    public void setAlgorithmVersion(String v) { this.algorithmVersion = v; }
 }
