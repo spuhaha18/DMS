@@ -43,14 +43,15 @@ import java.util.List;
 @Service
 public class SignatureService {
 
-    private static final String GENESIS_HASH;
-    static {
+    private static final String GENESIS_HASH = sha256hex("GENESIS");
+
+    private static String sha256hex(String input) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] digest = md.digest("GENESIS".getBytes(StandardCharsets.UTF_8));
+            byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
             StringBuilder hex = new StringBuilder(digest.length * 2);
             for (byte b : digest) hex.append(String.format("%02x", b));
-            GENESIS_HASH = hex.toString();
+            return hex.toString();
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 unavailable", e);
         }
@@ -235,16 +236,7 @@ public class SignatureService {
     }
 
     private String calculateHash(String prevHash, String canonicalPayload) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            String input = prevHash + canonicalPayload;
-            byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder(digest.length * 2);
-            for (byte b : digest) hex.append(String.format("%02x", b));
-            return hex.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
-        }
+        return sha256hex(prevHash + canonicalPayload);
     }
 
     /**

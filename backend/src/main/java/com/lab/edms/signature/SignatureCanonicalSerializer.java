@@ -26,7 +26,7 @@ public final class SignatureCanonicalSerializer {
     }
 
     public static String escape(String s) {
-        if (s == null || s.isEmpty()) return s == null ? "" : "";
+        if (s == null || s.isEmpty()) return "";
         return s.replace("\\", "\\\\").replace("|", "\\|");
     }
 
