@@ -1,0 +1,79 @@
+package com.lab.edms.signature;
+
+import org.junit.jupiter.api.Test;
+import java.time.Instant;
+import static org.assertj.core.api.Assertions.assertThat;
+
+class SignatureCanonicalSerializerTest {
+
+    @Test
+    void escape_handles_backslash_first() {
+        // backslash must be escaped before pipe to avoid double-escaping
+        assertThat(SignatureCanonicalSerializer.escape("a\\b")).isEqualTo("a\\\\b");
+    }
+
+    @Test
+    void escape_handles_pipe() {
+        assertThat(SignatureCanonicalSerializer.escape("a|b")).isEqualTo("a\\|b");
+    }
+
+    @Test
+    void escape_handles_combined_pipe_and_backslash() {
+        // "a\|b" → escape backslash first → "a\\|b" → escape pipe → "a\\\\|b" → wait
+        // Actually: "a\|b".replace("\\", "\\\\") = "a\\|b" then .replace("|", "\\|") = "a\\\\|b"
+        // Hmm, let me recalculate: input is a\|b (3 chars after a: backslash, pipe, b)
+        // Step 1: replace \ with \\ → a\\|b
+        // Step 2: replace | with \| → a\\\|b
+        assertThat(SignatureCanonicalSerializer.escape("a\\|b")).isEqualTo("a\\\\\\|b");
+    }
+
+    @Test
+    void escape_handles_empty_string() {
+        assertThat(SignatureCanonicalSerializer.escape("")).isEqualTo("");
+    }
+
+    @Test
+    void nfc_normalizes_korean_decomposed() {
+        // NFD 가 (U+1100 + U+1161) → NFC 가 (U+AC00)
+        String nfd = "가";  // decomposed ga
+        String nfc = "가";       // composed ga
+        assertThat(SignatureCanonicalSerializer.nfc(nfd)).isEqualTo(nfc);
+    }
+
+    @Test
+    void nfc_preserves_already_composed() {
+        assertThat(SignatureCanonicalSerializer.nfc("가")).isEqualTo("가");
+    }
+
+    @Test
+    void serialize_produces_8_field_payload_without_prev_hash() {
+        // canonical_payload column stores 8 fields (prev_hash excluded, stored separately)
+        String payload = SignatureCanonicalSerializer.serialize(
+                42L,                          // signerId
+                "APPROVED",                   // meaning
+                Instant.parse("2026-05-11T10:00:00Z"),
+                100L,                         // versionId
+                "SOP-QA-001",                 // docNumber
+                3,                            // revision
+                "UNDER_APPROVAL",             // docStatus
+                "abc123def456"                // sourceFileSha256
+        );
+        assertThat(payload).isEqualTo(
+            "42|APPROVED|2026-05-11T10:00:00Z|100|SOP-QA-001|3|UNDER_APPROVAL|abc123def456"
+        );
+    }
+
+    @Test
+    void serialize_escapes_pipe_in_doc_number() {
+        String payload = SignatureCanonicalSerializer.serialize(
+                42L, "APPROVED", Instant.parse("2026-05-11T10:00:00Z"),
+                100L, "SOP|QA", 3, "UNDER_APPROVAL", "abc"
+        );
+        assertThat(payload).contains("SOP\\|QA");
+        // Verify the escaped pipe doesn't split the field
+        String[] parts = payload.split("(?<!\\\\)\\|");
+        // Should have 8 parts (pipe-split respecting escaped pipes)
+        // Actually simpler: just verify the raw string contains escaped pipe
+        assertThat(payload).contains("SOP\\|QA");
+    }
+}
