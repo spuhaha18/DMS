@@ -127,14 +127,14 @@
 
 | 조항 | 요구사항 | EDMS 대응 | 증거 |
 |---|---|---|---|
-| §11.50(a) | 전자서명에 서명자 성명, 서명 일시, 서명 의미 표시 | SignatureManifest: signer_name, signed_at (NTP 서버 시각), meaning (REVIEWED/APPROVED/QA_APPROVED/ACKNOWLEDGED/RETIRED). PDF 서명 블록 stamp에 동일 정보 임베딩 | DS §4.2 signature_manifests, DS §5.4 WatermarkService, FS-SIG-005, FS-SIG-006 |
-| §11.50(b) | 표시 정보는 기록과 동일한 형식 (인쇄, 표시)으로 제공 | 서명 매니페스트 화면 표시 + PDF stamp로 일관성 유지. 뷰어에서 서명 정보 팝업 표시 | DS §7.4 SignatureDialog.vue |
+| §11.50(a) | 전자서명에 서명자 성명, 서명 일시, 서명 의미 표시 | SignatureManifest: signer_name, signed_at (NTP 서버 시각), meaning (REVIEWED/APPROVED/QA_APPROVED/ACKNOWLEDGED/RETIRED). **부분 충족** — DB 기록 완비(M6). PDF 서명 블록 stamp는 M7 PDF 파이프라인 완성 시 풀 충족. | DS §4.2 signature_manifests, FS-SIG-005, FS-SIG-006 (M7 PDF stamp) |
+| §11.50(b) | 표시 정보는 기록과 동일한 형식 (인쇄, 표시)으로 제공 | 서명 매니페스트 API 및 화면 표시(M6). PDF stamp 일관성은 M7에서 완성. **부분 충족** — M7 완성 시 풀 충족. | DS §7.4 SignatureDialog.vue, FS-SIG-006 |
 
 ### §11.70 — Signature/Record Linking
 
 | 조항 | 요구사항 | EDMS 대응 | 증거 |
 |---|---|---|---|
-| §11.70 | 전자서명이 서명된 전자기록에 연결되어 떼어내거나 다른 기록으로 복사할 수 없어야 함 | SHA-256 해시체인: `this_hash = SHA256(prev_hash ∥ signer_id ∥ meaning ∥ signed_at ∥ version_id)`. 서명-기록 분리 불가. 서명 매니페스트에 version_id가 불변으로 포함 | DS §8.1 해시체인 알고리즘, FS-SIG-002, OQ-SIG-003 (해시체인 검증) |
+| §11.70 | 전자서명이 서명된 전자기록에 연결되어 떼어내거나 다른 기록으로 복사할 수 없어야 함 | canonical_payload v2 (8-field pipe): `signer_id\|meaning\|signed_at_iso\|version_id\|doc_number\|revision\|doc_status\|source_file_sha256`. `this_hash = SHA256(prev_hash ∥ canonical_payload)`, UNIQUE 제약. 서명-기록 분리 불가. **부분 충족** — ORIGINAL sha256 포함(M6). RENDITION hash stamp는 M7에서 추가 예정. M7 완성 시 풀 충족. | DS §8.1 canonical_payload v2, FS-SIG-002, OQ-SIG-014, OQ-SIG-015 |
 
 ---
 
@@ -152,8 +152,8 @@
 
 | 조항 | 요구사항 | EDMS 대응 | 증거 |
 |---|---|---|---|
-| §11.200(a)(1) | ID+PW 기반 서명 2구성요소: 세션 첫 서명은 ID+PW 둘 다, 이후 서명은 PW만 | 세션 첫 서명 감지 로직: `session.isFirstSignThisSession()` → True이면 user_id_confirm 필드 검증. 이후 서명은 password만 검증 | DS §6.5 /sign 설명, FS-SIG-003, OQ-SIG-007 (첫 서명 ID+PW 강제) |
-| §11.200(a)(2) | 동일 세션에서 이후 서명은 최소 1개 구성요소 사용 가능 | 세션 내 연속 서명 시 PW 재인증만으로 가능 (ID 재입력 불요) | FS-SIG-004, OQ-SIG-008 (이후 서명 PW만) |
+| §11.200(a)(1) | ID+PW 기반 서명 2구성요소: 세션 첫 서명은 ID+PW 둘 다, 이후 서명은 PW만 | 세션 첫 서명 감지 로직: `session_first` 판별 → `signing_user_id` 필드 검증. `session_first && signing_user_id == null` → 422 SIGNATURE_002. 불일치 → 403 SIGNATURE_003. `markSigned()` 호출은 INSERT 성공 이후에만 실행 (DS §6.5.1). | DS §6.5, §6.5.1 session_first 정의, FS-SIG-008, FS-SIG-009, SignatureFirstSignIT (OQ-SIG-009, OQ-SIG-010) |
+| §11.200(a)(2) | 동일 세션에서 이후 서명은 최소 1개 구성요소 사용 가능 | 세션 내 연속 서명 시 PW 재인증만으로 가능 (signing_user_id 재입력 불요) | FS-SIG-009 (BR-SIG-015~017), DS §6.5.1 |
 | §11.200(b) | 생체인식 서명: 단일 구성요소도 가능 (해당 시) | **해당 없음 (N/A)**: 생체인식 사용 안 함. ID+PW 방식 |  |
 
 ### §11.300 — Controls for Identification Codes/Passwords
@@ -195,15 +195,16 @@
 | §11.10(j) | 책임성 | 🔵 Planned | 계정공유 금지 + 감사추적 |
 | §11.10(k) | 문서 통제 | 🔵 Planned | SOP 11종 |
 | §11.30 | Open system | ➖ N/A | 폐쇄망 운영 (Network.md 참조) |
-| §11.50(a)(b) | 서명 표시 | 🔵 Planned | 매니페스트 + PDF stamp (M6/M7) |
-| §11.70 | 서명-기록 연결 | 🔵 Planned | canonical snapshot 해시 (version_id + file_sha256 + doc_number + revision + status) (M6) |
+| §11.50(a)(b) | 서명 표시 | ⚠️ Partial | 매니페스트 DB 기록 완비(M6). PDF stamp → M7 완성 시 풀 충족. |
+| §11.70 | 서명-기록 연결 | ⚠️ Partial | canonical_payload v2 ORIGINAL sha256 포함(M6). RENDITION hash stamp → M7 완성 시 풀 충족. |
 | §11.100(a)(b)(c) | 서명 고유성 | 🔵 Planned | unique constraint + 신원 확인 (M6) |
-| §11.200(a) | ID+PW 구성요소 | 🔵 Planned | 첫 서명 ID+PW (M6) |
+| §11.200(a) | ID+PW 구성요소 | 🟡 Implemented | 첫 서명 ID+PW session_first 판별(M6). 증거: SignatureFirstSignIT. |
 | §11.200(b) | 생체인식 | ➖ N/A | 미사용 |
 | §11.300(a)~(e) | 비밀번호 통제 | 🔵 Planned | BCrypt rounds=12 + SOP-USER-001 (M1) |
 
 > **§11.10(h)**: 웹 기반 시스템 특성상 IP 기록으로 부분 충족. 장치 인증서/디바이스 등록은 Phase 2.  
-> **§11.70**: 서명 payload에 파일 SHA-256, 문서번호, 리비전, 상태를 포함하여 서명-기록 불분리 연결 보장.  
+> **§11.50/§11.70**: M6에서 부분 충족 — DB 기록·canonical_payload v2 완비. PDF RENDITION stamp는 M7 PDF 파이프라인 완성 시 풀 충족 예정.  
+> **§11.200(a)**: M6 구현 완료 (SignatureFirstSignIT 증거). session_first + signing_user_id 검증 + markSigned() 소비 시점 = INSERT 성공 이후.  
 > **상태 갱신 기준**: 각 마일스톤 OQ 통과 시 해당 조항을 "Implemented"로, M12 QA 승인 후 "Verified"로 갱신한다.
 
 ---
@@ -213,6 +214,7 @@
 | 버전 | 날짜 | 변경 내용 | 작성자 |
 |---|---|---|---|
 | 0.1 | 2026-05-08 | 최초 작성 | TBD |
+| 0.2 | 2026-05-12 | M6 반영: §11.200(a) 증거 매핑(SignatureFirstSignIT), §11.50/§11.70 부분 충족 명기(ORIGINAL sha256 only, RENDITION stamp = M7), §11.200(a) 상태 Planned → Implemented | TBD |
 
 ---
 
