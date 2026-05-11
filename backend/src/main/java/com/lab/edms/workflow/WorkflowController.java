@@ -4,6 +4,7 @@ import com.lab.edms.common.ForbiddenException;
 import com.lab.edms.common.NotFoundException;
 import com.lab.edms.document.DocumentVersionRepository;
 import com.lab.edms.signature.SignatureManifest;
+import com.lab.edms.signature.SignatureRequest;
 import com.lab.edms.signature.SignatureService;
 import com.lab.edms.workflow.dto.*;
 import jakarta.servlet.http.HttpServletRequest;
@@ -54,14 +55,15 @@ public class WorkflowController {
     public ResponseEntity<SignatureManifest> sign(
             @PathVariable Long docId,
             @PathVariable Long verId,
-            @RequestBody SignRequest req,
+            @RequestBody SignatureRequest req,
             Authentication auth,
             HttpSession session,
             HttpServletRequest httpRequest) {
         String clientIp = httpRequest.getRemoteAddr();
         SignatureManifest manifest = signatureService.sign(
-                docId, verId, req.stepInstanceId(),
-                req.password(), req.meaning(),
+                docId, verId, req.getStepInstanceId(),
+                req.getPassword(), req.getMeaning(),
+                req.getSigningUserId(),
                 auth, session, clientIp);
         return ResponseEntity.ok(manifest);
     }

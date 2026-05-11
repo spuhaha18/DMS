@@ -582,6 +582,23 @@
 
 ---
 
+### OQ-SIG-003: algorithm_version 컬럼 존재 확인
+
+**FS 참조**: FS-SIG-002, FS-SIG-005 | **RA 참조**: RA-SIG-002 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | `signature_manifests` 테이블에 `algorithm_version` 컬럼이 올바르게 존재함을 확인 |
+| **전제조건** | DB 접근 가능 (psql 또는 SQL 클라이언트) |
+| **절차** | 1. psql 접속<br>2. `SELECT column_name, data_type, column_default, is_nullable FROM information_schema.columns WHERE table_name='signature_manifests' AND column_name='algorithm_version';` 실행 |
+| **예상 결과** | 컬럼 존재, `DEFAULT 'v1'`, `NOT NULL` |
+| **실제 결과** | column_default = , is_nullable = |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
 ### OQ-SIG-004: 서명 해시체인 연속성 검증
 
 **FS 참조**: FS-SIG-002 | **RA 참조**: RA-SIG-002, RA-SIG-003 | **Critical**: ●
@@ -615,9 +632,27 @@
 
 ---
 
+### OQ-SIG-008: 5회 PW 실패 시 계정 LOCKED
+
+**FS 참조**: FS-SIG-004, FS-SIG-008 | **RA 참조**: RA-SIG-001 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | 서명 시 비밀번호 5회 연속 실패 시 계정 LOCKED됨을 확인 |
+| **전제조건** | 검토중 상태 문서의 워크플로에서 oq-reviewer-01이 담당자로 배정됨 |
+| **절차** | 1. oq-reviewer-01 세션에서 잘못된 비밀번호로 sign() 5회 연속 호출<br>2. DB 조회: `SELECT status FROM users WHERE user_id = 'oq-reviewer-01'` |
+| **예상 결과** | User.status = LOCKED |
+| **실제 결과** | status = |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+| **자동화 테스트** | `SignatureLockoutIT.fiveConsecutivePwFailures_locksAccount` |
+
+---
+
 ### OQ-SIG-009: 세션 첫 서명 시 ID+PW 필수
 
-**FS 참조**: FS-SIG-003 | **RA 참조**: RA-SIG-006 | **Critical**: ●
+**FS 참조**: FS-SIG-003, FS-SIG-009 | **RA 참조**: RA-SIG-006 | **Critical**: ●
 
 | 항목 | 내용 |
 |---|---|
@@ -625,6 +660,91 @@
 | **절차** | 1. 새 세션으로 oq-reviewer-01 로그인<br>2. 서명 다이얼로그에서 ID 필드 존재 여부 확인<br>3. ID 없이 PW만 입력 후 서명 시도 |
 | **예상 결과** | 첫 서명 시 ID 필드가 표시됨, ID 없이 시도 시 거부 |
 | **실제 결과** | ID 필드 표시 = ☐ Yes ☐ No |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-SIG-010: 세션 첫 서명 시 signing_user_id 누락 → 422
+
+**FS 참조**: FS-SIG-008, FS-SIG-009 | **RA 참조**: RA-SIG-006 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | 세션 첫 서명에서 signing_user_id를 제공하지 않으면 422 반환됨을 확인 |
+| **전제조건** | 새 HttpSession, 해당 세션에서 아직 서명 미수행 |
+| **절차** | 1. 새 세션으로 oq-reviewer-01 로그인<br>2. POST /sign 요청: `{ "password": "...", "meaning": "REVIEWED", "signing_user_id": null }` |
+| **예상 결과** | HTTP 422, `code: "SIGNATURE_002"` |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+| **자동화 테스트** | `SignatureFirstSignIT.oqSig010_sessionFirst_withoutUserId_returns422` |
+
+---
+
+### OQ-SIG-011: NTP — 서버 시각 사용 (운영 점검 항목)
+
+**FS 참조**: FS-SIG-001 (BR-SIG-004) | **RA 참조**: RA-SIG-005
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | 서명 타임스탬프가 서버 NTP 동기화 시각을 사용함을 확인 |
+| **결과** | **N/A** — DS §10.5에서 NTP 오차 검증을 운영 책임으로 이관. 애플리케이션 코드는 `Instant.now()` 사용이며 chrony 동기화 상태 감시는 운영 모니터링 SOP 영역. |
+| **판정** | N/A |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-SIG-013: GET /signatures 권한·정렬·필드 확인
+
+**FS 참조**: FS-SIG-007 | **RA 참조**: RA-SIG-004 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | GET /signatures 엔드포인트가 정렬, 2-tier 필드, 권한 통제를 올바르게 수행함을 확인 |
+| **전제조건** | 특정 문서 버전에 2개 이상의 서명이 존재함 |
+| **절차** | 1. Admin 계정으로 `GET /api/v1/documents/{docId}/versions/{vid}/signatures` 호출<br>2. 응답 배열의 순서 확인 (signed_at ASC)<br>3. detail 필드(signer_user_id, client_ip, this_hash, algorithm_version) 존재 확인<br>4. Reviewer 계정으로 동일 API 호출 → detail 필드 미포함 확인 |
+| **예상 결과** | Admin: 정렬됨, detail 필드 포함. Reviewer: public 필드만 포함. |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+| **자동화 테스트** | `SignatureQueryControllerIT` |
+
+---
+
+### OQ-SIG-014: 메타 필드 `|` 이스케이프 → hash 충돌 부재
+
+**FS 참조**: FS-SIG-002 | **RA 참조**: RA-SIG-002 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | canonical_payload 직렬화에서 파이프(`\|`) 문자가 이스케이프되어 hash 충돌이 발생하지 않음을 확인 |
+| **전제조건** | 서명자 ID 또는 문서번호에 `\|` 문자 포함 시나리오 |
+| **절차** | 1. 파이프를 포함하는 필드값으로 두 서명 시나리오 생성<br>2. 각 서명의 canonical_payload 비교<br>3. this_hash 비교 |
+| **예상 결과** | `\|` 이스케이프로 인해 두 payload가 구별되며 this_hash가 다름 (hash 충돌 없음) |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+| **자동화 테스트** | `SignatureCanonicalSerializerTest.oqSig014_pipeInField_preventsHashCollision` |
+
+---
+
+### OQ-SIG-015: RENDITION 미생성 상태에서 서명 가능 (M6 계약)
+
+**FS 참조**: FS-SIG-002 | **RA 참조**: RA-SIG-002
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | PDF RENDITION이 생성되지 않은 상태에서도 서명이 가능하며, ORIGINAL sha256만 캡처됨을 확인 |
+| **전제조건** | ORIGINAL 파일만 업로드된 문서 버전 (RENDITION 미생성) |
+| **절차** | 1. RENDITION 없는 문서 버전에서 서명 시도<br>2. 서명 성공 여부 확인<br>3. canonical_payload의 source_file_sha256 필드 확인 |
+| **예상 결과** | 서명 성공. source_file_sha256 = ORIGINAL 파일의 SHA-256. RENDITION 해시는 M7에서 추가 예정. |
+| **실제 결과** | |
 | **판정** | ☐ Pass ☐ Fail |
 | **수행자** | |
 | **날짜** | |

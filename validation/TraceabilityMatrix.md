@@ -117,13 +117,13 @@
 | URS ID | 요구사항 요약 | FS 항목 | DS 섹션 | RA ID | OQ 케이스 | Critical |
 |---|---|---|---|---|---|---|
 | UR-SIG-001 | Part 11 §11.200 전자서명 준수 | FS-SIG-001, FS-SIG-003 | §6.5, §8.1 | RA-SIG-001, RA-SIG-006 | OQ-SIG-001~OQ-SIG-010 | ● |
-| UR-SIG-002 | 세션 첫 서명: ID+PW / 이후: PW만 | FS-SIG-003 | §6.5 meaning 분기 로직 | RA-SIG-006 | OQ-SIG-009, OQ-SIG-010 | ● |
-| UR-SIG-003 | 서명 시 비밀번호 재인증 | FS-SIG-004 | §6.5 password 필드 필수 | RA-SIG-001 | OQ-SIG-001, OQ-SIG-002 | ● |
+| UR-SIG-002 | 세션 첫 서명: ID+PW / 이후: PW만 | FS-SIG-003, FS-SIG-009 | §6.5, §6.5.1 session_first | RA-SIG-006 | OQ-SIG-009, OQ-SIG-010 | ● |
+| UR-SIG-003 | 서명 시 비밀번호 재인증 | FS-SIG-004 | §6.5 password 필드 필수 | RA-SIG-001 | OQ-SIG-001, OQ-SIG-002, OQ-SIG-008 | ● |
 | UR-SIG-004 | 서명 매니페스트 기록 (서명자·의미·시점·IP) | FS-SIG-005 | §4.2 signature_manifests DDL | RA-SIG-004 | OQ-SIG-003 | ● |
-| UR-SIG-005 | SHA-256 해시체인 (변조 탐지) | FS-SIG-002 | §8.1 해시체인 알고리즘 | RA-SIG-002, RA-SIG-003 | OQ-SIG-004~OQ-SIG-008 | ● |
-| UR-SIG-006 | 서버 타임스탬프 사용 | FS-SIG-001 (BR) | §10.5 NTP, §4.2 server_ts | RA-SIG-005 | OQ-SIG-011 | |
+| UR-SIG-005 | SHA-256 해시체인 (변조 탐지) | FS-SIG-002 | §8.1 해시체인 알고리즘 | RA-SIG-002, RA-SIG-003 | OQ-SIG-004~OQ-SIG-008, OQ-SIG-014, OQ-SIG-015 | ● |
+| UR-SIG-006 | 서버 타임스탬프 사용 | FS-SIG-001 (BR) | §10.5 NTP (운영 이관) | RA-SIG-005 | OQ-SIG-011 (N/A) | |
 | UR-SIG-007 | 서명 블록 PDF stamp | FS-SIG-006 | §5.4 WatermarkService | — | OQ-SIG-012 | |
-| UR-SIG-008 | 서명 조회 및 내보내기 | FS-SIG-007 | §6.5 GET /signatures | — | OQ-SIG-013 | |
+| UR-SIG-008 | 서명 조회 및 내보내기 | FS-SIG-007 | §6.5 GET /signatures (2-tier) | — | OQ-SIG-013 | |
 
 ### 2.7 감사추적 (AUD)
 
@@ -310,6 +310,7 @@
 |---|---|---|---|
 | 0.1 | 2026-05-08 | 최초 초안 작성 | TBD |
 | 0.2 | 2026-05-08 | §2.16 추가 — 운영 SOP 5종(AUDIT-TRAIL/DATA-INTEGRITY/DEVIATION/INCIDENT/TRAINING) 추적성 행 추가 | TBD |
+| 0.3 | 2026-05-12 | §2.6 SIG 행 갱신 — OQ-SIG-008/011(N/A)/013/014/015 반영, FS-SIG-004~009 DS §6.5.1 매핑 추가 (M6 E-Sig 강화) | TBD |
 
 ---
 

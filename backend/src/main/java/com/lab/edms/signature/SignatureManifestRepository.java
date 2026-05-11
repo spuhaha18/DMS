@@ -15,4 +15,6 @@ public interface SignatureManifestRepository extends JpaRepository<SignatureMani
     @Query("SELECT sm FROM SignatureManifest sm WHERE sm.versionId = :verId ORDER BY sm.id DESC LIMIT 1")
     Optional<SignatureManifest> findLatestByVersionId(@Param("verId") Long verId);
 
+    List<SignatureManifest> findByVersionIdOrderBySignedAtAsc(Long versionId);
+
 }

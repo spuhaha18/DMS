@@ -617,22 +617,42 @@ Author가 문서를 제출(T-01)하기 전, 워크플로 인스턴스 생성 화
 
 ---
 
-### FS-SIG-002: 서명 매니페스트 해시체인
+### FS-SIG-002: 서명 매니페스트 해시체인 (v2 canonical_payload)
 **URS 참조**: UR-SIG-006
 
 **기능 설명**:
-각 서명 레코드는 이전 서명 레코드의 해시를 포함한 해시체인으로 연결된다. 체인이 깨지면 변조가 탐지된다.
+각 서명 레코드는 canonical_payload를 기반으로 계산된 SHA-256 해시(this_hash)로 연결된다. prev_hash는 직전 레코드의 this_hash이며 canonical_payload와 별도 컬럼으로 저장된다. 체인이 깨지면 변조가 탐지된다.
+
+**canonical_payload v2 형식** (algorithm_version = 'v2'):
+```
+8-field pipe-delimited, NFC 정규화 후 역슬래시 이스케이프:
+  \\ → \\ (역슬래시 자체)
+  \| → | (파이프 문자)
+
+형식:
+  {signer_id}|{meaning}|{signed_at_iso}|{version_id}|{doc_number}|{revision}|{doc_status}|{source_file_sha256}
+
+예시:
+  42|REVIEWED|2026-05-12T10:30:00Z|77|SOP-QC-001|1|UNDER_REVIEW|a3f9...
+
+genesis:
+  prev_hash = HEX(SHA-256("GENESIS"))  ← 리터럴 문자열이 아닌 해시값
+```
 
 **해시 계산 방식**:
 ```
-first_signature:
-  prev_hash = "0000...000" (64자리 0)
-  this_hash = SHA-256(prev_hash + signer_id + meaning + signed_at_iso + document_version_id)
-
-subsequent_signature:
-  prev_hash = 직전 SignatureManifest의 this_hash
-  this_hash = SHA-256(prev_hash + signer_id + meaning + signed_at_iso + document_version_id)
+canonical_payload = serialize(signer_id, meaning, signed_at_iso, version_id,
+                              doc_number, revision, doc_status, source_file_sha256)
+this_hash = HEX(SHA-256(prev_hash + canonical_payload))
 ```
+
+**algorithm_version 컬럼**:
+- 기존 레코드(마이그레이션 전): `v1`
+- 신규 레코드(M6 이후): `v2`
+- `this_hash` UNIQUE 제약조건(V20) 적용
+
+**체인 무결성 뷰**:
+- `v_signature_chain_integrity` — 연속 레코드 간 prev_hash = 직전 this_hash 여부 조회
 
 **체인 검증 API**:
 - `/api/v1/documents/{docId}/versions/{versionId}/signatures/verify`
@@ -667,6 +687,93 @@ subsequent_signature:
   이 문서는 21 CFR Part 11 준수 전자서명으로 승인되었습니다.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+---
+
+### FS-SIG-004: 서명 시 비밀번호 재인증 및 잠금 정책
+**URS 참조**: UR-SIG-003
+
+**기능 설명**:
+서명 요청 시 비밀번호 재인증이 반드시 수행된다. 비밀번호 검증 실패는 로그인 잠금 카운터와 동일한 정책을 따른다.
+
+**비즈니스 규칙**:
+- BR-SIG-010: `verifyPassword()` 호출 시 계정 상태(LOCKED, DISABLED)를 먼저 확인한다. LOCKED/DISABLED 계정은 비밀번호 정확 여부와 무관하게 서명 거부(403).
+- BR-SIG-011: 비밀번호 실패 시 잠금 카운터 증가 트랜잭션은 `REQUIRES_NEW` 독립 트랜잭션으로 처리되어 서명 롤백과 무관하게 커밋된다.
+- BR-SIG-012: 연속 5회 실패 시 계정 상태 = LOCKED. 이후 서명/로그인 모두 거부.
+
+---
+
+### FS-SIG-005: 서명 매니페스트 기록 필드
+**URS 참조**: UR-SIG-004
+
+**기능 설명**:
+서명 성공 시 `signature_manifests` 테이블에 다음 필드가 기록된다.
+
+| 필드 | 설명 |
+|---|---|
+| version_id | 서명 대상 문서 버전 ID |
+| workflow_step_id | 해당 워크플로 단계 ID |
+| signer_id | 서명자 PK |
+| signer_user_id | 서명자 로그인 ID |
+| signer_name | 서명자 표시 이름 |
+| meaning | 서명 의미 (REVIEWED 등) |
+| signed_at | 서버 NTP 시각 (UTC ISO 8601) |
+| client_ip | 서명 요청 클라이언트 IP |
+| canonical_payload | v2 8-field pipe 직렬화 문자열 |
+| prev_hash | 직전 서명의 this_hash (genesis: HEX(SHA-256("GENESIS"))) |
+| this_hash | SHA-256(prev_hash ∥ canonical_payload), UNIQUE |
+| session_first | 세션 내 첫 번째 서명 여부 (boolean) |
+| algorithm_version | 'v1' 또는 'v2' |
+
+---
+
+### FS-SIG-007: 서명 목록 조회 API (2-tier)
+**URS 참조**: UR-SIG-008
+
+**기능 설명**:
+`GET /api/v1/documents/{docId}/versions/{vid}/signatures` — 해당 버전의 서명 목록을 서명 순서 오름차순으로 반환한다.
+
+**2-tier 응답**:
+- **공개 필드** (Reviewer 이상): signer_name, meaning, signed_at, comment
+- **특권 필드** (Admin/Auditor 추가 제공): signer_user_id, client_ip, this_hash, prev_hash, algorithm_version, session_first, canonical_payload
+
+**응답 코드**:
+- 200: 서명 목록 (배열, 빈 경우 `[]`)
+- 401: 미인증
+- 403: 조회 권한 없음
+- 404: 문서/버전 없음
+
+---
+
+### FS-SIG-008: 서명 차단 조건
+**URS 참조**: UR-SIG-001, UR-SIG-003
+
+**기능 설명**:
+다음 조건 중 하나라도 해당하면 서명이 거부된다.
+
+| 차단 조건 | 응답 코드 | 오류 코드 |
+|---|---|---|
+| 비밀번호 오류 | 401 | SIGNATURE_001 |
+| 계정 LOCKED 또는 DISABLED | 403 | SIGNATURE_003 |
+| 담당자 아닌 사용자 서명 시도 | 403 | — |
+| 이미 서명한 단계 재서명 시도 | 409 | — |
+| 워크플로 단계 IN_PROGRESS 아님 | 409 | — |
+| 분당 요청 횟수 초과 (5req/min per userId+IP) | 429 | RATE_LIMIT_001 |
+| 세션 첫 서명이나 signing_user_id 미제공 | 422 | SIGNATURE_002 |
+| signing_user_id 불일치 | 403 | SIGNATURE_003 |
+
+---
+
+### FS-SIG-009: session_first 판별 및 markSigned() 소비 시점
+**URS 참조**: UR-SIG-002
+
+**기능 설명**:
+`session_first = true`인 조건: 동일 HttpSession 객체에서 최초로 sign()을 성공 완료하는 서명.
+
+**규칙**:
+- BR-SIG-015: HttpSession에 서명 완료 마커가 없으면 `session_first = true`.
+- BR-SIG-016: `markSigned()` — HttpSession에 완료 마커 기록 — 은 `signature_manifests` INSERT 성공 이후에만 호출된다. INSERT 실패 또는 롤백 시 마커 기록 없음.
+- BR-SIG-017: Tomcat 기본 세션 idle timeout(30분)과 동기화. 세션 만료 후 재로그인 시 다시 `session_first = true`.
 
 ---
 

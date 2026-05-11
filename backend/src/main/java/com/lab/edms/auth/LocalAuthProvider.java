@@ -5,6 +5,7 @@ import com.lab.edms.user.UserRepository;
 import com.lab.edms.user.UserStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -71,5 +72,18 @@ public class LocalAuthProvider implements AuthProvider {
 
         if (u.isForceChangePw()) return new AuthResult.ForcePasswordChange(u);
         return new AuthResult.Success(u);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordFailureInNewTransaction(String userId) {
+        User user = userRepo.findByUserId(userId).orElse(null);
+        if (user == null) return;
+        int attempts = user.getFailedAttempts() + 1;
+        user.setFailedAttempts(attempts);
+        if (attempts >= MAX_FAILED_ATTEMPTS) {
+            user.setStatus(UserStatus.LOCKED);
+            user.setLockedAt(OffsetDateTime.now());
+        }
+        userRepo.save(user);
     }
 }

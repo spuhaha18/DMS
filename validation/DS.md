@@ -855,22 +855,57 @@ Response 201: {
 | Method | Path | 설명 |
 |---|---|---|
 | POST | `/api/v1/documents/{docId}/versions/{verId}/sign` | 전자서명 |
-| GET | `/api/v1/documents/{docId}/versions/{verId}/signatures` | 서명 목록 |
+| GET | `/api/v1/documents/{docId}/versions/{verId}/signatures` | 서명 목록 (2-tier) |
 
 **POST /api/v1/documents/{docId}/versions/{verId}/sign**
 ```
 Request: {
   "password": "string",          -- 재인증 (암호화 전송)
   "meaning": "REVIEWED",
-  "comment": "검토 완료"
+  "comment": "검토 완료",
+  "signing_user_id": "string"    -- 세션 첫 서명 시 필수 (Part 11 §11.200(a))
+                                 -- session_first && signing_user_id == null → 422 SIGNATURE_002
+                                 -- signing_user_id 불일치 → 403 SIGNATURE_003
 }
 Response 201: {
   "signatureId": 55,
   "signedAt": "2026-05-08T10:30:00Z",
   "thisHash": "a3f9..."
 }
-Response 401: { "code": "SIG_001", "message": "비밀번호가 올바르지 않습니다." }
+Response 401: { "code": "SIGNATURE_001", "message": "비밀번호가 올바르지 않습니다." }
+Response 403: { "code": "SIGNATURE_003", "message": "서명자 ID 불일치 또는 계정 잠금" }
+Response 422: { "code": "SIGNATURE_002", "message": "첫 서명 시 signing_user_id 필수" }
+Response 429: { "code": "RATE_LIMIT_001", "message": "요청 한도 초과 (5req/min)" }
 ```
+
+**세션 첫 서명 판별 (session_first)**:
+- `session_first = true`: 동일 HttpSession 객체에서 최초 서명 성공 시
+- `markSigned()` 호출 시점: `signature_manifests` INSERT 성공 직후 (롤백 시 마커 미기록)
+- Tomcat 30분 idle timeout 후 세션 만료 → 재로그인 시 다시 `session_first = true`
+
+**계정 상태 검증 (verifyPassword 내)**:
+- LOCKED 또는 DISABLED 계정: 비밀번호 일치 여부와 무관하게 403 거부
+- PW 실패 시 lockout 카운터 증가: REQUIRES_NEW 독립 트랜잭션 (서명 롤백과 독립)
+
+**Rate Limiting**:
+- Bucket4j: 5 req/min per (userId + clientIP)
+- 초과 시 429 RATE_LIMIT_001
+
+**GET /api/v1/documents/{docId}/versions/{verId}/signatures**
+```
+Response 200: [SignatureSummaryDto | SignatureDetailDto]
+  -- Reviewer 이상: public 필드 (signer_name, meaning, signed_at, comment)
+  -- Admin/Auditor: detail 필드 추가 (signer_user_id, client_ip, this_hash,
+                   prev_hash, algorithm_version, session_first, canonical_payload)
+  -- 정렬: signed_at ASC (서명 순서)
+```
+
+#### §6.5.1 session_first 정의
+
+동일 `HttpSession` 객체에서의 첫 번째 서명. 판별 기준:
+- HttpSession에 서명 완료 마커(`SESSION_SIGNED_FLAG`)가 없으면 `session_first = true`
+- `markSigned()` 호출(마커 기록)은 `signature_manifests` INSERT 커밋 이후에만 실행
+- Tomcat 기본 idle timeout 30분과 동기화 — 세션 만료 후 재로그인 시 초기화
 
 ### 6.6 감사로그 API
 
@@ -1236,7 +1271,13 @@ services:
   rtcsync
 ```
 
-서명 타임스탬프는 반드시 서버 시각을 사용하며, 클라이언트 제공 시각은 무시한다.
+서명 타임스탬프는 반드시 서버 시각(`Instant.now()`)을 사용하며, 클라이언트 제공 시각은 무시한다.
+
+**M6 운영 이관 결정**:
+- 서버 코드는 `Instant.now()`만 사용 — NTP 동기화 상태를 애플리케이션에서 직접 검증하지 않는다.
+- chrony 동기화 상태 감시는 **운영 책임** (모니터링 SOP, Nagios/Prometheus chrony_offset 알림).
+- NTP 오차 >10초 거부 로직은 운영 점검으로 이관 — M6 코드 범위 외.
+- 관련 OQ 케이스 OQ-SIG-011: N/A (운영 책임 항목으로 이관).
 
 ---
 

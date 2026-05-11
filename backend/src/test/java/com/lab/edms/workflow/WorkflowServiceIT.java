@@ -9,6 +9,8 @@ import com.lab.edms.common.UnprocessableEntityException;
 import com.lab.edms.department.Department;
 import com.lab.edms.department.DepartmentRepository;
 import com.lab.edms.document.Document;
+import com.lab.edms.document.DocumentFile;
+import com.lab.edms.document.DocumentFileRepository;
 import com.lab.edms.document.DocumentRepository;
 import com.lab.edms.document.DocumentVersion;
 import com.lab.edms.document.DocumentVersionRepository;
@@ -31,7 +33,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -72,9 +77,11 @@ class WorkflowServiceIT {
     @Autowired UserRepository userRepo;
     @Autowired RoleRepository roleRepo;
     @Autowired SignatureManifestRepository manifestRepo;
+    @Autowired DocumentFileRepository documentFileRepo;
     @Autowired BCryptPasswordEncoder passwordEncoder;
     @Autowired EntityManager em;
     @Autowired JdbcTemplate jdbc;
+    @Autowired PlatformTransactionManager txManager;
 
     private static final String PLAIN_PW = "Test@1234";
 
@@ -92,7 +99,13 @@ class WorkflowServiceIT {
 
     @BeforeEach
     void setUp() {
-        jdbc.execute("TRUNCATE TABLE audit_logs RESTART IDENTITY");
+        // TRUNCATE는 반드시 별도 트랜잭션으로 실행해야 합니다.
+        // AuditService가 REQUIRES_NEW로 audit_logs에 INSERT할 때,
+        // 테스트 트랜잭션이 TRUNCATE로 획득한 ACCESS EXCLUSIVE 락과 교착 상태가 발생합니다.
+        TransactionTemplate requiresNew = new TransactionTemplate(txManager);
+        requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        requiresNew.executeWithoutResult(s ->
+                jdbc.execute("TRUNCATE TABLE audit_logs RESTART IDENTITY"));
 
         // 부서 생성
         ensureDept("QC", "Quality Control");
@@ -167,8 +180,8 @@ class WorkflowServiceIT {
 
         // reviewer1 서명
         signatureService.sign(doc.getId(), ver.getId(), reviewStep.getId(),
-                PLAIN_PW, "REVIEWED", authOf(reviewer1.getUserId()),
-                new MockHttpSession(), "127.0.0.1");
+                PLAIN_PW, "REVIEWED", reviewer1.getUserId(),
+                authOf(reviewer1.getUserId()), new MockHttpSession(), "127.0.0.1");
         em.flush();
         em.clear();
 
@@ -178,8 +191,8 @@ class WorkflowServiceIT {
 
         // reviewer2 서명
         signatureService.sign(doc.getId(), ver.getId(), reviewStep.getId(),
-                PLAIN_PW, "REVIEWED", authOf(reviewer2.getUserId()),
-                new MockHttpSession(), "127.0.0.1");
+                PLAIN_PW, "REVIEWED", reviewer2.getUserId(),
+                authOf(reviewer2.getUserId()), new MockHttpSession(), "127.0.0.1");
         em.flush();
         em.clear();
 
@@ -196,8 +209,8 @@ class WorkflowServiceIT {
 
         // QA 서명 → T-03 EFFECTIVE (qa_required step 완료 → qa_mandatory 가드 통과)
         signatureService.sign(doc.getId(), ver.getId(), step2Refreshed.getId(),
-                PLAIN_PW, "QA_APPROVED", authOf(qaUser.getUserId()),
-                new MockHttpSession(), "127.0.0.1");
+                PLAIN_PW, "QA_APPROVED", qaUser.getUserId(),
+                authOf(qaUser.getUserId()), new MockHttpSession(), "127.0.0.1");
         em.flush();
         em.clear();
 
@@ -301,8 +314,8 @@ class WorkflowServiceIT {
 
         // reviewer1이 먼저 서명
         signatureService.sign(doc.getId(), ver.getId(), parallelStep.getId(),
-                PLAIN_PW, "REVIEWED", authOf(reviewer1.getUserId()),
-                new MockHttpSession(), "127.0.0.1");
+                PLAIN_PW, "REVIEWED", reviewer1.getUserId(),
+                authOf(reviewer1.getUserId()), new MockHttpSession(), "127.0.0.1");
         em.flush();
         em.clear();
 
@@ -339,8 +352,8 @@ class WorkflowServiceIT {
 
         assertThatThrownBy(() ->
                 signatureService.sign(doc.getId(), ver.getId(), step.getId(),
-                        PLAIN_PW, "REVIEWED", authOf(outsider.getUserId()),
-                        new MockHttpSession(), "127.0.0.1"))
+                        PLAIN_PW, "REVIEWED", outsider.getUserId(),
+                        authOf(outsider.getUserId()), new MockHttpSession(), "127.0.0.1"))
                 .isInstanceOf(ForbiddenException.class);
     }
 
@@ -350,7 +363,9 @@ class WorkflowServiceIT {
     void F_qa_mandatory_카테고리_qa_required_step없이_EFFECTIVE시도_422() {
         // qa_mandatory=true인 카테고리 생성
         DocumentCategory qaMandatoryCat = new DocumentCategory();
-        qaMandatoryCat.setCategoryCode("QA_MAND_" + System.nanoTime());
+        String nanoSuffix = String.valueOf(System.nanoTime());
+        String catCode = ("QA_" + nanoSuffix).substring(0, Math.min(20, 3 + nanoSuffix.length()));
+        qaMandatoryCat.setCategoryCode(catCode);
         qaMandatoryCat.setCategoryName("QA Mandatory Cat");
         qaMandatoryCat.setQaMandatory(true);
         qaMandatoryCat.setActive(true);
@@ -374,8 +389,8 @@ class WorkflowServiceIT {
         // approver 서명 → advance() 호출 → qa_mandatory 가드에서 422
         assertThatThrownBy(() ->
                 signatureService.sign(doc.getId(), ver.getId(), approvalStep.getId(),
-                        PLAIN_PW, "APPROVED", authOf(approver.getUserId()),
-                        new MockHttpSession(), "127.0.0.1"))
+                        PLAIN_PW, "APPROVED", approver.getUserId(),
+                        authOf(approver.getUserId()), new MockHttpSession(), "127.0.0.1"))
                 .isInstanceOf(UnprocessableEntityException.class)
                 .hasMessageContaining("QA");
     }
@@ -449,7 +464,21 @@ class WorkflowServiceIT {
         v.setSourceFileKey("test/source.pdf");
         v.setCreatedBy(createdBy);
         v.setUpdatedBy(createdBy);
-        return versionRepo.save(v);
+        v = versionRepo.save(v);
+
+        // v2 canonical payload: ORIGINAL 파일 행 필수
+        DocumentFile originalFile = new DocumentFile();
+        originalFile.setVersionId(v.getId());
+        originalFile.setFileType("ORIGINAL");
+        originalFile.setFileName("test.pdf");
+        originalFile.setMinioBucket("test-bucket");
+        originalFile.setMinioKey("test/" + v.getId() + "/test.pdf");
+        originalFile.setSha256Hash("deadbeef1234567890abcdef1234567890abcdef1234567890abcdef12345678");
+        originalFile.setFileSizeBytes(1024L);
+        originalFile.setUploadedBy(createdBy);
+        documentFileRepo.save(originalFile);
+
+        return v;
     }
 
     private WorkflowInstance createWorkflow(Long versionId, String startedBy) {

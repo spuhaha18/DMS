@@ -7,4 +7,6 @@ import java.util.List;
 public interface DocumentFileRepository extends JpaRepository<DocumentFile, Long> {
 
     List<DocumentFile> findByVersionIdOrderByUploadedAtDesc(Long versionId);
+
+    List<DocumentFile> findByVersionIdAndFileType(Long versionId, String fileType);
 }
