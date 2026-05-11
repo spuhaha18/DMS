@@ -704,7 +704,7 @@
 | 항목 | 내용 |
 |---|---|
 | **목적** | app_role 로 audit_checkpoints 행을 변경·삭제할 수 없음을 DB 수준에서 확인 |
-| **절차** | 1. `UPDATE audit_checkpoints SET merkle_root = 'TAMPERED' WHERE id = 1;`<br>2. `DELETE FROM audit_checkpoints WHERE id = 1;` |
+| **절차** | 1. `psql -U app_role -d edms_dev`<br>2. `UPDATE audit_checkpoints SET merkle_root = 'TAMPERED' WHERE id = 1;`<br>3. `DELETE FROM audit_checkpoints WHERE id = 1;` |
 | **예상 결과** | 둘 다 `ERROR: permission denied for table audit_checkpoints` |
 | **실제 결과** | |
 | **판정** | ☐ Pass ☐ Fail |
@@ -740,6 +740,23 @@
 | **절차** | `mc rm edms-audit-anchors/anchors/YYYY/MM/YYYYMMDD.json` 실행 |
 | **예상 결과** | `AccessDenied: Object Locked` 오류 |
 | **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-AUD-019: WORM 앵커 보존 기간 — 3650일(10년) 확인
+
+**FS 참조**: FS-AUD-007 | **RA 참조**: RA-AUD-005 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | COMPLIANCE Object Lock의 retain-until 날짜가 생성일로부터 3650일(≥10년)로 설정됨을 확인 |
+| **전제조건** | OQ-AUD-006에서 앵커 파일 생성 완료 |
+| **절차** | 1. `mc stat edms-audit-anchors/anchors/YYYY/MM/YYYYMMDD.json`<br>2. 출력의 `Retention: COMPLIANCE until <DATE>` 확인<br>3. `<DATE>` 가 생성일로부터 3650일(±1일) 이후인지 계산 |
+| **예상 결과** | `Retention: COMPLIANCE until <DATE>` 표시, `<DATE>` ≥ 생성일 + 3650일 |
+| **실제 결과** | retain-until = |
 | **판정** | ☐ Pass ☐ Fail |
 | **수행자** | |
 | **날짜** | |
