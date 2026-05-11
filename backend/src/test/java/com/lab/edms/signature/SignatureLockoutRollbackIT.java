@@ -69,6 +69,7 @@ class SignatureLockoutRollbackIT {
             "deadbeef1234567890abcdef1234567890abcdef1234567890abcdef12345678";
 
     @Autowired SignatureService signatureService;
+    @Autowired SignatureRateLimiter rateLimiter;
     @Autowired WorkflowStepInstanceRepository wfStepRepo;
     @Autowired WorkflowInstanceRepository wfInstanceRepo;
     @Autowired DocumentRepository docRepo;
@@ -111,6 +112,7 @@ class SignatureLockoutRollbackIT {
 
     @BeforeEach
     void setUp() {
+        rateLimiter.resetAll();
         // @Transactional 없이 실행되므로 TransactionTemplate으로 setUp을 명시적 트랜잭션 내에서 실행
         TransactionTemplate tt = new TransactionTemplate(txManager);
         tt.execute(status -> {

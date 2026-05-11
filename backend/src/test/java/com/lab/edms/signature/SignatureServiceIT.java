@@ -84,6 +84,7 @@ class SignatureServiceIT {
             "aaaa0000000000000000000000000000000000000000000000000000bbbb1111";
 
     @Autowired SignatureService signatureService;
+    @Autowired SignatureRateLimiter rateLimiter;
     @Autowired SignatureManifestRepository manifestRepo;
     @Autowired WorkflowStepInstanceRepository wfStepRepo;
     @Autowired WorkflowInstanceRepository wfInstanceRepo;
@@ -113,6 +114,7 @@ class SignatureServiceIT {
 
     @BeforeEach
     void setUp() {
+        rateLimiter.resetAll();
         // 감사 로그 초기화 (해시체인 시작점 초기화)
         // TRUNCATE는 AccessExclusiveLock을 획득하여 @Transactional 테스트 내에서 AuditService
         // SELECT와 deadlock을 유발함 → DELETE로 대체 (RowExclusiveLock 사용, lock 충돌 없음)

@@ -60,6 +60,7 @@ class SignatureLockoutIT {
     private static final String PLAIN_PASSWORD = "Test@1234";
 
     @Autowired SignatureService signatureService;
+    @Autowired SignatureRateLimiter rateLimiter;
     @Autowired WorkflowStepInstanceRepository wfStepRepo;
     @Autowired WorkflowInstanceRepository wfInstanceRepo;
     @Autowired DocumentRepository docRepo;
@@ -98,6 +99,7 @@ class SignatureLockoutIT {
 
     @BeforeEach
     void setUp() {
+        rateLimiter.resetAll();
         TransactionTemplate tt = new TransactionTemplate(txManager);
         tt.execute(status -> {
             jdbc.execute("DELETE FROM audit_logs");

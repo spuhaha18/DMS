@@ -38,4 +38,11 @@ public class SignatureRateLimiter {
         Bucket bucket = buckets.computeIfAbsent(key, k -> newBucket());
         return bucket.tryConsume(1);
     }
+
+    /**
+     * 모든 버킷을 초기화한다. 테스트 격리 목적으로만 사용.
+     */
+    public void resetAll() {
+        buckets.clear();
+    }
 }
