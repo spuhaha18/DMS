@@ -8,5 +8,6 @@ public record MinioProperties(
         String accessKey,
         String secretKey,
         String bucketOriginal,
-        String bucketRendition
+        String bucketRendition,
+        String bucketAnchors
 ) {}

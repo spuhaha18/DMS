@@ -42,3 +42,4 @@ minio:
   secret-key: ${MINIO_SECRET_KEY:minioadmin}
   bucket-original: ${MINIO_BUCKET_ORIGINAL:edms-documents-original}
   bucket-rendition: ${MINIO_BUCKET_RENDITION:edms-documents-rendition}
+  bucket-anchors: ${MINIO_BUCKET_ANCHORS:edms-audit-anchors}
