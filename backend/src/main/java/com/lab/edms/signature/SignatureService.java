@@ -16,6 +16,7 @@ import com.lab.edms.document.DocumentVersion;
 import com.lab.edms.document.DocumentVersionRepository;
 import com.lab.edms.user.User;
 import com.lab.edms.user.UserRepository;
+import com.lab.edms.user.UserStatus;
 import com.lab.edms.workflow.SignedRef;
 import com.lab.edms.workflow.WorkflowService;
 import com.lab.edms.workflow.WorkflowStepInstance;
@@ -243,6 +244,10 @@ public class SignatureService {
     private boolean verifyPassword(String userId, String rawPassword) {
         User user = userRepo.findByUserId(userId)
                 .orElseThrow(() -> new NotFoundException("사용자를 찾을 수 없음: " + userId));
+        // Part 11 §11.300 — LOCKED / DISABLED 계정은 올바른 PW라도 인증 불가 (OQ-SIG-008)
+        if (user.getStatus() == UserStatus.LOCKED || user.getStatus() == UserStatus.DISABLED) {
+            throw new UnauthorizedException("계정이 잠겨 있거나 비활성화되어 있습니다");
+        }
         if (user.getPasswordHash() == null) return false;
         return passwordEncoder.matches(rawPassword, user.getPasswordHash());
     }
