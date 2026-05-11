@@ -665,6 +665,54 @@
 
 ---
 
+### OQ-AUD-003: signature_manifests UPDATE 시도 → DB 거부
+
+**FS 참조**: FS-AUD-002 (v2 보강) | **RA 참조**: RA-AUD-002 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | app_role 로 signature_manifests 를 수정할 수 없음을 DB 수준에서 확인 (V18 보강 정책) |
+| **절차** | 1. `psql -U app_role -d edms_dev`<br>2. `UPDATE signature_manifests SET this_hash = 'TAMPERED' WHERE id = 1;` |
+| **예상 결과** | `ERROR: permission denied for table signature_manifests` |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-AUD-004: signature_manifests DELETE 시도 → DB 거부
+
+**FS 참조**: FS-AUD-002 (v2 보강) | **RA 참조**: RA-AUD-002 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | app_role 로 signature_manifests 를 삭제할 수 없음을 DB 수준에서 확인 |
+| **절차** | `DELETE FROM signature_manifests WHERE id = 1;` (app_role 세션) |
+| **예상 결과** | `ERROR: permission denied for table signature_manifests` |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-AUD-005: audit_checkpoints UPDATE/DELETE 시도 → DB 거부
+
+**FS 참조**: FS-AUD-003 | **RA 참조**: RA-AUD-003 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | app_role 로 audit_checkpoints 행을 변경·삭제할 수 없음을 DB 수준에서 확인 |
+| **절차** | 1. `UPDATE audit_checkpoints SET merkle_root = 'TAMPERED' WHERE id = 1;`<br>2. `DELETE FROM audit_checkpoints WHERE id = 1;` |
+| **예상 결과** | 둘 다 `ERROR: permission denied for table audit_checkpoints` |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
 ### OQ-AUD-006: 일별 WORM 앵커 생성 확인
 
 **FS 참조**: FS-AUD-003 | **RA 참조**: RA-AUD-003 | **Critical**: ●
@@ -691,6 +739,57 @@
 | **전제조건** | OQ-AUD-006에서 앵커 파일 생성 완료 |
 | **절차** | `mc rm edms-audit-anchors/anchors/YYYY/MM/YYYYMMDD.json` 실행 |
 | **예상 결과** | `AccessDenied: Object Locked` 오류 |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-AUD-016: 해시체인 무결성 검증 API — clean case
+
+**FS 참조**: FS-AUD-004 | **RA 참조**: RA-AUD-005 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | 정상 상태에서 `POST /api/v1/audit-logs/checkpoints/verify` 가 valid=true 반환 |
+| **전제조건** | OQ-AUD-006 통과 (앵커 최소 1개 생성). admin 또는 auditor 권한 |
+| **절차** | 1. ADMIN 또는 AUDITOR 세션으로 로그인<br>2. `curl -X POST /api/v1/audit-logs/checkpoints/verify -d '{"from_date":"YYYY-MM-DD","to_date":"YYYY-MM-DD"}'` (어제 일자 사용) |
+| **예상 결과** | HTTP 200, `{"valid":true, "checked_records":N, "first_broken_id":null, "details":"검증 통과..."}` |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-AUD-017: 해시체인 무결성 검증 API — audit_logs 변조 탐지 (수동)
+
+**FS 참조**: FS-AUD-004 | **RA 참조**: RA-AUD-005 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | DB 슈퍼유저로 audit_logs 한 행을 변조한 후 verify 가 `valid=false` + `first_broken_id` 식별 |
+| **전제조건** | 운영 환경 아닌 격리된 검증 환경. 운영 DB 에서 본 절차 실행 금지 |
+| **절차** | 1. `psql -U postgres -d edms_test -c "UPDATE audit_logs SET action='TAMPERED' WHERE id = 5;"`<br>2. `curl -X POST .../checkpoints/verify -d '{"from_date":"<해당일>","to_date":"<해당일>"}'`<br>3. 변조 행 복원: `UPDATE audit_logs SET action = '<원래값>' WHERE id = 5;` |
+| **예상 결과** | `{"valid":false, "first_broken_id":5, "details":"audit_logs 행 단위 해시 불일치..."}` |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-AUD-018: 해시체인 무결성 검증 API — MinIO 앵커 변조 탐지 (수동)
+
+**FS 참조**: FS-AUD-003, FS-AUD-004 | **RA 참조**: RA-AUD-003 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | MinIO 앵커 파일이 변조되면 verify 가 탐지 |
+| **전제조건** | Object Lock COMPLIANCE 가 비활성화된 별도 테스트 버킷. 운영 `edms-audit-anchors` 에서 본 절차 실행 금지 |
+| **절차** | 1. 검증용 별도 버킷 생성 (lock 비활성)<br>2. `mc cp` 로 정상 앵커 파일을 변조 버전으로 덮어쓰기<br>3. `audit_checkpoints.minio_key` 를 변조 버킷 경로로 임시 변경 후 verify 호출<br>4. 결과 확인 후 원복 |
+| **예상 결과** | `{"valid":false, "details":"MinIO anchor.json 의 anchor_hash 가 DB 와 불일치 ..."}` |
 | **실제 결과** | |
 | **판정** | ☐ Pass ☐ Fail |
 | **수행자** | |

@@ -130,12 +130,12 @@
 | URS ID | 요구사항 요약 | FS 항목 | DS 섹션 | RA ID | OQ 케이스 | Critical |
 |---|---|---|---|---|---|---|
 | UR-AUD-001 | ALCOA+ 원칙 준수 감사로그 | FS-AUD-001 | §5.5 AuditService | RA-AUD-004 | OQ-AUD-008~OQ-AUD-015 | ● |
-| UR-AUD-002 | INSERT-only (수정·삭제 불가) | FS-AUD-002 | §4.3 DB 역할 분리 | RA-AUD-001 | OQ-AUD-001~OQ-AUD-003 | ● |
+| UR-AUD-002 | INSERT-only (수정·삭제 불가) | FS-AUD-002 | §4.3 DB 역할 분리 | RA-AUD-001 | OQ-AUD-001~OQ-AUD-005 | ● |
 | UR-AUD-003 | 감사로그 해시체인 | FS-AUD-001 | §8.2 감사로그 해시체인 알고리즘 | RA-AUD-002 | OQ-AUD-004, OQ-AUD-005 | ● |
 | UR-AUD-004 | 일별 WORM 앵커링 (MinIO Object Lock) | FS-AUD-003 | §8.3 앵커링 알고리즘, §10.2 MinIO | RA-AUD-003 | OQ-AUD-006, OQ-AUD-007 | ● |
-| UR-AUD-005 | 해시체인 무결성 검증 API | FS-AUD-004 | §6.6 POST /checkpoints/verify | RA-AUD-002 | OQ-AUD-005 | ● |
-| UR-AUD-006 | 감사로그 조회 및 내보내기 | FS-AUD-005 | §6.6 GET /audit-logs | — | OQ-AUD-017, OQ-AUD-018 | |
-| UR-AUD-007 | 10년 이상 보관 | FS-AUD-007 | §10.2 MinIO COMPLIANCE 3650일 | RA-AUD-003, RA-AUD-005 | OQ-AUD-016 | ● |
+| UR-AUD-005 | 해시체인 무결성 검증 API | FS-AUD-004 | §6.6 POST /checkpoints/verify | RA-AUD-002 | OQ-AUD-016~OQ-AUD-018 | ● |
+| UR-AUD-006 | 감사로그 조회 및 내보내기 | FS-AUD-005 | §6.6 GET /audit-logs | — | — | |
+| UR-AUD-007 | 10년 이상 보관 | FS-AUD-007 | §10.2 MinIO COMPLIANCE 3650일 | RA-AUD-003, RA-AUD-005 | OQ-AUD-007 | ● |
 
 ### 2.8 검색 및 조회 (SRCH)
 

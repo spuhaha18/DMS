@@ -15,17 +15,29 @@
 
 ---
 
-## 2. 현재 상태 (2026-05-08)
+## 2. 현재 상태 (2026-05-11)
 
 | 항목 | 상태 |
 |---|---|
 | 검증 문서 패키지 | ✅ 완성 — 31개 파일 (V-Model 전 산출물 + 11개 SOP + 컴플라이언스 매트릭스 + 가이드) |
-| 백엔드 구현 | ⬜ 미착수 |
+| 백엔드 구현 | 🔄 M5 완료 (M1~M5) — M6 진입 대기 |
 | 프론트엔드 구현 | ⬜ 미착수 |
 | IQ/OQ/PQ 실행 | ⬜ 구현 완료 후 |
 | 파일럿 배포 | ⬜ OQ/PQ 통과 후 |
 
-**다음 행동**: `validation/DS.md`를 구현 입력으로 삼아 Spring Boot 백엔드 착수.
+### 마일스톤 진행 현황
+
+| 마일스톤 | 내용 | 상태 |
+|---|---|---|
+| M1 | 기반 인프라 + 감사추적 해시체인 | ✅ |
+| M2 | 전자서명 (signature_manifests + SignatureService) | ✅ |
+| M3 | 문서 채번 자동화 + MinIO 업로드 | ✅ |
+| M4 | 문서 라이프사이클 워크플로 | ✅ |
+| M5 | 감사 하드닝 + WORM Audit Anchor | ✅ |
+| M6 | RBAC 3차원 권한 + 문서 접근 통제 | ⬜ |
+| M7 | documents 버킷 Object Lock GOVERNANCE | ⬜ |
+
+**다음 행동**: M6 — RBAC 3차원 권한 + 문서 접근 통제.
 
 ---
 
@@ -146,6 +158,9 @@ DMS/
 | Major-only 버전 | 개정 시 Major 번호만 증가(Rev 0/1/2), Minor 하위 버전 없음 | `FS.md FS-DOC-006` |
 | audit_logs INSERT-only | DB 역할 분리: `audit_writer` 역할만 INSERT 허용, UPDATE/DELETE 금지 | `DS.md §4.3` |
 | 단일 세션 강제 | Spring Security maximumSessions(1) — 계정 공유 탐지 | `DS.md §5.1` |
+| **M5: anchor 체인** | anchor_hash = SHA-256(prev\|merkle\|date\|count\|first\|last). genesis = SHA-256("ANCHOR_GENESIS"). RFC 6962 Merkle promote (홀수 노드 promote, duplication 아님). | `DS.md §8.3` |
+| **M5: KST 일자 경계** | audit_logs.server_ts(UTC) → `AT TIME ZONE 'Asia/Seoul'` 캐스팅으로 KST 일자 경계 구분. WormAnchorJob은 어제(KST)까지 catchup. | `DS.md §8.3` |
+| **M5: signature_manifests 권한** | V18 마이그레이션에서 app_role의 UPDATE/DELETE/TRUNCATE 권한 박탈 (V15 누락 보강). INSERT/SELECT는 audit_role에만 부여. | `DS.md §4.3` |
 
 ---
 
