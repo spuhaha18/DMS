@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface DocumentRepository extends JpaRepository<Document, Long> {
@@ -17,6 +18,9 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT d FROM Document d WHERE d.id = :id")
     Optional<Document> lockForUpdate(@Param("id") Long id);
+
+    /** 부팅 시 orphan STAMPING 재처리(StampWorkerReaper)용. */
+    List<Document> findByPdfStatus(String pdfStatus);
 
     @Query("""
       SELECT d FROM Document d
