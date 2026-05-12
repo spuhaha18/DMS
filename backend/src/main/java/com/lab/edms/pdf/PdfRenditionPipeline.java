@@ -3,6 +3,7 @@ package com.lab.edms.pdf;
 import com.lab.edms.document.*;
 import com.lab.edms.signature.SignIntent;
 import com.lab.edms.signature.SignIntentRepository;
+import com.lab.edms.signature.SignatureCanonicalSerializer;
 import com.lab.edms.signature.SignatureManifest;
 import com.lab.edms.signature.SignatureManifestRepository;
 import com.lab.edms.signature.SignatureMeaning;
@@ -15,8 +16,13 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -101,8 +107,13 @@ public class PdfRenditionPipeline {
 
         log.info("[PDF] document={} PENDING_CONVERSION enqueued", documentId);
 
-        // self 프록시를 통해 호출해야 @Async AOP가 적용됨 (this.method() 는 프록시 우회)
-        self.runConversionAsync(documentId);
+        // 호출자 트랜잭션이 커밋된 후 비동기 워커를 시작 — 커밋 전 실행 시 stale 데이터 읽기 방지
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                self.runConversionAsync(documentId);
+            }
+        });
     }
 
     // -----------------------------------------------------------------------
@@ -285,13 +296,26 @@ public class PdfRenditionPipeline {
                                                                   : java.util.Collections.emptyMap();
 
                     String prevHash = getString(sigPayload, "prevHash", "GENESIS");
-                    String thisHash = getString(sigPayload, "thisHash", "UNKNOWN");
-                    String canonicalPay = getString(sigPayload, "canonicalPayload", "{}");
-                    String algVersion = getString(sigPayload, "algorithmVersion", "v2");
                     String clientIp = getString(sigPayload, "clientIp", null);
                     boolean sessionFirst = Boolean.TRUE.equals(sigPayload.get("sessionFirst"));
+                    String originalSha = getString(sigPayload, "sourceFileSha256", "");
 
-                    // 9a. manifest INSERT — sign() 시점에 계산된 해시체인 값 사용
+                    // 9a. v3 canonical payload 재계산 — rendition SHA256을 서명체인에 포함 (§11.70)
+                    String renditionSha = uploaded.sha256();
+                    int revision = version.getRevision() != null ? version.getRevision() : 0;
+                    String v3CanonicalPayload = SignatureCanonicalSerializer.serializeV3(
+                            intent.getSignerDbId(),
+                            intent.getMeaning(),
+                            intent.getSignedAt().toInstant(),
+                            intent.getVersionId(),
+                            doc.getDocNumber(),
+                            revision,
+                            version.getState(),
+                            originalSha,
+                            renditionSha);
+                    String thisHash = sha256hex(prevHash + v3CanonicalPayload);
+
+                    // 9b. manifest INSERT — v3 payload + 재계산된 hash 사용
                     SignatureManifest manifest = new SignatureManifest();
                     manifest.setVersionId(intent.getVersionId());
                     manifest.setWorkflowStepId(intent.getStepInstanceId());
@@ -302,19 +326,19 @@ public class PdfRenditionPipeline {
                     manifest.setMeaning(SignatureMeaning.valueOf(intent.getMeaning()));
                     manifest.setSignedAt(intent.getSignedAt());
                     manifest.setClientIp(clientIp);
-                    manifest.setCanonicalPayload(canonicalPay);
+                    manifest.setCanonicalPayload(v3CanonicalPayload);
                     manifest.setPrevHash(prevHash);
                     manifest.setThisHash(thisHash);
                     manifest.setSessionFirst(sessionFirst);
-                    manifest.setAlgorithmVersion(algVersion);
+                    manifest.setAlgorithmVersion("v3");
                     SignatureManifest savedManifest = signatureManifestRepository.save(manifest);
 
-                    // 9b. SignIntent status = STAMPED, manifestId 설정
+                    // 9c. SignIntent status = STAMPED, manifestId 설정
                     intent.setStatus("STAMPED");
                     intent.setManifestId(savedManifest.getId());
                     signIntentRepository.save(intent);
 
-                    log.info("[PDF] document={} signIntent={} STAMPED manifestId={}",
+                    log.info("[PDF] document={} signIntent={} STAMPED manifestId={} algorithmVersion=v3",
                             documentId, intent.getId(), savedManifest.getId());
                 });
             }
@@ -497,5 +521,17 @@ public class PdfRenditionPipeline {
     private static String getString(java.util.Map<String, Object> map, String key, String defaultVal) {
         Object v = map.get(key);
         return v != null ? v.toString() : defaultVal;
+    }
+
+    private static String sha256hex(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(digest.length * 2);
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
     }
 }
