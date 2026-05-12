@@ -60,7 +60,10 @@ export interface CreateUserRequest {
   email: string;
   department: string;
   title?: string;
-  password: string;
+  // Initial password is now backend-generated (see M2 commit 30568c1
+  // "remove stale password field from user create form"). Kept optional to
+  // preserve backward compatibility with older callers.
+  password?: string;
   role_codes: string[];
   valid_from?: string | null;
   valid_until?: string | null;
@@ -206,6 +209,11 @@ export interface DocumentVersionSummary {
   pdfStatus: string;
   createdAt: string;
   updatedAt: string;
+  /**
+   * M7.1 PR3 — populated by /me + per-row permission checks when available.
+   * Drives the disabled+tooltip pattern (DS6) for "다운로드" actions.
+   */
+  canDownload?: boolean;
 }
 
 export interface DocumentFileSummary {

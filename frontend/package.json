@@ -26,6 +26,7 @@
     "typescript": "~5.6.2",
     "vite": "^5.4.8",
     "vite-plugin-sri3": "^1.0.0",
+    "vite-plugin-static-copy": "^2.3.2",
     "vitest": "^2.1.2",
     "vue-tsc": "^2.1.6"
   }

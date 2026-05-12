@@ -1,9 +1,20 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { sri } from 'vite-plugin-sri3';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig({
-  plugins: [vue(), sri()],
+  plugins: [
+    vue(),
+    sri(),
+    // pdfjs-dist Korean (CJK) PDF support — copy cmaps + standard_fonts into /public
+    viteStaticCopy({
+      targets: [
+        { src: 'node_modules/pdfjs-dist/cmaps', dest: '' },
+        { src: 'node_modules/pdfjs-dist/standard_fonts', dest: '' },
+      ],
+    }),
+  ],
   server: {
     host: true,
     port: 3001,
