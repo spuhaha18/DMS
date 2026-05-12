@@ -92,7 +92,7 @@
 | UR-DOC-003 | Office 파일 업로드 | FS-DOC-002 | §5.4, §9.3 화이트리스트 | — | OQ-DOC-005 | |
 | UR-DOC-004 | LibreOffice PDF 자동 변환 | FS-DOC-003 | §5.4 PdfConversionService | RA-DOC-002 | OQ-DOC-006, OQ-DOC-007 | ● |
 | UR-DOC-005 | 워터마크 삽입 | FS-DOC-004 | §5.4 WatermarkService, §8.5 | — | OQ-DOC-008 | |
-| UR-DOC-006 | pdf.js 뷰어 인브라우저 열람 | FS-DOC-PDFVIEW-001, FS-DOC-PDFVIEW-002, FS-DOC-PDFVIEW-003 | §7.3 pdf.js 설정, PdfController, PdfAccessPolicy | RA-DOC-004 | OQ-DOC-PDFVIEW-001~010, OQ-AUD-019~020 | ● |
+| UR-DOC-006 | pdf.js 뷰어 인브라우저 열람 | FS-DOC-PDFVIEW-001, FS-DOC-PDFVIEW-002, FS-DOC-PDFVIEW-003 | §7.3 pdf.js 설정, PdfController, PdfAccessPolicy | RA-DOC-004 | OQ-DOC-PDFVIEW-001~010, OQ-AUD-020~021 | ● |
 | UR-DOC-007 | Major-only 버전 관리 (Rev 0/1/2) | FS-DOC-006 | §4.2 document_versions.revision | — | OQ-DOC-010 | |
 | UR-DOC-008 | 개정 시작 (신규 Draft 생성) | FS-DOC-007 | §5.3 T-06 전이 | — | OQ-DOC-011 | |
 | UR-DOC-009 | 문서 메타데이터 편집 | FS-DOC-008 | §4.2 document_versions, §6.3 | — | OQ-DOC-012 | |

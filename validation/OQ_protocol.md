@@ -1127,7 +1127,7 @@
 
 ---
 
-### OQ-AUD-019: PDF_VIEWED audit event INSERT 확인 (M7.1)
+### OQ-AUD-020: PDF_VIEWED audit event INSERT 확인 (M7.1)
 
 **FS 참조**: FS-DOC-PDFVIEW-001, FS-AUD-001 | **Critical**: ●
 
@@ -1144,7 +1144,7 @@
 
 ---
 
-### OQ-AUD-020: PDF_VERIFIED audit event + after_value payload 검증 (M7.1)
+### OQ-AUD-021: PDF_VERIFIED audit event + after_value payload 검증 (M7.1)
 
 **FS 참조**: FS-DOC-PDFVIEW-003, FS-AUD-001 | **Critical**: ●
 
