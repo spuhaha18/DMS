@@ -1,6 +1,11 @@
 package com.lab.edms.pdf;
 
 import com.lab.edms.document.*;
+import com.lab.edms.signature.SignIntent;
+import com.lab.edms.signature.SignIntentRepository;
+import com.lab.edms.signature.SignatureManifest;
+import com.lab.edms.signature.SignatureManifestRepository;
+import com.lab.edms.signature.SignatureMeaning;
 import com.lab.edms.storage.MinioClientWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.InputStream;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 /**
  * M7 PR1: INITIAL PDF 변환 파이프라인.
@@ -43,6 +50,8 @@ public class PdfRenditionPipeline {
     private final MinioClientWrapper minio;
     private final GotenbergClient gotenberg;
     private final PdfStampService pdfStampService;
+    private final SignIntentRepository signIntentRepository;
+    private final SignatureManifestRepository signatureManifestRepository;
 
     // Self-injection to ensure @Async goes through the Spring AOP proxy, not this.method()
     @Lazy @Autowired
@@ -54,13 +63,17 @@ public class PdfRenditionPipeline {
             DocumentFileRepository documentFileRepository,
             MinioClientWrapper minio,
             GotenbergClient gotenberg,
-            PdfStampService pdfStampService) {
+            PdfStampService pdfStampService,
+            SignIntentRepository signIntentRepository,
+            SignatureManifestRepository signatureManifestRepository) {
         this.documentRepository = documentRepository;
         this.documentVersionRepository = documentVersionRepository;
         this.documentFileRepository = documentFileRepository;
         this.minio = minio;
         this.gotenberg = gotenberg;
         this.pdfStampService = pdfStampService;
+        this.signIntentRepository = signIntentRepository;
+        this.signatureManifestRepository = signatureManifestRepository;
     }
 
     // -----------------------------------------------------------------------
@@ -259,6 +272,48 @@ public class PdfRenditionPipeline {
             doc.setPdfStatusReason(null);
             documentRepository.save(doc);
 
+            // 9. SignatureManifest INSERT (stamp 성공 후) + SignIntent 상태 업데이트
+            if (payload.signIntentId() != null) {
+                signIntentRepository.findById(payload.signIntentId()).ifPresent(intent -> {
+                    java.util.Map<String, Object> sigPayload =
+                            intent.getSignaturePayload() != null ? intent.getSignaturePayload()
+                                                                  : java.util.Collections.emptyMap();
+
+                    String prevHash = getString(sigPayload, "prevHash", "GENESIS");
+                    String thisHash = getString(sigPayload, "thisHash", "UNKNOWN");
+                    String canonicalPay = getString(sigPayload, "canonicalPayload", "{}");
+                    String algVersion = getString(sigPayload, "algorithmVersion", "v2");
+                    String clientIp = getString(sigPayload, "clientIp", null);
+                    boolean sessionFirst = Boolean.TRUE.equals(sigPayload.get("sessionFirst"));
+
+                    // 9a. manifest INSERT — sign() 시점에 계산된 해시체인 값 사용
+                    SignatureManifest manifest = new SignatureManifest();
+                    manifest.setVersionId(intent.getVersionId());
+                    manifest.setWorkflowStepId(intent.getStepInstanceId());
+                    manifest.setSignerId(intent.getSignerDbId());
+                    manifest.setSignerUserId(intent.getSignerUserId());
+                    manifest.setSignerName(payload.signerDisplayName() != null
+                            ? payload.signerDisplayName() : intent.getSignerUserId());
+                    manifest.setMeaning(SignatureMeaning.valueOf(intent.getMeaning()));
+                    manifest.setSignedAt(intent.getSignedAt());
+                    manifest.setClientIp(clientIp);
+                    manifest.setCanonicalPayload(canonicalPay);
+                    manifest.setPrevHash(prevHash);
+                    manifest.setThisHash(thisHash);
+                    manifest.setSessionFirst(sessionFirst);
+                    manifest.setAlgorithmVersion(algVersion);
+                    SignatureManifest savedManifest = signatureManifestRepository.save(manifest);
+
+                    // 9b. SignIntent status = STAMPED, manifestId 설정
+                    intent.setStatus("STAMPED");
+                    intent.setManifestId(savedManifest.getId());
+                    signIntentRepository.save(intent);
+
+                    log.info("[PDF] document={} signIntent={} STAMPED manifestId={}",
+                            documentId, intent.getId(), savedManifest.getId());
+                });
+            }
+
             log.info("[PDF] document={} STAMPED step={} renditionKey={}",
                     documentId, payload.stepNumber(), newKey);
 
@@ -269,6 +324,16 @@ public class PdfRenditionPipeline {
             doc.setPdfStatusUpdatedAt(Instant.now());
             doc.setPdfStatusReason(abbreviate(e.getMessage(), 64));
             documentRepository.save(doc);
+
+            // SignIntent status = FAILED
+            if (payload.signIntentId() != null) {
+                signIntentRepository.findById(payload.signIntentId()).ifPresent(intent -> {
+                    intent.setStatus("FAILED");
+                    intent.setRetryCount(intent.getRetryCount() + 1);
+                    intent.setLastError(abbreviate(e.getMessage(), 255));
+                    signIntentRepository.save(intent);
+                });
+            }
         }
     }
 
@@ -316,5 +381,11 @@ public class PdfRenditionPipeline {
     private static String abbreviate(String s, int maxLen) {
         if (s == null) return "UNKNOWN";
         return s.length() <= maxLen ? s : s.substring(0, maxLen);
+    }
+
+    /** Map에서 String 값 추출 (null-safe). */
+    private static String getString(java.util.Map<String, Object> map, String key, String defaultVal) {
+        Object v = map.get(key);
+        return v != null ? v.toString() : defaultVal;
     }
 }
