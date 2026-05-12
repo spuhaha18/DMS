@@ -5,6 +5,7 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.io.ByteArrayOutputStream;
@@ -13,7 +14,12 @@ import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+/**
+ * Deterministic PDF stamp / watermark integration test.
+ * PdfStampService has NO DB dependency — uses a minimal Spring context
+ * (only PdfStampService bean) to avoid Testcontainers overhead.
+ */
+@SpringBootTest(classes = PdfStampService.class)
 @ActiveProfiles("test")
 class PdfStampDeterministicIT {
 
