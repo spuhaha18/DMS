@@ -24,6 +24,7 @@ import java.time.ZoneOffset;
 /**
  * M7 PR1: INITIAL PDF 변환 파이프라인.
  * M7 PR2: 단계별 STAMPED RENDITION 누적 파이프라인.
+ * M7 PR4: EFFECTIVE 워터마크 적용 파이프라인.
  *
  * 상태 전이:
  *   (null / PENDING_CONVERSION) → [enqueueInitialConversion]
@@ -35,6 +36,10 @@ import java.time.ZoneOffset;
  *       → STAMPING            (작업 시작)
  *       → STAMPED             (도장 적용·업로드 성공)
  *       → STAMP_FAILED        (오류)
+ *
+ *   STAMPED → [applyEffectiveWatermark] (EffectiveWatermarkScheduler 호출)
+ *       → WATERMARKING        (작업 시작)
+ *       → EFFECTIVE_STAMPED   (EFFECTIVE 워터마크 적용·업로드 성공)
  */
 @Service
 public class PdfRenditionPipeline {
@@ -334,6 +339,111 @@ public class PdfRenditionPipeline {
                     signIntentRepository.save(intent);
                 });
             }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Effective watermark (PR4) — WATERMARKING → EFFECTIVE_STAMPED
+    // -----------------------------------------------------------------------
+
+    /**
+     * EFFECTIVE 날짜 도달 시 스케줄러(EffectiveWatermarkScheduler)가 호출한다.
+     * 최종 STAMPED RENDITION에 "EFFECTIVE" 대각선 워터마크를 적용한 후
+     * rendition_kind=EFFECTIVE 행을 document_files에 INSERT한다.
+     *
+     * @Transactional(REQUIRES_NEW): 실패 시 독립 롤백.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyEffectiveWatermark(Long versionId) {
+        // 1. DocumentVersion → Document 조회
+        DocumentVersion version = documentVersionRepository.findById(versionId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "No DocumentVersion found: " + versionId));
+        Long documentId = version.getDocumentId();
+
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Document disappeared: " + documentId));
+
+        // 2. 이미 EFFECTIVE_STAMPED이면 멱등 처리
+        if (PdfStatus.EFFECTIVE_STAMPED.name().equals(doc.getPdfStatus())) {
+            log.info("[PDF] document={} 이미 EFFECTIVE_STAMPED — 스킵", documentId);
+            return;
+        }
+
+        // 3. pdf_status → WATERMARKING
+        doc.setPdfStatus(PdfStatus.WATERMARKING.name());
+        doc.setPdfStatusUpdatedAt(Instant.now());
+        doc.setPdfStatusReason(null);
+        documentRepository.save(doc);
+
+        log.info("[PDF] document={} versionId={} WATERMARKING (EFFECTIVE)", documentId, versionId);
+
+        try {
+            // 4. 최신 STAMPED RENDITION을 base로 선택, 없으면 INITIAL
+            DocumentFile baseFile = documentFileRepository
+                    .findTopByVersionIdAndFileTypeAndRenditionKindOrderByStepNumberDesc(
+                            versionId, RENDITION_FILE_TYPE, RenditionKind.STAMPED.name())
+                    .orElseGet(() -> documentFileRepository
+                            .findFirstByVersionIdAndFileTypeAndRenditionKind(
+                                    versionId, RENDITION_FILE_TYPE, RenditionKind.INITIAL.name())
+                            .orElseThrow(() -> new IllegalStateException(
+                                    "No RENDITION base found for versionId=" + versionId)));
+
+            // 5. MinIO에서 base PDF bytes 로드
+            byte[] baseBytes;
+            try (InputStream is = minio.openStream(baseFile.getMinioBucket(), baseFile.getMinioKey())) {
+                baseBytes = is.readAllBytes();
+            } catch (Exception e) {
+                throw new RuntimeException(
+                        "Failed to read base rendition: " + baseFile.getMinioKey(), e);
+            }
+
+            // 6. EFFECTIVE 워터마크 적용
+            String legend = "EFFECTIVE " + (version.getEffectiveDate() != null
+                    ? version.getEffectiveDate().toString() : "");
+            byte[] watermarkedBytes = pdfStampService.applyEffectiveWatermark(baseBytes, legend.trim());
+
+            // 7. MinIO에 EFFECTIVE rendition 업로드
+            String newKey = renditionKey(version, RenditionKind.EFFECTIVE, null);
+            MinioClientWrapper.UploadResult uploaded = minio.uploadWithRetention(
+                    minio.getBucketRendition(),
+                    newKey,
+                    watermarkedBytes,
+                    "application/pdf",
+                    3650   // 10년 COMPLIANCE retention
+            );
+
+            // 8. document_files INSERT (kind=EFFECTIVE, step_number=null)
+            DocumentFile effectiveFile = new DocumentFile();
+            effectiveFile.setVersionId(versionId);
+            effectiveFile.setFileType(RENDITION_FILE_TYPE);
+            effectiveFile.setMinioBucket(uploaded.bucket());
+            effectiveFile.setMinioKey(uploaded.key());
+            effectiveFile.setFileName("effective.pdf");
+            effectiveFile.setFileSizeBytes(uploaded.sizeBytes());
+            effectiveFile.setContentType("application/pdf");
+            effectiveFile.setSha256Hash(uploaded.sha256());
+            effectiveFile.setUploadedBy(version.getCreatedBy() != null ? version.getCreatedBy() : 0L);
+            effectiveFile.setRenditionKind(RenditionKind.EFFECTIVE.name());
+            effectiveFile.setStepNumber(null);
+            documentFileRepository.save(effectiveFile);
+
+            // 9. pdf_status → EFFECTIVE_STAMPED
+            doc.setPdfStatus(PdfStatus.EFFECTIVE_STAMPED.name());
+            doc.setPdfStatusUpdatedAt(Instant.now());
+            doc.setPdfStatusReason(null);
+            documentRepository.save(doc);
+
+            log.info("[PDF] document={} EFFECTIVE_STAMPED renditionKey={} sha256={}",
+                    documentId, newKey, uploaded.sha256());
+
+        } catch (Exception e) {
+            log.error("[PDF] document={} EFFECTIVE_STAMP_FAILED versionId={}", documentId, versionId, e);
+            doc.setPdfStatus(PdfStatus.STAMP_FAILED.name());
+            doc.setPdfStatusUpdatedAt(Instant.now());
+            doc.setPdfStatusReason(abbreviate(e.getMessage(), 64));
+            documentRepository.save(doc);
         }
     }
 

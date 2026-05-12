@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,4 +40,18 @@ public interface DocumentVersionRepository extends JpaRepository<DocumentVersion
     // T-07: 신규 EFFECTIVE 진입 시 기존 EFFECTIVE(→UNDER_REVISION을 통해 온) 버전 찾기
     @Query("SELECT v FROM DocumentVersion v WHERE v.documentId = :docId AND v.state = 'EFFECTIVE' AND v.id != :excludeId")
     Optional<DocumentVersion> findEffectiveByDocumentIdExcluding(@Param("docId") Long docId, @Param("excludeId") Long excludeId);
+
+    /**
+     * M7 PR4: EffectiveWatermarkScheduler — 유효일이 오늘이고 Documents.pdf_status = STAMPED 인 버전 조회.
+     * 스케줄러가 EFFECTIVE 워터마크를 적용할 대상 버전을 찾는다.
+     */
+    @Query("""
+      SELECT v FROM DocumentVersion v
+       JOIN Document d ON d.id = v.documentId
+       WHERE v.effectiveDate = :effectiveDate
+         AND d.pdfStatus = :pdfStatus
+    """)
+    List<DocumentVersion> findByEffectiveDateAndDocumentPdfStatus(
+            @Param("effectiveDate") LocalDate effectiveDate,
+            @Param("pdfStatus") String pdfStatus);
 }
