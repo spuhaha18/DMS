@@ -462,6 +462,178 @@
 
 ---
 
+## 6A. OQ-DOC-PDFVIEW: PDF 뷰어
+
+### OQ-DOC-PDFVIEW-001: Author — DRAFT 자기 문서 INITIAL 렌디션 열람
+
+**FS 참조**: FS-DOC-PDFVIEW-001, FS-DOC-PDFVIEW-002 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | Author가 본인의 DRAFT 문서에서 INITIAL 렌디션을 열람할 수 있음을 확인 |
+| **전제조건** | oq-author-01 계정 활성, DRAFT 상태 자기 문서 존재, pdfStatus=CONVERTED |
+| **절차** | 1. oq-author-01으로 로그인<br>2. `/documents/{docId}/versions/{verId}/pdf?kind=INITIAL` 접근<br>3. PDF 뷰어 캔버스 렌더링 확인<br>4. 응답 헤더 `X-Rendition-Kind: INITIAL` 확인 |
+| **예상 결과** | PDF 뷰어 캔버스가 표시되고 `X-Rendition-Kind: INITIAL` 헤더가 반환됨 |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-DOC-PDFVIEW-002: 일반 사용자 — EFFECTIVE 문서 뷰어 열람
+
+**FS 참조**: FS-DOC-PDFVIEW-001, FS-DOC-PDFVIEW-002 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | can_view 권한 있는 일반 사용자가 EFFECTIVE_STAMPED 문서를 뷰어에서 열람할 수 있음을 확인 |
+| **전제조건** | oq-viewer-01 계정 활성, can_view 권한 보유, EFFECTIVE_STAMPED 상태 문서 존재 |
+| **절차** | 1. oq-viewer-01으로 로그인<br>2. 문서 상세 페이지로 이동<br>3. "열람" 버튼 클릭<br>4. PDF 뷰어 페이지 전환 확인<br>5. 캔버스 렌더링 및 URL에 `/pdf` 포함 확인 |
+| **예상 결과** | PDF 뷰어 캔버스 렌더링됨, URL에 `/pdf` 포함 |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-DOC-PDFVIEW-003: 일반 사용자 — STAMPED 중간본 직접 접근 시 404
+
+**FS 참조**: FS-DOC-PDFVIEW-002 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | 비할당 일반 사용자가 STAMPED 렌디션에 직접 접근하면 404 오류가 반환됨을 확인 (IDOR 보호) |
+| **전제조건** | oq-viewer-01 계정 활성 (비활성 단계 assignee), STAMPED 렌디션이 있는 문서 존재 |
+| **절차** | 1. oq-viewer-01으로 로그인<br>2. `/documents/{docId}/versions/{verId}/pdf?kind=STAMPED` 직접 URL 접근<br>3. 화면 오류 메시지 확인 |
+| **예상 결과** | "문서를 찾을 수 없거나 접근 권한이 없습니다" 오류 메시지 표시 (HTTP 404) |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-DOC-PDFVIEW-004: 활성 단계 결재자 — kind 미지정 시 STAMPED 자동 선택
+
+**FS 참조**: FS-DOC-PDFVIEW-002 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | 활성 단계 결재자가 kind 파라미터 없이 PDF 뷰어에 접근하면 STAMPED 렌디션이 자동 선택됨을 확인 |
+| **전제조건** | oq-reviewer-01이 활성 단계 assignee인 UNDER_REVIEW 문서 존재 |
+| **절차** | 1. oq-reviewer-01으로 로그인<br>2. `/documents/{docId}/versions/{verId}/pdf` 접근 (kind 미지정)<br>3. 캔버스 렌더링 확인<br>4. 응답 헤더 `X-Rendition-Kind: STAMPED` 확인 |
+| **예상 결과** | STAMPED 렌디션이 자동 선택되어 뷰어 렌더링됨, `X-Rendition-Kind: STAMPED` 헤더 반환 |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-DOC-PDFVIEW-005: can_download=false 사용자 — 뷰어 OK, 다운로드 버튼 disabled
+
+**FS 참조**: FS-DOC-PDFVIEW-001, FS-ACC-003 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | can_download=false 사용자가 뷰어에서 PDF를 열람할 수 있지만 다운로드 버튼이 비활성화됨을 확인 |
+| **전제조건** | oq-nodownload-01 계정 활성, can_download=false 권한, EFFECTIVE_STAMPED 문서 존재 |
+| **절차** | 1. oq-nodownload-01으로 로그인<br>2. PDF 뷰어 접근<br>3. 캔버스 렌더링 확인<br>4. 다운로드 버튼 disabled 여부 확인<br>5. 다운로드 버튼 호버 시 툴팁 확인 |
+| **예상 결과** | 뷰어 렌더링됨, 다운로드 버튼 disabled, 툴팁 "다운로드 권한이 없습니다" 표시 |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-DOC-PDFVIEW-006: Verify 버튼 → 무결성 PASS 배지 + audit_logs PDF_VERIFIED
+
+**FS 참조**: FS-DOC-PDFVIEW-003 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | "무결성 확인" 버튼 클릭 시 PASS 배지가 표시되고 PDF_VERIFIED 감사로그가 기록됨을 확인 |
+| **전제조건** | EFFECTIVE 문서, PDF 뷰어 열려있음, oq-viewer-01 로그인 상태 |
+| **절차** | 1. oq-viewer-01으로 로그인 후 PDF 뷰어 접근<br>2. "무결성 확인" 버튼 클릭<br>3. UI 배지 확인<br>4. `SELECT * FROM audit_logs WHERE action = 'PDF_VERIFIED' ORDER BY server_ts DESC LIMIT 1;` 실행 |
+| **예상 결과** | "✅ PASS" 배지 표시, `POST /api/v1/pdf/verify-report` 호출됨, audit_logs에 `PDF_VERIFIED` 레코드 삽입됨 |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-DOC-PDFVIEW-007: AUDITOR — kind=STAMPED&step=2 명시 선택 → 해당 본 렌더
+
+**FS 참조**: FS-DOC-PDFVIEW-002 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | AUDITOR가 step 파라미터를 명시하면 해당 결재 단계의 STAMPED 렌디션이 렌더됨을 확인 |
+| **전제조건** | oq-auditor-01 계정 활성, 2단계 이상 완료된 문서 존재 |
+| **절차** | 1. oq-auditor-01으로 로그인<br>2. `/documents/{docId}/versions/{verId}/pdf?kind=STAMPED&step=2` 접근<br>3. 캔버스 렌더링 확인<br>4. `X-Rendition-Kind: STAMPED`, `X-Rendition-Step: 2` 헤더 확인 |
+| **예상 결과** | 2단계 STAMPED 렌디션 뷰어 렌더, 응답 헤더에 `X-Rendition-Kind: STAMPED`, `X-Rendition-Step: 2` 포함 |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-DOC-PDFVIEW-008: PENDING_CONVERSION 문서 뷰어 진입 시 NOT_READY 오류
+
+**FS 참조**: FS-DOC-PDFVIEW-001 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | pdf_status=PENDING_CONVERSION 문서에 접근하면 적절한 오류 메시지가 표시됨을 확인 |
+| **전제조건** | pdf_status=PENDING_CONVERSION 상태의 문서 존재 |
+| **절차** | 1. 해당 문서 Author로 로그인<br>2. `/documents/{docId}/versions/{verId}/pdf` 접근<br>3. 화면 메시지 확인 |
+| **예상 결과** | "PDF 변환 중입니다" 메시지 또는 적절한 NOT_READY 오류 페이지 표시 |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-DOC-PDFVIEW-009: 동일 계정 두 번째 로그인 → 기존 세션 만료 → 로그인 리다이렉트
+
+**FS 참조**: FS-DOC-PDFVIEW-001 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | 단일 세션 강제 정책 — 두 번째 로그인 시 첫 번째 세션이 만료되어 PDF 뷰어에서 로그인 페이지로 리다이렉트됨을 확인 |
+| **전제조건** | oq-viewer-01 계정, 두 개의 브라우저(또는 프로파일) 준비 |
+| **절차** | 1. 브라우저 1에서 oq-viewer-01으로 로그인 + PDF 뷰어 열람<br>2. 브라우저 2에서 동일 계정으로 로그인<br>3. 브라우저 1에서 다음 API 요청 발생 시 상태 확인 |
+| **예상 결과** | 브라우저 1에서 다음 요청 시 401 응답 → 로그인 페이지로 자동 리다이렉트 |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-DOC-PDFVIEW-010: 15분 세션 타임아웃 후 PDF 뷰어 조작 → 401 → 로그인 리다이렉트
+
+**FS 참조**: FS-DOC-PDFVIEW-001 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | 15분 비활성 후 세션이 자동 만료되어 PDF 뷰어에서 다음 요청 시 로그인 페이지로 리다이렉트됨을 확인 |
+| **전제조건** | oq-viewer-01 로그인 상태, PDF 뷰어 열람 중 |
+| **절차** | 1. oq-viewer-01으로 로그인 후 PDF 뷰어 접근<br>2. 15분간 아무 동작 없이 대기 (또는 세션 강제 만료 API 사용)<br>3. PDF 뷰어에서 페이지 전환 시도 |
+| **예상 결과** | 401 응답 발생 → 로그인 페이지 자동 리다이렉트 |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
 ## 7. OQ-LCY: 문서 라이프사이클
 
 ### OQ-LCY-002: T-01 상태 전이 — 초안 → 검토중
@@ -952,6 +1124,40 @@
 | OQ-AUD-013 | 권한 변경 | `PERMISSION_UPDATED` | 권한 매트릭스 수정 | ☐ | ☐ Pass ☐ Fail |
 | OQ-AUD-014 | 계정 생성 | `USER_CREATED` | 신규 사용자 생성 | ☐ | ☐ Pass ☐ Fail |
 | OQ-AUD-015 | 로그아웃 | `LOGOUT` | 명시적 로그아웃 | ☐ | ☐ Pass ☐ Fail |
+
+---
+
+### OQ-AUD-019: PDF_VIEWED audit event INSERT 확인 (M7.1)
+
+**FS 참조**: FS-DOC-PDFVIEW-001, FS-AUD-001 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | PDF 뷰어 열람 시 audit_logs에 `PDF_VIEWED` 이벤트가 자동 삽입됨을 확인 |
+| **전제조건** | oq-viewer-01 계정 활성, EFFECTIVE_STAMPED 문서 존재 |
+| **절차** | 1. oq-viewer-01으로 로그인<br>2. PDF 뷰어 접근 (EFFECTIVE 렌디션)<br>3. `SELECT * FROM audit_logs WHERE action = 'PDF_VIEWED' AND user_id = (SELECT id FROM users WHERE user_id = 'oq-viewer-01') ORDER BY server_ts DESC LIMIT 1;` 실행 |
+| **예상 결과** | `PDF_VIEWED` 레코드 존재, `after_value`에 `{rendition_kind, doc_id, version_id}` 포함 |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
+
+---
+
+### OQ-AUD-020: PDF_VERIFIED audit event + after_value payload 검증 (M7.1)
+
+**FS 참조**: FS-DOC-PDFVIEW-003, FS-AUD-001 | **Critical**: ●
+
+| 항목 | 내용 |
+|---|---|
+| **목적** | 무결성 검증 버튼 클릭 시 audit_logs에 `PDF_VERIFIED` 이벤트가 삽입되고 after_value에 검증 결과와 SHA-256이 포함됨을 확인 |
+| **전제조건** | oq-viewer-01 계정 활성, PDF 뷰어 열람 상태 |
+| **절차** | 1. oq-viewer-01으로 로그인 후 PDF 뷰어 접근<br>2. "무결성 확인" 버튼 클릭<br>3. `SELECT * FROM audit_logs WHERE action = 'PDF_VERIFIED' ORDER BY server_ts DESC LIMIT 1;` 실행<br>4. `after_value` JSON 필드 확인 |
+| **예상 결과** | `PDF_VERIFIED` 레코드 존재, `after_value`에 `{verify_result: "PASS", sha256: "<hex>", rendition_kind: "<kind>"}` 포함 |
+| **실제 결과** | |
+| **판정** | ☐ Pass ☐ Fail |
+| **수행자** | |
+| **날짜** | |
 
 ---
 

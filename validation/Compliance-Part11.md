@@ -73,7 +73,7 @@
 
 | 조항 | 요구사항 | EDMS 대응 | 증거 |
 |---|---|---|---|
-| §11.10(e) | 안전한 컴퓨터 생성 감사추적 — 전자기록 생성·수정·삭제 이벤트를 운영자가 삭제 불가하도록 시간 순으로 기록. 기록 변경 시 이전 값 보존 | audit_logs: INSERT-only (app_role에서 UPDATE/DELETE REVOKE). Hibernate Envers 자동 엔티티 변경 기록. SHA-256 해시체인으로 변조 탐지. 일별 Merkle root → MinIO COMPLIANCE WORM | DS §4.2 audit_logs DDL, DS §4.3 DB 역할 분리, DS §8.2 감사로그 해시체인, DS §8.3 WORM 앵커링, FS-AUD-001~007, OQ-AUD-001~018, SOP-AUDIT-TRAIL-001 |
+| §11.10(e) | 안전한 컴퓨터 생성 감사추적 — 전자기록 생성·수정·삭제 이벤트를 운영자가 삭제 불가하도록 시간 순으로 기록. 기록 변경 시 이전 값 보존 | audit_logs: INSERT-only (app_role에서 UPDATE/DELETE REVOKE). Hibernate Envers 자동 엔티티 변경 기록. SHA-256 해시체인으로 변조 탐지. 일별 Merkle root → MinIO COMPLIANCE WORM. **M7.1 추가**: `PDF_VIEWED`, `PDF_DOWNLOADED`, `PDF_VERIFIED`, `PDF_VIEW_DENIED`, `PDF_DOWNLOAD_DENIED` 이벤트 추가. `audit_logs.after_value`에 `verify_result`/`sha256` 페이로드 기록. | DS §4.2 audit_logs DDL, DS §4.3 DB 역할 분리, DS §8.2 감사로그 해시체인, DS §8.3 WORM 앵커링, FS-AUD-001~007, FS-DOC-PDFVIEW-003, OQ-AUD-001~020, SOP-AUDIT-TRAIL-001 |
 
 #### §11.10(f) Sequencing of Steps
 
@@ -128,13 +128,13 @@
 | 조항 | 요구사항 | EDMS 대응 | 증거 |
 |---|---|---|---|
 | §11.50(a) | 전자서명에 서명자 성명, 서명 일시, 서명 의미 표시 | SignatureManifest: signer_name, signed_at (NTP 서버 시각), meaning (REVIEWED/APPROVED/QA_APPROVED/ACKNOWLEDGED/RETIRED). **구현 완료(M7)** — DB 기록 완비(M6) + PDF stamp 블록 적용(M7 PdfStampService.applyStamp). 서명자 성명·일시·의미가 PDF RENDITION에 직접 인쇄됨. | DS §4.2 signature_manifests, FS-SIG-005, FS-SIG-006, PdfStampService.applyStamp (M7) |
-| §11.50(b) | 표시 정보는 기록과 동일한 형식 (인쇄, 표시)으로 제공 | 서명 매니페스트 API 및 화면 표시(M6). PDF stamp 일관성 M7 완성 — PdfStampService가 각 결재 단계별로 성명·일시·의미를 PDF에 누적 인쇄하며 DB 기록과 동일 형식을 보장. **구현 완료(M7)**. | DS §7.4 SignatureDialog.vue, FS-SIG-006, PdfRenditionPipeline.applyStampForStep (M7) |
+| §11.50(b) | 표시 정보는 기록과 동일한 형식 (인쇄, 표시)으로 제공 | 서명 매니페스트 API 및 화면 표시(M6). PDF stamp 일관성 M7 완성 — PdfStampService가 각 결재 단계별로 성명·일시·의미를 PDF에 누적 인쇄하며 DB 기록과 동일 형식을 보장. **구현 완료(M7)**. **M7.1 PQ 단계 사용자 화면 동작 검증**: pdf.js 뷰어에서 STAMPED/EFFECTIVE 렌디션의 stamp 블록이 화면·인쇄물 모두 동일하게 표시됨을 OQ-DOC-PDFVIEW 절차로 확인. | DS §7.4 SignatureDialog.vue, FS-SIG-006, PdfRenditionPipeline.applyStampForStep (M7), OQ-DOC-PDFVIEW-002, OQ-DOC-PDFVIEW-004 |
 
 ### §11.70 — Signature/Record Linking
 
 | 조항 | 요구사항 | EDMS 대응 | 증거 |
 |---|---|---|---|
-| §11.70 | 전자서명이 서명된 전자기록에 연결되어 떼어내거나 다른 기록으로 복사할 수 없어야 함 | canonical_payload v3 (9-field pipe): `signer_id\|meaning\|signed_at_iso\|version_id\|doc_number\|revision\|doc_status\|original_sha256\|rendition_sha256`. `this_hash = SHA256(prev_hash ∥ canonical_payload)`, UNIQUE 제약. 서명-기록 분리 불가. **구현 완료(M7)** — ORIGINAL sha256(M6) + RENDITION sha256(M7 serializeV3)가 서명체인에 포함되어 §11.70 직접 충족. v_signature_chain_integrity 뷰로 v1/v2/v3 전 버전 chain 무결성 모니터링. | DS §8.1 canonical_payload v3, FS-SIG-002, OQ-SIG-014, OQ-SIG-015, SignatureCanonicalSerializer.serializeV3 (M7) |
+| §11.70 | 전자서명이 서명된 전자기록에 연결되어 떼어내거나 다른 기록으로 복사할 수 없어야 함 | canonical_payload v3 (9-field pipe): `signer_id\|meaning\|signed_at_iso\|version_id\|doc_number\|revision\|doc_status\|original_sha256\|rendition_sha256`. `this_hash = SHA256(prev_hash ∥ canonical_payload)`, UNIQUE 제약. 서명-기록 분리 불가. **구현 완료(M7)** — ORIGINAL sha256(M6) + RENDITION sha256(M7 serializeV3)가 서명체인에 포함되어 §11.70 직접 충족. v_signature_chain_integrity 뷰로 v1/v2/v3 전 버전 chain 무결성 모니터링. **M7.1 VerifyButton.vue** — Web Crypto SHA-256 + `signature_manifests` cross-check로 사용자 입증 도구 확보. §11.70 ✅ | DS §8.1 canonical_payload v3, FS-SIG-002, FS-DOC-PDFVIEW-003, OQ-SIG-014, OQ-SIG-015, OQ-DOC-PDFVIEW-006, OQ-AUD-020, SignatureCanonicalSerializer.serializeV3 (M7), VerifyButton.vue (M7.1) |
 
 ---
 
