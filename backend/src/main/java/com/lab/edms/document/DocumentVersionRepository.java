@@ -27,6 +27,11 @@ public interface DocumentVersionRepository extends JpaRepository<DocumentVersion
     @Query("SELECT v FROM DocumentVersion v WHERE v.id = :id")
     java.util.Optional<DocumentVersion> lockForUpdate(@Param("id") Long id);
 
+    // M7 PR3: PdfRenditionPipeline.applyStampForStep 동시 결재 race 가드
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT v FROM DocumentVersion v WHERE v.id = :id")
+    Optional<DocumentVersion> findByIdForUpdate(@Param("id") Long id);
+
     // in-flight 버전 조회 (T-06 단일 in-flight 가드용)
     @Query("SELECT v FROM DocumentVersion v WHERE v.documentId = :docId AND v.state IN ('DRAFT','UNDER_REVIEW','UNDER_APPROVAL','UNDER_REVISION') AND v.id != :excludeId")
     List<DocumentVersion> findInFlightByDocumentIdExcluding(@Param("docId") Long docId, @Param("excludeId") Long excludeId);
