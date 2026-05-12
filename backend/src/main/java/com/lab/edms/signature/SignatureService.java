@@ -275,7 +275,7 @@ public class SignatureService {
             step.setCompletedAt(OffsetDateTime.now());
             wfStepRepo.save(step);
 
-            // WorkflowService.advance() 호출
+            // advance()는 step 완료 즉시 호출 — stamp 실패 시 assertNextStepAllowed가 다음 단계 차단
             workflowService.advance(wf.getId());
         }
 

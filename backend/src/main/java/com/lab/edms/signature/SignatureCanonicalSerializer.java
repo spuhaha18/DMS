@@ -52,4 +52,36 @@ public final class SignatureCanonicalSerializer {
                 + "|" + norm(docStatus)
                 + "|" + norm(sourceFileSha256);
     }
+
+    /**
+     * v3 canonical payload — 9필드 (Fields 1-8 은 v2와 동일, backward-compat prev_hash chain 유지).
+     * Field 9: RENDITION sha256 (§11.70 직접 충족 — PDF rendition 파일 해시를 서명체인에 포함).
+     *
+     * v3 직렬화 형식:
+     *   signer_id | meaning | signed_at_iso | version_id | doc_number |
+     *   revision | doc_status | original_sha256 | rendition_sha256
+     *
+     * - v3는 v2 payload를 prefix로 포함하므로 startsWith(serialize_v2) 관계가 성립한다.
+     * - String 필드: NFC 정규화 후 백슬래시 이스케이프 적용 (v2와 동일).
+     */
+    public static String serializeV3(
+            long signerId,
+            String meaning,
+            Instant signedAt,
+            long versionId,
+            String docNumber,
+            int revision,
+            String docStatus,
+            String originalSha,
+            String renditionSha) {
+        return Long.toString(signerId)
+                + "|" + norm(meaning)
+                + "|" + signedAt.toString()
+                + "|" + Long.toString(versionId)
+                + "|" + norm(docNumber)
+                + "|" + Integer.toString(revision)
+                + "|" + norm(docStatus)
+                + "|" + norm(originalSha)
+                + "|" + norm(renditionSha);
+    }
 }

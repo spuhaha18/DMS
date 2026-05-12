@@ -3,6 +3,7 @@ package com.lab.edms.pdf;
 import com.lab.edms.document.*;
 import com.lab.edms.signature.SignIntent;
 import com.lab.edms.signature.SignIntentRepository;
+import com.lab.edms.signature.SignatureCanonicalSerializer;
 import com.lab.edms.signature.SignatureManifest;
 import com.lab.edms.signature.SignatureManifestRepository;
 import com.lab.edms.signature.SignatureMeaning;
@@ -15,8 +16,13 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -24,6 +30,7 @@ import java.time.ZoneOffset;
 /**
  * M7 PR1: INITIAL PDF 변환 파이프라인.
  * M7 PR2: 단계별 STAMPED RENDITION 누적 파이프라인.
+ * M7 PR4: EFFECTIVE 워터마크 적용 파이프라인.
  *
  * 상태 전이:
  *   (null / PENDING_CONVERSION) → [enqueueInitialConversion]
@@ -35,6 +42,10 @@ import java.time.ZoneOffset;
  *       → STAMPING            (작업 시작)
  *       → STAMPED             (도장 적용·업로드 성공)
  *       → STAMP_FAILED        (오류)
+ *
+ *   STAMPED → [applyEffectiveWatermark] (EffectiveWatermarkScheduler 호출)
+ *       → WATERMARKING        (작업 시작)
+ *       → EFFECTIVE_STAMPED   (EFFECTIVE 워터마크 적용·업로드 성공)
  */
 @Service
 public class PdfRenditionPipeline {
@@ -96,8 +107,13 @@ public class PdfRenditionPipeline {
 
         log.info("[PDF] document={} PENDING_CONVERSION enqueued", documentId);
 
-        // self 프록시를 통해 호출해야 @Async AOP가 적용됨 (this.method() 는 프록시 우회)
-        self.runConversionAsync(documentId);
+        // 호출자 트랜잭션이 커밋된 후 비동기 워커를 시작 — 커밋 전 실행 시 stale 데이터 읽기 방지
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                self.runConversionAsync(documentId);
+            }
+        });
     }
 
     // -----------------------------------------------------------------------
@@ -280,13 +296,26 @@ public class PdfRenditionPipeline {
                                                                   : java.util.Collections.emptyMap();
 
                     String prevHash = getString(sigPayload, "prevHash", "GENESIS");
-                    String thisHash = getString(sigPayload, "thisHash", "UNKNOWN");
-                    String canonicalPay = getString(sigPayload, "canonicalPayload", "{}");
-                    String algVersion = getString(sigPayload, "algorithmVersion", "v2");
                     String clientIp = getString(sigPayload, "clientIp", null);
                     boolean sessionFirst = Boolean.TRUE.equals(sigPayload.get("sessionFirst"));
+                    String originalSha = getString(sigPayload, "sourceFileSha256", "");
 
-                    // 9a. manifest INSERT — sign() 시점에 계산된 해시체인 값 사용
+                    // 9a. v3 canonical payload 재계산 — rendition SHA256을 서명체인에 포함 (§11.70)
+                    String renditionSha = uploaded.sha256();
+                    int revision = version.getRevision() != null ? version.getRevision() : 0;
+                    String v3CanonicalPayload = SignatureCanonicalSerializer.serializeV3(
+                            intent.getSignerDbId(),
+                            intent.getMeaning(),
+                            intent.getSignedAt().toInstant(),
+                            intent.getVersionId(),
+                            doc.getDocNumber(),
+                            revision,
+                            version.getState(),
+                            originalSha,
+                            renditionSha);
+                    String thisHash = sha256hex(prevHash + v3CanonicalPayload);
+
+                    // 9b. manifest INSERT — v3 payload + 재계산된 hash 사용
                     SignatureManifest manifest = new SignatureManifest();
                     manifest.setVersionId(intent.getVersionId());
                     manifest.setWorkflowStepId(intent.getStepInstanceId());
@@ -297,19 +326,19 @@ public class PdfRenditionPipeline {
                     manifest.setMeaning(SignatureMeaning.valueOf(intent.getMeaning()));
                     manifest.setSignedAt(intent.getSignedAt());
                     manifest.setClientIp(clientIp);
-                    manifest.setCanonicalPayload(canonicalPay);
+                    manifest.setCanonicalPayload(v3CanonicalPayload);
                     manifest.setPrevHash(prevHash);
                     manifest.setThisHash(thisHash);
                     manifest.setSessionFirst(sessionFirst);
-                    manifest.setAlgorithmVersion(algVersion);
+                    manifest.setAlgorithmVersion("v3");
                     SignatureManifest savedManifest = signatureManifestRepository.save(manifest);
 
-                    // 9b. SignIntent status = STAMPED, manifestId 설정
+                    // 9c. SignIntent status = STAMPED, manifestId 설정
                     intent.setStatus("STAMPED");
                     intent.setManifestId(savedManifest.getId());
                     signIntentRepository.save(intent);
 
-                    log.info("[PDF] document={} signIntent={} STAMPED manifestId={}",
+                    log.info("[PDF] document={} signIntent={} STAMPED manifestId={} algorithmVersion=v3",
                             documentId, intent.getId(), savedManifest.getId());
                 });
             }
@@ -334,6 +363,111 @@ public class PdfRenditionPipeline {
                     signIntentRepository.save(intent);
                 });
             }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Effective watermark (PR4) — WATERMARKING → EFFECTIVE_STAMPED
+    // -----------------------------------------------------------------------
+
+    /**
+     * EFFECTIVE 날짜 도달 시 스케줄러(EffectiveWatermarkScheduler)가 호출한다.
+     * 최종 STAMPED RENDITION에 "EFFECTIVE" 대각선 워터마크를 적용한 후
+     * rendition_kind=EFFECTIVE 행을 document_files에 INSERT한다.
+     *
+     * @Transactional(REQUIRES_NEW): 실패 시 독립 롤백.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyEffectiveWatermark(Long versionId) {
+        // 1. DocumentVersion → Document 조회
+        DocumentVersion version = documentVersionRepository.findById(versionId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "No DocumentVersion found: " + versionId));
+        Long documentId = version.getDocumentId();
+
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Document disappeared: " + documentId));
+
+        // 2. 이미 EFFECTIVE_STAMPED이면 멱등 처리
+        if (PdfStatus.EFFECTIVE_STAMPED.name().equals(doc.getPdfStatus())) {
+            log.info("[PDF] document={} 이미 EFFECTIVE_STAMPED — 스킵", documentId);
+            return;
+        }
+
+        // 3. pdf_status → WATERMARKING
+        doc.setPdfStatus(PdfStatus.WATERMARKING.name());
+        doc.setPdfStatusUpdatedAt(Instant.now());
+        doc.setPdfStatusReason(null);
+        documentRepository.save(doc);
+
+        log.info("[PDF] document={} versionId={} WATERMARKING (EFFECTIVE)", documentId, versionId);
+
+        try {
+            // 4. 최신 STAMPED RENDITION을 base로 선택, 없으면 INITIAL
+            DocumentFile baseFile = documentFileRepository
+                    .findTopByVersionIdAndFileTypeAndRenditionKindOrderByStepNumberDesc(
+                            versionId, RENDITION_FILE_TYPE, RenditionKind.STAMPED.name())
+                    .orElseGet(() -> documentFileRepository
+                            .findFirstByVersionIdAndFileTypeAndRenditionKind(
+                                    versionId, RENDITION_FILE_TYPE, RenditionKind.INITIAL.name())
+                            .orElseThrow(() -> new IllegalStateException(
+                                    "No RENDITION base found for versionId=" + versionId)));
+
+            // 5. MinIO에서 base PDF bytes 로드
+            byte[] baseBytes;
+            try (InputStream is = minio.openStream(baseFile.getMinioBucket(), baseFile.getMinioKey())) {
+                baseBytes = is.readAllBytes();
+            } catch (Exception e) {
+                throw new RuntimeException(
+                        "Failed to read base rendition: " + baseFile.getMinioKey(), e);
+            }
+
+            // 6. EFFECTIVE 워터마크 적용
+            String legend = "EFFECTIVE " + (version.getEffectiveDate() != null
+                    ? version.getEffectiveDate().toString() : "");
+            byte[] watermarkedBytes = pdfStampService.applyEffectiveWatermark(baseBytes, legend.trim());
+
+            // 7. MinIO에 EFFECTIVE rendition 업로드
+            String newKey = renditionKey(version, RenditionKind.EFFECTIVE, null);
+            MinioClientWrapper.UploadResult uploaded = minio.uploadWithRetention(
+                    minio.getBucketRendition(),
+                    newKey,
+                    watermarkedBytes,
+                    "application/pdf",
+                    3650   // 10년 COMPLIANCE retention
+            );
+
+            // 8. document_files INSERT (kind=EFFECTIVE, step_number=null)
+            DocumentFile effectiveFile = new DocumentFile();
+            effectiveFile.setVersionId(versionId);
+            effectiveFile.setFileType(RENDITION_FILE_TYPE);
+            effectiveFile.setMinioBucket(uploaded.bucket());
+            effectiveFile.setMinioKey(uploaded.key());
+            effectiveFile.setFileName("effective.pdf");
+            effectiveFile.setFileSizeBytes(uploaded.sizeBytes());
+            effectiveFile.setContentType("application/pdf");
+            effectiveFile.setSha256Hash(uploaded.sha256());
+            effectiveFile.setUploadedBy(version.getCreatedBy() != null ? version.getCreatedBy() : 0L);
+            effectiveFile.setRenditionKind(RenditionKind.EFFECTIVE.name());
+            effectiveFile.setStepNumber(null);
+            documentFileRepository.save(effectiveFile);
+
+            // 9. pdf_status → EFFECTIVE_STAMPED
+            doc.setPdfStatus(PdfStatus.EFFECTIVE_STAMPED.name());
+            doc.setPdfStatusUpdatedAt(Instant.now());
+            doc.setPdfStatusReason(null);
+            documentRepository.save(doc);
+
+            log.info("[PDF] document={} EFFECTIVE_STAMPED renditionKey={} sha256={}",
+                    documentId, newKey, uploaded.sha256());
+
+        } catch (Exception e) {
+            log.error("[PDF] document={} EFFECTIVE_STAMP_FAILED versionId={}", documentId, versionId, e);
+            doc.setPdfStatus(PdfStatus.STAMP_FAILED.name());
+            doc.setPdfStatusUpdatedAt(Instant.now());
+            doc.setPdfStatusReason(abbreviate(e.getMessage(), 64));
+            documentRepository.save(doc);
         }
     }
 
@@ -387,5 +521,17 @@ public class PdfRenditionPipeline {
     private static String getString(java.util.Map<String, Object> map, String key, String defaultVal) {
         Object v = map.get(key);
         return v != null ? v.toString() : defaultVal;
+    }
+
+    private static String sha256hex(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(digest.length * 2);
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
     }
 }

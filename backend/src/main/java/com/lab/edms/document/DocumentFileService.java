@@ -6,7 +6,6 @@ import com.lab.edms.audit.AuditEvent;
 import com.lab.edms.audit.AuditService;
 import com.lab.edms.document.dto.DocumentFileDto;
 import com.lab.edms.storage.MinioClientWrapper;
-import com.lab.edms.storage.MinioProperties;
 import com.lab.edms.user.User;
 import com.lab.edms.user.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -26,7 +25,6 @@ public class DocumentFileService {
     private final DocumentVersionRepository versionRepo;
     private final DocumentFileRepository fileRepo;
     private final MinioClientWrapper minio;
-    private final MinioProperties minioProps;
     private final FileTypeValidator fileTypeValidator;
     private final AuditService audit;
     private final UserRepository userRepo;
@@ -35,7 +33,6 @@ public class DocumentFileService {
                                DocumentVersionRepository versionRepo,
                                DocumentFileRepository fileRepo,
                                MinioClientWrapper minio,
-                               MinioProperties minioProps,
                                FileTypeValidator fileTypeValidator,
                                AuditService audit,
                                UserRepository userRepo) {
@@ -43,7 +40,6 @@ public class DocumentFileService {
         this.versionRepo = versionRepo;
         this.fileRepo = fileRepo;
         this.minio = minio;
-        this.minioProps = minioProps;
         this.fileTypeValidator = fileTypeValidator;
         this.audit = audit;
         this.userRepo = userRepo;
@@ -102,11 +98,12 @@ public class DocumentFileService {
         String ulid = UlidCreator.getUlid().toString();
         String key = String.format("documents/%d/v%d/%s-%s", docId, verId, ulid, sanitized);
 
-        // 7. Upload to MinIO
+        // 7. Upload to MinIO — M7 cutover 이후 생성된 버전은 GOVERNANCE 버킷으로 라우팅
+        String targetBucket = minio.getOriginalBucket(version);
         MinioClientWrapper.UploadResult uploadResult;
         try {
             uploadResult = minio.uploadStreaming(
-                    minioProps.bucketOriginal(),
+                    targetBucket,
                     key,
                     file.getInputStream(),
                     file.getSize(),
@@ -121,7 +118,7 @@ public class DocumentFileService {
         DocumentFile docFile = new DocumentFile();
         docFile.setVersionId(verId);
         docFile.setFileType("ORIGINAL");   // "ORIGINAL" vs "RENDITION" — this is the original source file
-        docFile.setMinioBucket(minioProps.bucketOriginal());
+        docFile.setMinioBucket(targetBucket);
         docFile.setMinioKey(key);
         docFile.setFileName(originalFilename);
         docFile.setFileSizeBytes(uploadResult.sizeBytes());
