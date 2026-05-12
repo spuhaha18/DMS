@@ -1,7 +1,6 @@
 package com.lab.edms.signature;
 
 import com.lab.edms.TestcontainersConfig;
-import com.lab.edms.audit.AuditAction;
 import com.lab.edms.category.DocumentCategoryRepository;
 import com.lab.edms.common.ForbiddenException;
 import com.lab.edms.common.UnauthorizedException;
@@ -33,8 +32,6 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -46,14 +43,16 @@ import static org.assertj.core.api.Assertions.*;
 /**
  * SignatureServiceIT — SignatureService.sign() 통합 테스트
  *
+ * M7 PR3: sign()은 SignIntent만 INSERT한다. SignatureManifest는 워커(PdfRenditionPipeline)가 채운다.
+ *
  * 시나리오:
- * 1. 정상 서명 → manifest INSERT, sessionFirst=true (첫 호출)
- * 2. 같은 세션 두 번째 서명 → sessionFirst=false
+ * 1. 정상 서명 → SignIntent INSERT (PENDING_STAMP), signerUserId 확인, signed 목록에 추가
+ * 2. 같은 세션 두 번째 서명 → 예외 없이 두 번째 SignIntent 생성
  * 3. 잘못된 PW → 401, audit USER_LOGIN_FAIL
  * 4. assignees에 없는 사용자 → 403
  * 5. step.state='COMPLETED' 후 재서명 → 422
  * 6. min_signers=2, parallel=true → 1차 서명 시 step IN_PROGRESS 유지, 2차 서명 시 COMPLETED
- * 7. (신규) 서로 다른 sha256 가진 버전 서명 → thisHash 상이
+ * 7. (신규) 서로 다른 sha256 가진 버전 서명 → 서로 다른 SignIntent(id 상이) 생성
  * 8. (신규) ORIGINAL 파일 없음 → 422 SIGNATURE_001
  */
 @ActiveProfiles("test")
@@ -62,20 +61,6 @@ import static org.assertj.core.api.Assertions.*;
 @DirtiesContext
 @Transactional
 class SignatureServiceIT {
-
-    // ──── genesis hash (SHA-256("GENESIS")) ────
-    private static final String GENESIS_HASH;
-    static {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] d = md.digest("GENESIS".getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder(64);
-            for (byte b : d) sb.append(String.format("%02x", b));
-            GENESIS_HASH = sb.toString();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     // 테스트용 sha256 고정값
     private static final String TEST_SHA256 =
@@ -175,31 +160,24 @@ class SignatureServiceIT {
         em.clear();
     }
 
-    // ──── 시나리오 1: 정상 서명 (sessionFirst=true) ────
+    // ──── 시나리오 1: 정상 서명 → SignIntent INSERT (PENDING_STAMP) ────
 
     @Test
-    void 정상서명_manifest_insert_sessionFirst_true() {
+    void 정상서명_signIntent_insert_pendingStamp() {
         MockHttpSession session = new MockHttpSession();
         Authentication auth = authOf(reviewer1.getUserId());
 
-        SignatureManifest manifest = signatureService.sign(
+        // M7 PR3: sign()은 SignIntent를 반환 (SignatureManifest는 워커가 나중에 생성)
+        SignIntent intent = signatureService.sign(
                 document.getId(), docVersion.getId(), stepInstance.getId(),
                 PLAIN_PASSWORD, "REVIEWED", reviewer1.getUserId(),
                 auth, session, "127.0.0.1");
 
-        assertThat(manifest.getId()).isNotNull();
-        assertThat(manifest.getSignerUserId()).isEqualTo(reviewer1.getUserId());
-        assertThat(manifest.isSessionFirst()).isTrue();
-        // genesis hash는 SHA-256("GENESIS") 64자 hex
-        assertThat(manifest.getPrevHash()).isEqualTo(GENESIS_HASH);
-        assertThat(manifest.getPrevHash()).hasSize(64);
-        assertThat(manifest.getThisHash()).hasSize(64);
-        // v2 알고리즘 버전 확인
-        assertThat(manifest.getAlgorithmVersion()).isEqualTo("v2");
-        // canonical payload 형식 검증: signerId|meaning|...sha256 끝
-        assertThat(manifest.getCanonicalPayload())
-                .contains("|REVIEWED|")
-                .endsWith("|" + TEST_SHA256);
+        assertThat(intent.getId()).isNotNull();
+        assertThat(intent.getSignerUserId()).isEqualTo(reviewer1.getUserId());
+        assertThat(intent.getStatus()).isEqualTo("PENDING_STAMP");
+        assertThat(intent.getMeaning()).isEqualTo("REVIEWED");
+        assertThat(intent.getVersionId()).isEqualTo(docVersion.getId());
 
         // signed 목록에 추가됐는지 확인
         em.flush();
@@ -241,12 +219,15 @@ class SignatureServiceIT {
         em.flush();
         em.clear();
 
-        SignatureManifest manifest2 = signatureService.sign(
+        // M7 PR3: 두 번째 서명도 SignIntent 반환 (sessionFirst 플래그는 세션에 기록됨)
+        SignIntent intent2 = signatureService.sign(
                 document.getId(), docVersion.getId(), step2.getId(),
                 PLAIN_PASSWORD, "REVIEWED", null,
                 auth, session, "127.0.0.1");
 
-        assertThat(manifest2.isSessionFirst()).isFalse();
+        // 두 번째 서명도 PENDING_STAMP 상태로 정상 생성
+        assertThat(intent2.getId()).isNotNull();
+        assertThat(intent2.getStatus()).isEqualTo("PENDING_STAMP");
     }
 
     // ──── 시나리오 3: 잘못된 PW → 401, audit USER_LOGIN_FAIL ────
@@ -366,17 +347,19 @@ class SignatureServiceIT {
         assertThat(afterSecond.getSigned()).hasSize(2);
     }
 
-    // ──── 시나리오 7 (신규): 서로 다른 sha256 가진 두 버전 → thisHash 상이 ────
+    // ──── 시나리오 7 (신규): 서로 다른 sha256 가진 두 버전 → 서로 다른 SignIntent 생성 ────
 
     @Test
-    void sign_differentSourceFileSha256_producesDistinctHash() {
+    void sign_differentSourceFileSha256_producesTwoDistinctIntents() {
+        // M7 PR3: sign()은 SignIntent를 반환. thisHash/canonicalPayload는 워커가 manifest에 채움.
+        // 여기서는 두 서명이 각각 별도의 SignIntent(다른 id)를 생성함을 확인.
+
         // 버전1은 setUp에서 생성 (TEST_SHA256) → reviewer1이 서명
         MockHttpSession session1 = new MockHttpSession();
-        SignatureManifest manifest1 = signatureService.sign(
+        SignIntent intent1 = signatureService.sign(
                 document.getId(), docVersion.getId(), stepInstance.getId(),
                 PLAIN_PASSWORD, "REVIEWED", reviewer1.getUserId(),
                 authOf(reviewer1.getUserId()), session1, "127.0.0.1");
-        String hash1 = manifest1.getThisHash();
 
         em.flush();
         em.clear();
@@ -384,7 +367,6 @@ class SignatureServiceIT {
         // 버전2: 다른 sha256으로 별도 문서버전 + workflow 생성
         Document doc2 = createDocument();
         DocumentVersion docVersion2 = createDocVersion(doc2.getId(), reviewer1.getId());
-        // TEST_SHA256_ALT 로 ORIGINAL 파일 삽입
         insertOriginalFile(docVersion2.getId(), reviewer1.getId(), TEST_SHA256_ALT);
         em.flush();
         em.clear();
@@ -405,17 +387,16 @@ class SignatureServiceIT {
         em.clear();
 
         MockHttpSession session2 = new MockHttpSession();
-        SignatureManifest manifest2 = signatureService.sign(
+        SignIntent intent2 = signatureService.sign(
                 doc2.getId(), docVersion2.getId(), step2.getId(),
                 PLAIN_PASSWORD, "REVIEWED", reviewer1.getUserId(),
                 authOf(reviewer1.getUserId()), session2, "127.0.0.1");
-        String hash2 = manifest2.getThisHash();
 
-        // sha256이 다르면 canonical payload가 다르므로 thisHash도 달라야 함
-        assertThat(hash1).isNotEqualTo(hash2);
-        // 각 manifest의 canonical payload가 해당 sha256으로 끝나는지 확인
-        assertThat(manifest1.getCanonicalPayload()).endsWith("|" + TEST_SHA256);
-        assertThat(manifest2.getCanonicalPayload()).endsWith("|" + TEST_SHA256_ALT);
+        // 두 intent는 서로 다른 row (다른 id, 다른 versionId)
+        assertThat(intent1.getId()).isNotEqualTo(intent2.getId());
+        assertThat(intent1.getVersionId()).isNotEqualTo(intent2.getVersionId());
+        assertThat(intent1.getStatus()).isEqualTo("PENDING_STAMP");
+        assertThat(intent2.getStatus()).isEqualTo("PENDING_STAMP");
     }
 
     // ──── 시나리오 8 (신규): ORIGINAL 파일 없음 → 422 SIGNATURE_001 ────

@@ -42,9 +42,11 @@ import static org.assertj.core.api.Assertions.*;
 /**
  * SignatureUniqueHashIT
  *
- * V20 마이그레이션 UNIQUE(this_hash) 제약 검증:
- * 1. 동일 this_hash 를 가진 두 번째 row INSERT → DataIntegrityViolationException
- * 2. 정상 서명 후 v_signature_chain_integrity 뷰의 broken_links == 0
+ * M7 PR3: sign()은 sign_intents만 INSERT한다. SignatureManifest는 워커가 채운다.
+ *
+ * 검증 항목:
+ * 1. signature_manifests UNIQUE(this_hash) 제약 — JDBC로 직접 manifest 삽입 후 duplicate INSERT 시도
+ * 2. sign() 호출 후 sign_intents.status = 'PENDING_STAMP' 확인
  *
  * @Transactional 없이 실행 — UNIQUE 제약은 커밋 시점에 검증되므로
  * 실제 DB 커밋이 필요하다. @AfterEach 에서 수동 정리한다.
@@ -85,6 +87,7 @@ class SignatureUniqueHashIT {
     @AfterEach
     void tearDown() {
         jdbc.execute("DELETE FROM signature_manifests");
+        jdbc.execute("DELETE FROM sign_intents");
         jdbc.execute("DELETE FROM workflow_step_instances");
         jdbc.execute("DELETE FROM workflow_instances");
         jdbc.execute("DELETE FROM document_files");
@@ -149,23 +152,30 @@ class SignatureUniqueHashIT {
     }
 
     /**
-     * Test 1: 동일 this_hash INSERT 시 UNIQUE 제약 위반
+     * Test 1: signature_manifests UNIQUE(this_hash) 제약 위반 검증
      *
-     * 정상 sign() 으로 manifest1 생성 → manifest1.getThisHash() 를 그대로 사용해
-     * JdbcTemplate 으로 두 번째 row 직접 INSERT → DataIntegrityViolationException 검증.
+     * M7 PR3: sign()은 sign_intents만 INSERT. 워커가 manifest를 INSERT한다.
+     * UNIQUE 제약은 JDBC로 직접 manifest를 삽입해 검증한다.
      */
     @Test
     void duplicateThisHash_throwsDataIntegrityViolation() {
-        // 정상 서명으로 manifest1 생성
-        MockHttpSession session = new MockHttpSession();
-        Authentication auth = authOf(testUser.getUserId());
-
-        SignatureManifest manifest1 = signatureService.sign(
-                document.getId(), docVersion.getId(), stepInstance.getId(),
-                PLAIN_PASSWORD, "REVIEWED", testUser.getUserId(),
-                auth, session, "127.0.0.1");
-
-        String duplicateHash = manifest1.getThisHash();
+        // 고정 thisHash 값으로 첫 번째 manifest 직접 삽입
+        String fixedHash = "aabbcc1234567890aabbcc1234567890aabbcc1234567890aabbcc1234567890";
+        jdbc.update(
+                "INSERT INTO signature_manifests " +
+                "(version_id, workflow_step_id, signer_id, signer_user_id, signer_name, " +
+                " meaning, signed_at, client_ip, canonical_payload, prev_hash, this_hash, " +
+                " session_first, algorithm_version) " +
+                "VALUES (?,?,?,?,?,?,NOW(),'127.0.0.1','payload','genesis'," +
+                "?::varchar,false,'v2')",
+                docVersion.getId(),
+                stepInstance.getId(),
+                testUser.getId(),
+                testUser.getUserId(),
+                testUser.getFullName(),
+                "REVIEWED",
+                fixedHash
+        );
 
         // 동일 this_hash 로 두 번째 row 직접 INSERT → UNIQUE 제약 위반 기대
         assertThatThrownBy(() ->
@@ -174,38 +184,45 @@ class SignatureUniqueHashIT {
                         "(version_id, workflow_step_id, signer_id, signer_user_id, signer_name, " +
                         " meaning, signed_at, client_ip, canonical_payload, prev_hash, this_hash, " +
                         " session_first, algorithm_version) " +
-                        "VALUES (?,?,?,?,?,?,NOW(),'127.0.0.1','test','prev_hash',?::varchar,false,'v2')",
+                        "VALUES (?,?,?,?,?,?,NOW(),'127.0.0.2','payload2','genesis'," +
+                        "?::varchar,false,'v2')",
                         docVersion.getId(),
                         stepInstance.getId(),
                         testUser.getId(),
                         testUser.getUserId(),
                         testUser.getFullName(),
                         "REVIEWED",
-                        duplicateHash
+                        fixedHash
                 )
         ).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     /**
-     * Test 2: 정상 서명 후 v_signature_chain_integrity 뷰의 broken_links == 0
+     * Test 2: sign() 호출 후 sign_intents row 생성 확인
      *
-     * v2 알고리즘으로 서명된 row 의 체인 무결성이 올바른지 확인한다.
+     * M7 PR3: sign()은 sign_intents만 INSERT. manifest는 워커가 채운다.
+     * 비동기 워커가 FAILED로 전환할 수 있으므로 status 무관 id/signerUserId 확인.
      */
     @Test
-    void uniqueHashEnforced_viewShowsZeroBrokenLinks() {
+    void sign_createsSignIntentRow() {
         MockHttpSession session = new MockHttpSession();
         Authentication auth = authOf(testUser.getUserId());
 
-        signatureService.sign(
+        SignIntent intent = signatureService.sign(
                 document.getId(), docVersion.getId(), stepInstance.getId(),
                 PLAIN_PASSWORD, "REVIEWED", testUser.getUserId(),
                 auth, session, "127.0.0.1");
 
-        Integer brokenLinks = jdbc.queryForObject(
-                "SELECT broken_links FROM v_signature_chain_integrity WHERE version_id = ?",
-                Integer.class, docVersion.getId());
+        assertThat(intent).isNotNull();
+        assertThat(intent.getId()).isNotNull();
+        assertThat(intent.getSignerUserId()).isEqualTo(testUser.getUserId());
+        assertThat(intent.getVersionId()).isEqualTo(docVersion.getId());
 
-        assertThat(brokenLinks).isEqualTo(0);
+        // DB에서 sign_intents row 존재 확인 (status 무관)
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM sign_intents WHERE id = ?",
+                Integer.class, intent.getId());
+        assertThat(count).isEqualTo(1);
     }
 
     // ──── 헬퍼 메서드 ────

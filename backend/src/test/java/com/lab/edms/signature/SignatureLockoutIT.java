@@ -86,6 +86,7 @@ class SignatureLockoutIT {
     @AfterEach
     void tearDown() {
         jdbc.execute("DELETE FROM signature_manifests");
+        jdbc.execute("DELETE FROM sign_intents");
         jdbc.execute("DELETE FROM workflow_step_instances");
         jdbc.execute("DELETE FROM workflow_instances");
         jdbc.execute("DELETE FROM document_files");

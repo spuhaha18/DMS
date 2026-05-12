@@ -88,6 +88,7 @@ class SignatureFirstSignIT {
     @AfterEach
     void tearDown() {
         jdbc.execute("DELETE FROM signature_manifests");
+        jdbc.execute("DELETE FROM sign_intents");
         jdbc.execute("DELETE FROM workflow_step_instances");
         jdbc.execute("DELETE FROM workflow_instances");
         jdbc.execute("DELETE FROM document_files");
@@ -151,20 +152,22 @@ class SignatureFirstSignIT {
         });
     }
 
-    // ===== OQ-SIG-009: 새 세션 + signingUserId 제공 → 서명 성공, sessionFirst=true =====
+    // ===== OQ-SIG-009: 새 세션 + signingUserId 제공 → 서명 성공, SignIntent PENDING_STAMP =====
     @Test
     void oqSig009_sessionFirst_withUserId_succeeds() {
         MockHttpSession session = new MockHttpSession();
         Authentication auth = authOf(testUser.getUserId());
 
-        SignatureManifest manifest = signatureService.sign(
+        // M7 PR3: sign()은 SignIntent 반환 (sessionFirst 플래그는 세션 내부에서 관리)
+        SignIntent intent = signatureService.sign(
                 document.getId(), docVersion.getId(), stepInstance.getId(),
                 PLAIN_PASSWORD, "REVIEWED",
                 testUser.getUserId(),   // signingUserId 제공
                 auth, session, "127.0.0.1");
 
-        assertThat(manifest).isNotNull();
-        assertThat(manifest.isSessionFirst()).isTrue();
+        assertThat(intent).isNotNull();
+        assertThat(intent.getStatus()).isEqualTo("PENDING_STAMP");
+        assertThat(intent.getSignerUserId()).isEqualTo(testUser.getUserId());
     }
 
     // ===== OQ-SIG-010: 새 세션 + signingUserId null → 422 SIGNATURE_002 =====
@@ -217,14 +220,15 @@ class SignatureFirstSignIT {
         jdbc.update("UPDATE users SET failed_attempts = 0 WHERE user_id = ?",
                 testUser.getUserId());
 
-        // 2차: 올바른 PW + signingUserId → 성공, sessionFirst=true 유지
-        SignatureManifest manifest = signatureService.sign(
+        // 2차: 올바른 PW + signingUserId → 성공, SignIntent PENDING_STAMP
+        // M7 PR3: sessionFirst=true 여부는 세션 트래커가 관리 (SignIntent에는 해당 필드 없음)
+        SignIntent intent = signatureService.sign(
                 document.getId(), docVersion.getId(), stepInstance.getId(),
                 PLAIN_PASSWORD, "REVIEWED",
                 testUser.getUserId(), auth, session, "127.0.0.1");
 
-        assertThat(manifest).isNotNull();
-        assertThat(manifest.isSessionFirst()).isTrue();
+        assertThat(intent).isNotNull();
+        assertThat(intent.getStatus()).isEqualTo("PENDING_STAMP");
     }
 
     // ──── 헬퍼 메서드 ────
