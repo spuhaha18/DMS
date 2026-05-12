@@ -32,8 +32,10 @@ api.interceptors.response.use(
     const status = error.response?.status;
 
     // Don't toast/auth-redirect on the auth probe itself — let auth store handle it.
+    // Don't toast PDF stream errors — PdfViewer renders them inline.
     const url: string = error.config?.url ?? '';
     const isAuthProbe = url.includes('/auth/me') || url.includes('/auth/login');
+    const isPdfStream = url.includes('/pdf/view') || url.includes('/pdf/download');
 
     if (status === 401 && !isAuthProbe) {
       if (!logoutInProgress) {
@@ -52,7 +54,7 @@ api.interceptors.response.use(
         })().finally(() => { logoutInProgress = null });
       }
       await logoutInProgress;
-    } else if (status && status >= 400) {
+    } else if (status && status >= 400 && !isPdfStream) {
       try {
         const { emitToast } = await import('../components/Toast/useToast');
         const problem = error.response?.data;

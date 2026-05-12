@@ -64,9 +64,14 @@ const isReady = computed(() =>
 // ---------------------------------------------------------------------------
 
 async function load() {
-  await loadPdf(props.src);
-  await nextTick();
-  await draw();
+  try {
+    await loadPdf(props.src);
+    await nextTick();
+    await draw();
+  } catch {
+    // loadPdf already transitioned state → Error and set error.value;
+    // swallow here so Vue doesn't log an unhandled mounted-hook error.
+  }
 }
 
 async function draw() {
