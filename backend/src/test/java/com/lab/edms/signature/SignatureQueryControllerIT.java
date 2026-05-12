@@ -83,6 +83,7 @@ class SignatureQueryControllerIT {
     @AfterEach
     void tearDown() {
         jdbc.execute("DELETE FROM signature_manifests");
+        jdbc.execute("DELETE FROM sign_intents");       // M7 PR3: FK sign_intents_step_instance_id_fkey
         jdbc.execute("DELETE FROM workflow_step_instances");
         jdbc.execute("DELETE FROM workflow_instances");
         jdbc.execute("DELETE FROM document_files");
@@ -255,21 +256,29 @@ class SignatureQueryControllerIT {
         long stepId = docVidStep[2];
 
         // reviewer1 → reviewer2 순으로 서명
+        // M7 PR3: sign()은 sign_intents만 INSERT하므로 manifest도 별도 INSERT
         TransactionTemplate tt = new TransactionTemplate(txManager);
+        long[] intentIds = new long[2];
         tt.execute(status -> {
-            signatureService.sign(docId, vid, stepId,
+            SignIntent i1 = signatureService.sign(docId, vid, stepId,
                     PLAIN_PASSWORD, "REVIEWED", reviewer1.getUserId(),
                     authOf(reviewer1.getUserId()), new MockHttpSession(), "10.0.0.1");
+            intentIds[0] = i1.getId();
             return null;
         });
         // 1ms 이상 간격을 보장하기 위해 짧은 지연
         try { Thread.sleep(5); } catch (InterruptedException ignored) {}
         tt.execute(status -> {
-            signatureService.sign(docId, vid, stepId,
+            SignIntent i2 = signatureService.sign(docId, vid, stepId,
                     PLAIN_PASSWORD, "REVIEWED", reviewer2.getUserId(),
                     authOf(reviewer2.getUserId()), new MockHttpSession(), "10.0.0.2");
+            intentIds[1] = i2.getId();
             return null;
         });
+        // 워커가 생성할 manifest 직접 INSERT (서명 순서에 맞는 signed_at 설정)
+        insertManifestForTest(vid, reviewer1, intentIds[0]);
+        try { Thread.sleep(5); } catch (InterruptedException ignored) {}
+        insertManifestForTest(vid, reviewer2, intentIds[1]);
 
         String body = mockMvc.perform(get("/api/v1/documents/{docId}/versions/{vid}/signatures", docId, vid))
                 .andExpect(status().isOk())
@@ -323,6 +332,8 @@ class SignatureQueryControllerIT {
 
     /**
      * 문서/버전 생성 + 서명 1회.
+     * M7 PR3: sign()은 sign_intents만 INSERT. SignatureQueryControllerIT는 manifests를 조회하므로
+     * sign() 후 JDBC로 manifest를 직접 INSERT해 API 응답 검증이 가능하게 한다.
      * @return [docId, versionId]
      */
     private long[] signOnce(User signer, String sha256) {
@@ -346,6 +357,7 @@ class SignatureQueryControllerIT {
 
         long docId  = result[0];
         long vid    = result[1];
+        long[] signIntentId = new long[1];
 
         // sign()은 자체 트랜잭션을 갖기 때문에 TransactionTemplate 밖에서 실행해도 무방하나
         // step ID 조회를 위해 별도 tx에서 실행한다.
@@ -360,11 +372,16 @@ class SignatureQueryControllerIT {
                     })
                     .findFirst().orElseThrow();
 
-            signatureService.sign(docId, vid, step.getId(),
+            SignIntent intent = signatureService.sign(docId, vid, step.getId(),
                     PLAIN_PASSWORD, "REVIEWED", signer.getUserId(),
                     authOf(signer.getUserId()), new MockHttpSession(), "127.0.0.1");
+            signIntentId[0] = intent.getId();
             return null;
         });
+
+        // M7 PR3: sign()은 sign_intents만 INSERT하므로, 쿼리 컨트롤러 테스트를 위해
+        // 워커가 생성할 manifest를 JDBC로 직접 INSERT한다.
+        insertManifestForTest(vid, signer, signIntentId[0]);
 
         return result;
     }
@@ -460,6 +477,7 @@ class SignatureQueryControllerIT {
 
         long docId = result[0];
         long vid   = result[1];
+        long[] signIntentId = new long[1];
         TransactionTemplate tt2 = new TransactionTemplate(txManager);
         tt2.execute(status -> {
             WorkflowStepInstance step = wfStepRepo.findAll().stream()
@@ -469,12 +487,41 @@ class SignatureQueryControllerIT {
                         return wf != null && wf.getVersionId().equals(vid);
                     })
                     .findFirst().orElseThrow();
-            signatureService.sign(docId, vid, step.getId(),
+            SignIntent intent = signatureService.sign(docId, vid, step.getId(),
                     PLAIN_PASSWORD, "REVIEWED", signer.getUserId(),
                     authOf(signer.getUserId()), new MockHttpSession(), "127.0.0.1");
+            signIntentId[0] = intent.getId();
             return null;
         });
+        // M7 PR3: 워커가 생성할 manifest를 JDBC로 직접 INSERT
+        insertManifestForTest(vid, signer, signIntentId[0]);
         return result;
+    }
+
+    /**
+     * M7 PR3: sign()은 sign_intents만 INSERT하므로, SignatureQueryControllerIT에서
+     * /signatures API 테스트를 위해 JDBC로 manifest를 직접 생성하는 헬퍼.
+     * 실제 운영에서는 PdfRenditionPipeline 워커가 처리한다.
+     */
+    private void insertManifestForTest(long versionId, User signer, long intentId) {
+        String uniqueHash = String.format("%064x", intentId);  // intent ID 기반 고정값
+        // meaning 컬럼은 VARCHAR(30) CHECK(meaning IN (...)) — 캐스팅 없이 문자열로 삽입
+        jdbc.update(
+                "INSERT INTO signature_manifests " +
+                "(version_id, signer_id, signer_user_id, signer_name, " +
+                " meaning, signed_at, client_ip, canonical_payload, prev_hash, this_hash, " +
+                " session_first, algorithm_version) " +
+                "VALUES (?, ?, ?, ?, ?, NOW(), '127.0.0.1', " +
+                " 'test_payload|REVIEWED|test_sha256', " +
+                " '0000000000000000000000000000000000000000000000000000000000000000', " +
+                " ?, false, 'v2')",
+                versionId,
+                signer.getId(),
+                signer.getUserId(),
+                signer.getFullName(),
+                "REVIEWED",
+                uniqueHash
+        );
     }
 
     private Document createDocument(User owner) {

@@ -3,7 +3,7 @@ package com.lab.edms.workflow;
 import com.lab.edms.common.ForbiddenException;
 import com.lab.edms.common.NotFoundException;
 import com.lab.edms.document.DocumentVersionRepository;
-import com.lab.edms.signature.SignatureManifest;
+import com.lab.edms.signature.SignIntent;
 import com.lab.edms.signature.SignatureRequest;
 import com.lab.edms.signature.SignatureService;
 import com.lab.edms.workflow.dto.*;
@@ -52,7 +52,7 @@ public class WorkflowController {
 
     @PostMapping("/documents/{docId}/versions/{verId}/sign")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<SignatureManifest> sign(
+    public ResponseEntity<SignIntent> sign(
             @PathVariable Long docId,
             @PathVariable Long verId,
             @RequestBody SignatureRequest req,
@@ -60,12 +60,12 @@ public class WorkflowController {
             HttpSession session,
             HttpServletRequest httpRequest) {
         String clientIp = httpRequest.getRemoteAddr();
-        SignatureManifest manifest = signatureService.sign(
+        SignIntent intent = signatureService.sign(
                 docId, verId, req.getStepInstanceId(),
                 req.getPassword(), req.getMeaning(),
                 req.getSigningUserId(),
                 auth, session, clientIp);
-        return ResponseEntity.ok(manifest);
+        return ResponseEntity.ok(intent);
     }
 
     @PostMapping("/documents/{docId}/versions/{verId}/reject")

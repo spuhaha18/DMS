@@ -15,6 +15,7 @@ import com.lab.edms.document.DocumentFileRepository;
 import com.lab.edms.document.DocumentRepository;
 import com.lab.edms.document.DocumentVersion;
 import com.lab.edms.document.DocumentVersionRepository;
+import com.lab.edms.pdf.PdfRenditionPipeline;
 import com.lab.edms.user.User;
 import com.lab.edms.user.UserRepository;
 import com.lab.edms.user.UserStatus;
@@ -38,7 +39,9 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 전자 서명 비즈니스 로직.
@@ -62,6 +65,7 @@ public class SignatureService {
     }
 
     private final SignatureManifestRepository manifestRepo;
+    private final SignIntentRepository signIntentRepo;
     private final WorkflowStepInstanceRepository wfStepRepo;
     private final WorkflowInstanceRepository wfInstanceRepo;
     private final DocumentVersionRepository documentVersionRepo;
@@ -74,8 +78,10 @@ public class SignatureService {
     private final DocumentFileRepository documentFileRepo;
     private final LocalAuthProvider localAuthProvider;
     private final SignatureRateLimiter rateLimiter;
+    private final PdfRenditionPipeline pdfRenditionPipeline;
 
     public SignatureService(SignatureManifestRepository manifestRepo,
+                            SignIntentRepository signIntentRepo,
                             WorkflowStepInstanceRepository wfStepRepo,
                             WorkflowInstanceRepository wfInstanceRepo,
                             DocumentVersionRepository documentVersionRepo,
@@ -87,8 +93,10 @@ public class SignatureService {
                             DocumentRepository documentRepo,
                             DocumentFileRepository documentFileRepo,
                             LocalAuthProvider localAuthProvider,
-                            SignatureRateLimiter rateLimiter) {
+                            SignatureRateLimiter rateLimiter,
+                            PdfRenditionPipeline pdfRenditionPipeline) {
         this.manifestRepo = manifestRepo;
+        this.signIntentRepo = signIntentRepo;
         this.wfStepRepo = wfStepRepo;
         this.wfInstanceRepo = wfInstanceRepo;
         this.documentVersionRepo = documentVersionRepo;
@@ -101,14 +109,20 @@ public class SignatureService {
         this.documentFileRepo = documentFileRepo;
         this.localAuthProvider = localAuthProvider;
         this.rateLimiter = rateLimiter;
+        this.pdfRenditionPipeline = pdfRenditionPipeline;
     }
 
+    /**
+     * M7 PR3 재작성: sign() 트랜잭션은 sign_intents 행만 INSERT한다.
+     * SignatureManifest INSERT는 PdfRenditionPipeline.applyStampForStep 성공 후 워커에서 수행.
+     * afterCommit()에서 stamp enqueue.
+     */
     @Transactional
-    public SignatureManifest sign(Long docId, Long verId, Long stepInstanceId,
-                                   String password, String meaningStr,
-                                   String signingUserId,
-                                   Authentication auth, HttpSession session,
-                                   String clientIp) {
+    public SignIntent sign(Long docId, Long verId, Long stepInstanceId,
+                           String password, String meaningStr,
+                           String signingUserId,
+                           Authentication auth, HttpSession session,
+                           String clientIp) {
         String actorUserId = auth.getName();
 
         // 0. Rate limit: 5회/분 per userId+IP (브루트포스 1차 방어선)
@@ -191,35 +205,44 @@ public class SignatureService {
         Document doc = documentRepo.findById(docId)
                 .orElseThrow(() -> new NotFoundException("문서를 찾을 수 없음: " + docId));
 
-        // 7. 해시체인 계산 — 병렬 서명 경쟁 조건 방지: version 행 락 후 prevHash 읽기
+        // 7. 병렬 서명 경쟁 조건 방지: version 행 락
         documentVersionRepo.lockForUpdate(verId);
-        Instant signedAt = Instant.now();
+        OffsetDateTime signedAt = OffsetDateTime.now();
         SignatureMeaning meaning = SignatureMeaning.valueOf(meaningStr);
 
+        // 8. INSERT sign_intents (status='PENDING_STAMP') — manifest INSERT는 워커로 이동
+        // 해시체인은 sign() 시점에 계산하여 signaturePayload에 저장 — 워커가 재조회 없이 manifest INSERT 가능
         String prevHash = manifestRepo.findLatestByVersionId(verId)
                 .map(SignatureManifest::getThisHash)
                 .orElse(GENESIS_HASH);
-
         String canonicalPayload = buildCanonicalPayload(
-                version, doc, actor.getId(), meaningStr, signedAt, sourceFileSha256);
+                version, doc, actor.getId(), meaningStr, signedAt.toInstant(), sourceFileSha256);
         String thisHash = calculateHash(prevHash, canonicalPayload);
 
-        // 8. INSERT signature_manifests
-        SignatureManifest manifest = new SignatureManifest();
-        manifest.setVersionId(verId);
-        manifest.setWorkflowStepId(stepInstanceId);
-        manifest.setSignerId(actor.getId());
-        manifest.setSignerUserId(actorUserId);
-        manifest.setSignerName(actor.getFullName());
-        manifest.setMeaning(meaning);
-        manifest.setSignedAt(OffsetDateTime.now());
-        manifest.setClientIp(clientIp);
-        manifest.setCanonicalPayload(canonicalPayload);
-        manifest.setPrevHash(prevHash);
-        manifest.setThisHash(thisHash);
-        manifest.setSessionFirst(sessionFirst);
-        manifest.setAlgorithmVersion("v2");
-        manifest = manifestRepo.save(manifest);
+        Map<String, Object> signaturePayload = new HashMap<>();
+        signaturePayload.put("displayName", actor.getFullName());
+        signaturePayload.put("signerName", actor.getFullName());
+        signaturePayload.put("signerUserId", actorUserId);
+        signaturePayload.put("clientIp", clientIp);
+        signaturePayload.put("sessionFirst", sessionFirst);
+        signaturePayload.put("sourceFileSha256", sourceFileSha256);
+        signaturePayload.put("prevHash", prevHash);
+        signaturePayload.put("thisHash", thisHash);
+        signaturePayload.put("canonicalPayload", canonicalPayload);
+        signaturePayload.put("algorithmVersion", "v2");
+        // signatureBase64는 향후 PKI 서명 시 채워짐 (현재 null 허용)
+
+        SignIntent intent = new SignIntent();
+        intent.setVersionId(verId);
+        intent.setStepInstanceId(stepInstanceId);
+        intent.setStepNumber(step.getStepOrder());
+        intent.setSignerUserId(actorUserId);
+        intent.setSignerDbId(actor.getId());
+        intent.setSignedAt(signedAt);
+        intent.setMeaning(meaningStr);
+        intent.setSignaturePayload(signaturePayload);
+        intent.setStatus("PENDING_STAMP");
+        final SignIntent savedIntent = signIntentRepo.save(intent);
 
         // first flag: mark now, but undo on rollback — if wfStepRepo/workflowService/auditService
         // later fail and roll back the transaction, the session flag is reset so a retry
@@ -239,11 +262,11 @@ public class SignatureService {
             });
         }
 
-        // 9. step.signed에 SignedRef 추가 (JSONB append)
+        // 9. step.signed에 SignedRef 추가 (JSONB append) — manifestId는 워커 완료 후 채워짐
         if (step.getSigned() == null) {
             step.setSigned(new ArrayList<>());
         }
-        step.getSigned().add(new SignedRef(actor.getId(), actorUserId, signedAt, manifest.getId()));
+        step.getSigned().add(new SignedRef(actor.getId(), actorUserId, signedAt.toInstant(), savedIntent.getId()));
         wfStepRepo.save(step);
 
         // 10. 통과 평가: step.signed.size() >= step.minSigners
@@ -262,7 +285,16 @@ public class SignatureService {
                 .ip(clientIp)
                 .build());
 
-        return manifest;
+        // 12. afterCommit: stamp enqueue (트랜잭션 커밋 성공 후에만 실행)
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                pdfRenditionPipeline.applyStampForStep(savedIntent.getVersionId(),
+                        savedIntent.toStampPayload());
+            }
+        });
+
+        return savedIntent;
     }
 
     private boolean verifyPassword(String userId, String rawPassword) {

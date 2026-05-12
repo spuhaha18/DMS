@@ -14,6 +14,7 @@ import com.lab.edms.document.DocumentRepository;
 import com.lab.edms.document.DocumentVersion;
 import com.lab.edms.document.DocumentVersionRepository;
 import com.lab.edms.lifecycle.LifecycleStateMachine;
+import com.lab.edms.pdf.PdfRenditionPipeline;
 import com.lab.edms.user.User;
 import com.lab.edms.user.UserRepository;
 import com.lab.edms.workflow.dto.PendingTaskDto;
@@ -46,6 +47,7 @@ public class WorkflowService {
     private final AuditService auditService;
     private final UserRepository userRepo;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final PdfRenditionPipeline pdfRenditionPipeline;
 
     // LifecycleStateMachine은 직접 전이 문자열로 처리하므로 여기서는 상태 문자열 비교만 사용
     @SuppressWarnings("unused")
@@ -62,7 +64,8 @@ public class WorkflowService {
                            AuditService auditService,
                            UserRepository userRepo,
                            BCryptPasswordEncoder passwordEncoder,
-                           LifecycleStateMachine stateMachine) {
+                           LifecycleStateMachine stateMachine,
+                           PdfRenditionPipeline pdfRenditionPipeline) {
         this.wfInstanceRepo = wfInstanceRepo;
         this.wfStepRepo = wfStepRepo;
         this.templateRepo = templateRepo;
@@ -75,6 +78,7 @@ public class WorkflowService {
         this.userRepo = userRepo;
         this.passwordEncoder = passwordEncoder;
         this.stateMachine = stateMachine;
+        this.pdfRenditionPipeline = pdfRenditionPipeline;
     }
 
     /**
@@ -164,6 +168,9 @@ public class WorkflowService {
         String prevState = version.getState();
         version.setState("UNDER_REVIEW");
         documentVersionRepo.save(version);
+
+        // M7: UNDER_REVIEW 진입 시 INITIAL PDF 변환 trigger
+        pdfRenditionPipeline.enqueueInitialConversion(document.getId());
 
         // 12. Audit 로그
         auditService.log(AuditEvent.of(actorId, AuditAction.WORKFLOW_SUBMITTED)
