@@ -9,6 +9,7 @@ import com.lab.edms.category.DocumentCategoryRepository;
 import com.lab.edms.department.DepartmentRepository;
 import com.lab.edms.document.dto.*;
 import com.lab.edms.numbering.NumberingService;
+import com.lab.edms.pdf.PdfStatus;
 import com.lab.edms.user.User;
 import com.lab.edms.user.UserRepository;
 import org.springframework.data.domain.Page;
@@ -219,6 +220,27 @@ public class DocumentService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "document not found: " + docId));
         checkVisibility(doc, actorUserId);
+    }
+
+    /**
+     * pdf_status가 처리 중(STAMPING, CONVERSION_FAILED, STAMP_FAILED)인 경우 423 LOCKED 예외.
+     * WorkflowService.advance() 진입점에서 호출하여 PDF 처리 완료 전 단계 전진을 차단.
+     *
+     * null 또는 PENDING_CONVERSION / CONVERTED / STAMPED / EFFECTIVE_STAMPED 는 허용.
+     */
+    @Transactional(readOnly = true)
+    public void assertNextStepAllowed(Long documentId) {
+        Document doc = docRepo.findById(documentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Document not found"));
+        String status = doc.getPdfStatus();
+        if (status != null && (PdfStatus.STAMPING.name().equals(status)
+                || PdfStatus.CONVERSION_FAILED.name().equals(status)
+                || PdfStatus.STAMP_FAILED.name().equals(status))) {
+            throw new ResponseStatusException(HttpStatus.LOCKED,
+                    "PDF processing not complete (status=" + status + ")");
+        }
+        // null 또는 PENDING_CONVERSION / CONVERTED / STAMPED / EFFECTIVE_STAMPED 는 허용
     }
 
     private void checkVisibility(Document doc, String actorUserId) {
