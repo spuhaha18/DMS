@@ -213,6 +213,14 @@ public class DocumentService {
         return DocumentVersionDto.fromEntity(version);
     }
 
+    @Transactional(readOnly = true)
+    public void assertViewable(Long docId, String actorUserId) {
+        Document doc = docRepo.findById(docId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "document not found: " + docId));
+        checkVisibility(doc, actorUserId);
+    }
+
     private void checkVisibility(Document doc, String actorUserId) {
         User actor = userRepo.findByUserId(actorUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "actor not found"));

@@ -29,6 +29,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -219,9 +221,22 @@ public class SignatureService {
         manifest.setAlgorithmVersion("v2");
         manifest = manifestRepo.save(manifest);
 
-        // first flag: consume only after successful INSERT (idempotency on exception)
+        // first flag: mark now, but undo on rollback — if wfStepRepo/workflowService/auditService
+        // later fail and roll back the transaction, the session flag is reset so a retry
+        // still requires ID+PW (Part 11 §11.200(a)).
+        // Note: concurrent sign requests in the same session depend on HTTP session
+        // serialization (e.g. Spring Session) for strict ordering of this flag.
         if (sessionFirst) {
             sessionTracker.markSigned(session);
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    // STATUS_UNKNOWN(네트워크 장애 등 결과 불명)도 fail-safe로 복원 — Part 11 §11.200(a)
+                    if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                        sessionTracker.unmarkSigned(session);
+                    }
+                }
+            });
         }
 
         // 9. step.signed에 SignedRef 추가 (JSONB append)
