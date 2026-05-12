@@ -127,14 +127,14 @@
 
 | 조항 | 요구사항 | EDMS 대응 | 증거 |
 |---|---|---|---|
-| §11.50(a) | 전자서명에 서명자 성명, 서명 일시, 서명 의미 표시 | SignatureManifest: signer_name, signed_at (NTP 서버 시각), meaning (REVIEWED/APPROVED/QA_APPROVED/ACKNOWLEDGED/RETIRED). **부분 충족** — DB 기록 완비(M6). PDF 서명 블록 stamp는 M7 PDF 파이프라인 완성 시 풀 충족. | DS §4.2 signature_manifests, FS-SIG-005, FS-SIG-006 (M7 PDF stamp) |
-| §11.50(b) | 표시 정보는 기록과 동일한 형식 (인쇄, 표시)으로 제공 | 서명 매니페스트 API 및 화면 표시(M6). PDF stamp 일관성은 M7에서 완성. **부분 충족** — M7 완성 시 풀 충족. | DS §7.4 SignatureDialog.vue, FS-SIG-006 |
+| §11.50(a) | 전자서명에 서명자 성명, 서명 일시, 서명 의미 표시 | SignatureManifest: signer_name, signed_at (NTP 서버 시각), meaning (REVIEWED/APPROVED/QA_APPROVED/ACKNOWLEDGED/RETIRED). **구현 완료(M7)** — DB 기록 완비(M6) + PDF stamp 블록 적용(M7 PdfStampService.applyStamp). 서명자 성명·일시·의미가 PDF RENDITION에 직접 인쇄됨. | DS §4.2 signature_manifests, FS-SIG-005, FS-SIG-006, PdfStampService.applyStamp (M7) |
+| §11.50(b) | 표시 정보는 기록과 동일한 형식 (인쇄, 표시)으로 제공 | 서명 매니페스트 API 및 화면 표시(M6). PDF stamp 일관성 M7 완성 — PdfStampService가 각 결재 단계별로 성명·일시·의미를 PDF에 누적 인쇄하며 DB 기록과 동일 형식을 보장. **구현 완료(M7)**. | DS §7.4 SignatureDialog.vue, FS-SIG-006, PdfRenditionPipeline.applyStampForStep (M7) |
 
 ### §11.70 — Signature/Record Linking
 
 | 조항 | 요구사항 | EDMS 대응 | 증거 |
 |---|---|---|---|
-| §11.70 | 전자서명이 서명된 전자기록에 연결되어 떼어내거나 다른 기록으로 복사할 수 없어야 함 | canonical_payload v2 (8-field pipe): `signer_id\|meaning\|signed_at_iso\|version_id\|doc_number\|revision\|doc_status\|source_file_sha256`. `this_hash = SHA256(prev_hash ∥ canonical_payload)`, UNIQUE 제약. 서명-기록 분리 불가. **부분 충족** — ORIGINAL sha256 포함(M6). RENDITION hash stamp는 M7에서 추가 예정. M7 완성 시 풀 충족. | DS §8.1 canonical_payload v2, FS-SIG-002, OQ-SIG-014, OQ-SIG-015 |
+| §11.70 | 전자서명이 서명된 전자기록에 연결되어 떼어내거나 다른 기록으로 복사할 수 없어야 함 | canonical_payload v3 (9-field pipe): `signer_id\|meaning\|signed_at_iso\|version_id\|doc_number\|revision\|doc_status\|original_sha256\|rendition_sha256`. `this_hash = SHA256(prev_hash ∥ canonical_payload)`, UNIQUE 제약. 서명-기록 분리 불가. **구현 완료(M7)** — ORIGINAL sha256(M6) + RENDITION sha256(M7 serializeV3)가 서명체인에 포함되어 §11.70 직접 충족. v_signature_chain_integrity 뷰로 v1/v2/v3 전 버전 chain 무결성 모니터링. | DS §8.1 canonical_payload v3, FS-SIG-002, OQ-SIG-014, OQ-SIG-015, SignatureCanonicalSerializer.serializeV3 (M7) |
 
 ---
 
@@ -195,15 +195,15 @@
 | §11.10(j) | 책임성 | 🔵 Planned | 계정공유 금지 + 감사추적 |
 | §11.10(k) | 문서 통제 | 🔵 Planned | SOP 11종 |
 | §11.30 | Open system | ➖ N/A | 폐쇄망 운영 (Network.md 참조) |
-| §11.50(a)(b) | 서명 표시 | ⚠️ Partial | 매니페스트 DB 기록 완비(M6). PDF stamp → M7 완성 시 풀 충족. |
-| §11.70 | 서명-기록 연결 | ⚠️ Partial | canonical_payload v2 ORIGINAL sha256 포함(M6). RENDITION hash stamp → M7 완성 시 풀 충족. |
+| §11.50(a)(b) | 서명 표시 | 🟡 Implemented | 매니페스트 DB 기록 완비(M6) + PDF stamp 블록 구현(M7 PdfStampService). OQ/PQ 검증 후 Verified 갱신. |
+| §11.70 | 서명-기록 연결 | 🟡 Implemented | canonical_payload v3 — ORIGINAL sha256(M6) + RENDITION sha256(M7 serializeV3) 서명체인 포함. v_signature_chain_integrity 뷰 V22. OQ/PQ 검증 후 Verified 갱신. |
 | §11.100(a)(b)(c) | 서명 고유성 | 🔵 Planned | unique constraint + 신원 확인 (M6) |
 | §11.200(a) | ID+PW 구성요소 | 🟡 Implemented | 첫 서명 ID+PW session_first 판별(M6). 증거: SignatureFirstSignIT. |
 | §11.200(b) | 생체인식 | ➖ N/A | 미사용 |
 | §11.300(a)~(e) | 비밀번호 통제 | 🔵 Planned | BCrypt rounds=12 + SOP-USER-001 (M1) |
 
 > **§11.10(h)**: 웹 기반 시스템 특성상 IP 기록으로 부분 충족. 장치 인증서/디바이스 등록은 Phase 2.  
-> **§11.50/§11.70**: M6에서 부분 충족 — DB 기록·canonical_payload v2 완비. PDF RENDITION stamp는 M7 PDF 파이프라인 완성 시 풀 충족 예정.  
+> **§11.50/§11.70**: M7 구현 완료 — §11.50: PDF stamp 블록(서명자 성명·일시·의미) PdfStampService.applyStamp 적용. §11.70: canonical_payload v3 RENDITION sha256 추가(SignatureCanonicalSerializer.serializeV3), v_signature_chain_integrity V22 뷰 v1/v2/v3 전 버전 chain 검증. OQ/PQ 통과 후 "Verified"로 갱신 예정.  
 > **§11.200(a)**: M6 구현 완료 (SignatureFirstSignIT 증거). session_first + signing_user_id 검증 + markSigned() 소비 시점 = INSERT 성공 이후.  
 > **상태 갱신 기준**: 각 마일스톤 OQ 통과 시 해당 조항을 "Implemented"로, M12 QA 승인 후 "Verified"로 갱신한다.
 
@@ -215,6 +215,7 @@
 |---|---|---|---|
 | 0.1 | 2026-05-08 | 최초 작성 | TBD |
 | 0.2 | 2026-05-12 | M6 반영: §11.200(a) 증거 매핑(SignatureFirstSignIT), §11.50/§11.70 부분 충족 명기(ORIGINAL sha256 only, RENDITION stamp = M7), §11.200(a) 상태 Planned → Implemented | TBD |
+| 0.3 | 2026-05-12 | M7 반영: §11.50/§11.70 Partial → Implemented. §11.50: PdfStampService.applyStamp PDF stamp 완성. §11.70: canonical_payload v3 RENDITION sha256 추가(serializeV3), V22 v_signature_chain_integrity 뷰 v1/v2/v3 통합. | TBD |
 
 ---
 
