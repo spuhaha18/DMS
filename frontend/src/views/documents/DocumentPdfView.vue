@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { documentsApi } from '../../api/documents';
 import PdfViewer from '../../components/PdfViewer/PdfViewer.vue';
@@ -152,6 +152,15 @@ function onChangeRendition(payload: { kind: string; step: number | null }) {
 }
 
 onMounted(load);
+
+// [C-2] Clear any active retry interval when the view is unmounted to prevent
+// the timer callback from calling load() on an already-destroyed component.
+onUnmounted(() => {
+  if (retryTimer != null) {
+    window.clearInterval(retryTimer);
+    retryTimer = null;
+  }
+});
 </script>
 
 <template>

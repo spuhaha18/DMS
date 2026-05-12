@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { usePdfViewer, PdfViewerState } from './usePdfViewer';
 import VerifyButton from './VerifyButton.vue';
 import { downloadPdf } from '../../api/pdf';
@@ -43,6 +43,7 @@ const {
   headers,
   loadPdf,
   renderPage,
+  reset,
 } = usePdfViewer();
 
 // ---------------------------------------------------------------------------
@@ -74,6 +75,12 @@ async function draw() {
 }
 
 onMounted(load);
+
+// [C-1] Release the pdf.js document handle when the component is unmounted
+// to prevent memory leaks from worker-side objects.
+onUnmounted(() => {
+  reset();
+});
 
 // Reload when the underlying src changes (rendition switch via query nav).
 watch(

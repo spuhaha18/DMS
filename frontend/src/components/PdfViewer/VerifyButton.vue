@@ -22,7 +22,9 @@ const props = defineProps<Props>();
 // State
 // ---------------------------------------------------------------------------
 
-type VerifyOutcome = 'PASS' | 'FAIL' | null;
+// [I-3] NO_HASH: server did not provide X-File-Sha256 — cannot verify transport
+// integrity, but this is NOT a FAIL. Show a distinct warning badge.
+type VerifyOutcome = 'PASS' | 'FAIL' | 'NO_HASH' | null;
 
 const loading = ref(false);
 const outcome = ref<VerifyOutcome>(null);
@@ -51,6 +53,14 @@ async function verify() {
   loading.value = true;
   outcome.value = null;
   failReason.value = '';
+
+  // [I-3] If the server did not send X-File-Sha256, transport hash comparison
+  // is impossible. Show a "NO_HASH" warning — do NOT treat as FAIL.
+  if (props.expectedSha256 === null) {
+    outcome.value = 'NO_HASH';
+    loading.value = false;
+    return;
+  }
 
   let actualSha: string | null = null;
   let manifestSha: string | null = null;
@@ -168,6 +178,15 @@ function closeModal() {
     >
       ❌ FAIL
     </span>
+    <span
+      v-else-if="outcome === 'NO_HASH'"
+      class="badge badge-no-hash"
+      role="status"
+      aria-label="해시 정보 없음 — 확인 불가"
+      title="서버가 X-File-Sha256 헤더를 제공하지 않아 무결성 확인이 불가합니다"
+    >
+      ⚠️ 해시 정보 없음
+    </span>
   </span>
 
   <!-- FAIL modal (§11.70 — surface the audit + QA contact path) -->
@@ -242,6 +261,10 @@ function closeModal() {
 .badge-fail {
   background: #fee2e2;
   color: #991b1b;
+}
+.badge-no-hash {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .modal-overlay {

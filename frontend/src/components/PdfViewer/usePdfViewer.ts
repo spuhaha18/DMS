@@ -60,7 +60,15 @@ export function usePdfViewer() {
     contentLength: null,
   });
 
+  // [C-1] Sequence counter — incremented on every loadPdf() call so that stale
+  // in-flight loads can detect they've been superseded and bail out.
+  let loadSeq = 0;
+
   function reset() {
+    // [C-1] Destroy the previous pdf.js document handle to free worker memory.
+    if (pdfDoc.value) {
+      void pdfDoc.value.destroy();
+    }
     state.value = PdfViewerState.Idle;
     error.value = null;
     totalPages.value = 0;
@@ -79,13 +87,20 @@ export function usePdfViewer() {
    * Fetches the PDF as an ArrayBuffer (kept in memory for Verify) and hands a
    * COPY to pdf.js. pdf.js detaches/transfers the buffer it consumes, so we
    * must clone first or our Verify check would see a zero-byte buffer.
+   *
+   * [I-1] Uses a sequence counter to discard results from stale concurrent calls
+   * (e.g. rapid src prop changes triggering multiple simultaneous loads).
    */
   async function loadPdf(url: string): Promise<void> {
+    const seq = ++loadSeq;
     reset();
     state.value = PdfViewerState.Loading;
 
     try {
       const res = await api.get<ArrayBuffer>(url, { responseType: 'arraybuffer' });
+
+      // [I-1] Another load() superseded this one — discard result.
+      if (seq !== loadSeq) return;
 
       arrayBuffer.value = res.data;
       const contentLengthHeader = res.headers['content-length'];
@@ -112,12 +127,20 @@ export function usePdfViewer() {
       });
 
       const doc = await loadingTask.promise;
+
+      // [I-1] Re-check after the async getDocument() call as well.
+      if (seq !== loadSeq) {
+        void doc.destroy();
+        return;
+      }
+
       pdfDoc.value = doc;
       totalPages.value = doc.numPages;
       currentPage.value = 1;
       // First page rendered → Partial; UI moves to Ready after it draws.
       state.value = PdfViewerState.Partial;
     } catch (err: unknown) {
+      if (seq !== loadSeq) return; // stale error — ignore
       pdfDoc.value = null;
       state.value = PdfViewerState.Error;
       error.value = err instanceof Error ? err.message : 'PDF 로드에 실패했습니다';
