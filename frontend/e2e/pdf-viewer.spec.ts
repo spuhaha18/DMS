@@ -160,6 +160,12 @@ test.fixme(
     // tooltip "다운로드 권한이 없습니다" 표시 확인
     await downloadBtn.hover();
     await expect(page.locator('text=다운로드 권한이 없습니다')).toBeVisible();
+
+    // 직접 다운로드 API 호출 시 403 확인 (can_download=false)
+    const downloadRes = await page.request.get(
+      `/api/v1/documents/${docId}/versions/${verId}/pdf/download`,
+    );
+    expect(downloadRes.status()).toBe(403);
   },
 );
 
@@ -193,6 +199,17 @@ test.fixme(
 
     // PASS 배지 표시 확인
     await expect(page.locator('text=PASS')).toBeVisible({ timeout: 10_000 });
+
+    // admin 계정으로 audit_logs PDF_VERIFIED INSERT 확인
+    const adminCookie = await apiLogin(TEST_USERS.admin.userId, TEST_USERS.admin.password);
+    const auditRes = await page.request.get(
+      `/api/v1/admin/audit-logs?versionId=${verId}&action=PDF_VERIFIED&size=5`,
+      { headers: { Cookie: adminCookie } },
+    );
+    expect(auditRes.status()).toBe(200);
+    const body = await auditRes.json();
+    const entries: unknown[] = body.content ?? body;
+    expect(entries.length).toBeGreaterThan(0);
   },
 );
 
@@ -223,6 +240,10 @@ test.fixme(
     // 응답 헤더 확인
     expect(response.headers()['x-rendition-kind']).toBe('STAMPED');
     expect(response.headers()['x-rendition-step']).toBe('2');
+
+    // Verify 버튼 클릭 → PASS 배지 확인
+    await page.click('button:has-text("무결성 확인"), [data-testid="verify-btn"]');
+    await expect(page.locator('text=PASS')).toBeVisible({ timeout: 10_000 });
   },
 );
 

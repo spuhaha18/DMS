@@ -73,7 +73,7 @@
 
 | 조항 | 요구사항 | EDMS 대응 | 증거 |
 |---|---|---|---|
-| §11.10(e) | 안전한 컴퓨터 생성 감사추적 — 전자기록 생성·수정·삭제 이벤트를 운영자가 삭제 불가하도록 시간 순으로 기록. 기록 변경 시 이전 값 보존 | audit_logs: INSERT-only (app_role에서 UPDATE/DELETE REVOKE). Hibernate Envers 자동 엔티티 변경 기록. SHA-256 해시체인으로 변조 탐지. 일별 Merkle root → MinIO COMPLIANCE WORM. **M7.1 추가**: `PDF_VIEWED`, `PDF_DOWNLOADED`, `PDF_VERIFIED`, `PDF_VIEW_DENIED`, `PDF_DOWNLOAD_DENIED` 이벤트 추가. `audit_logs.after_value`에 `verify_result`/`sha256` 페이로드 기록. | DS §4.2 audit_logs DDL, DS §4.3 DB 역할 분리, DS §8.2 감사로그 해시체인, DS §8.3 WORM 앵커링, FS-AUD-001~007, FS-DOC-PDFVIEW-003, OQ-AUD-001~020, SOP-AUDIT-TRAIL-001 |
+| §11.10(e) | 안전한 컴퓨터 생성 감사추적 — 전자기록 생성·수정·삭제 이벤트를 운영자가 삭제 불가하도록 시간 순으로 기록. 기록 변경 시 이전 값 보존 | audit_logs: INSERT-only (app_role에서 UPDATE/DELETE REVOKE). Hibernate Envers 자동 엔티티 변경 기록. SHA-256 해시체인으로 변조 탐지. 일별 Merkle root → MinIO COMPLIANCE WORM. **M7.1 추가**: `PDF_VIEWED`, `PDF_DOWNLOADED`, `PDF_VERIFIED`, `PDF_VIEW_DENIED`, `PDF_DOWNLOAD_DENIED` 이벤트 추가. `audit_logs.after_value`에 `verify_result`/`sha256` 페이로드 기록. | DS §4.2 audit_logs DDL, DS §4.3 DB 역할 분리, DS §8.2 감사로그 해시체인, DS §8.3 WORM 앵커링, FS-AUD-001~007, FS-DOC-PDFVIEW-003, OQ-AUD-001~021, SOP-AUDIT-TRAIL-001 |
 
 #### §11.10(f) Sequencing of Steps
 
@@ -216,6 +216,7 @@
 | 0.1 | 2026-05-08 | 최초 작성 | TBD |
 | 0.2 | 2026-05-12 | M6 반영: §11.200(a) 증거 매핑(SignatureFirstSignIT), §11.50/§11.70 부분 충족 명기(ORIGINAL sha256 only, RENDITION stamp = M7), §11.200(a) 상태 Planned → Implemented | TBD |
 | 0.3 | 2026-05-12 | M7 반영: §11.50/§11.70 Partial → Implemented. §11.50: PdfStampService.applyStamp PDF stamp 완성. §11.70: canonical_payload v3 RENDITION sha256 추가(serializeV3), V22 v_signature_chain_integrity 뷰 v1/v2/v3 통합. | TBD |
+| 0.4 | 2026-05-12 | M7.1 반영: §11.10(e) PDF 감사 이벤트 5종(PDF_VIEWED/PDF_DOWNLOADED/PDF_VERIFIED/PDF_VIEW_DENIED/PDF_DOWNLOAD_DENIED) 추가, OQ-AUD-020~021 신설. §11.50(b) M7.1 PQ note 추가(사용자 화면 동작 검증). §11.70 VerifyButton.vue Web Crypto SHA-256 + signature_manifests cross-check → 사용자 입증 도구 확보, §11.70 ✅. | TBD |
 
 ---
 
