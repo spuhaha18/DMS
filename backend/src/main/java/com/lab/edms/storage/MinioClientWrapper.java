@@ -39,16 +39,16 @@ public class MinioClientWrapper {
     /**
      * Ensures all buckets:
      *   - bucketOriginal   : legacy (no lock, read-only after M7 cutover)
-     *   - bucketOriginalV2 : M7 신규 GOVERNANCE 본문 (30일 기본 보존)
-     *   - bucketRendition  : M7 신규 GOVERNANCE PDF rendition (30일 기본 보존)
+     *   - bucketOriginalV2 : M7 신규 GOVERNANCE 본문 (10년 = 3650일)
+     *   - bucketRendition  : M7 신규 GOVERNANCE PDF rendition (10년 = 3650일)
      *   - bucketAnchors    : M5 COMPLIANCE 10년 앵커
      * Lazy on first use — avoids eager MinIO connection at context startup.
      */
     public void ensureBuckets() {
         if (bucketsEnsured.compareAndSet(false, true)) {
             ensureBucket(props.bucketOriginal());
-            ensureLockedBucket(props.bucketOriginalV2(), RetentionMode.GOVERNANCE, 30);
-            ensureLockedBucket(props.bucketRendition(), RetentionMode.GOVERNANCE, 30);
+            ensureLockedBucket(props.bucketOriginalV2(), RetentionMode.GOVERNANCE, 3650);
+            ensureLockedBucket(props.bucketRendition(), RetentionMode.GOVERNANCE, 3650);
             ensureLockedBucket(props.bucketAnchors(), RetentionMode.COMPLIANCE, 3650);
         }
     }
