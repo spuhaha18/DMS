@@ -35,6 +35,8 @@ dependencies {
     implementation("io.minio:minio:8.5.10")
     implementation("com.bucket4j:bucket4j-core:8.10.1")
     implementation("org.apache.pdfbox:pdfbox:3.0.3")
+    implementation("net.javacrumbs.shedlock:shedlock-spring:5.16.0")
+    implementation("net.javacrumbs.shedlock:shedlock-provider-jdbc-template:5.16.0")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
