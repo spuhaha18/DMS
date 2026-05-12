@@ -35,6 +35,32 @@ services:
       timeout: 5s
       retries: 3
 
+  gotenberg:
+    image: gotenberg/gotenberg:8.7
+    container_name: edms-gotenberg
+    command:
+      - "gotenberg"
+      - "--api-port=3000"
+      - "--api-timeout=60s"
+      - "--libreoffice-disable-routes=false"
+      - "--libreoffice-restart-after=10"
+      - "--log-level=info"
+    ports:
+      - "3000:3000"
+    mem_limit: 2g
+    security_opt:
+      - "no-new-privileges:true"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /home/gotenberg/tmp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: on-failure
+
 volumes:
   pg_data:
   minio_data:

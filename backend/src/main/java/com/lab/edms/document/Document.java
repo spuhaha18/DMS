@@ -1,6 +1,7 @@
 package com.lab.edms.document;
 
 import jakarta.persistence.*;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -38,6 +39,16 @@ public class Document {
     @Column(name = "created_by", nullable = false, updatable = false)
     private Long createdBy;
 
+    // V21: PDF 파이프라인 상태기계
+    @Column(name = "pdf_status", length = 32)
+    private String pdfStatus;
+
+    @Column(name = "pdf_status_updated_at")
+    private Instant pdfStatusUpdatedAt;
+
+    @Column(name = "pdf_status_reason", length = 64)
+    private String pdfStatusReason;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = OffsetDateTime.now();
@@ -53,6 +64,9 @@ public class Document {
     public boolean isConfidential() { return confidential; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public Long getCreatedBy() { return createdBy; }
+    public String getPdfStatus() { return pdfStatus; }
+    public Instant getPdfStatusUpdatedAt() { return pdfStatusUpdatedAt; }
+    public String getPdfStatusReason() { return pdfStatusReason; }
 
     public void setDocNumber(String v) { this.docNumber = v; }
     public void setCategoryId(Long v) { this.categoryId = v; }
@@ -62,4 +76,7 @@ public class Document {
     public void setOwnerId(Long v) { this.ownerId = v; }
     public void setConfidential(boolean v) { this.confidential = v; }
     public void setCreatedBy(Long v) { this.createdBy = v; }
+    public void setPdfStatus(String v) { this.pdfStatus = v; }
+    public void setPdfStatusUpdatedAt(Instant v) { this.pdfStatusUpdatedAt = v; }
+    public void setPdfStatusReason(String v) { this.pdfStatusReason = v; }
 }

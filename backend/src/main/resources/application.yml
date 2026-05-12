@@ -40,6 +40,14 @@ minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
   access-key: ${MINIO_ACCESS_KEY:minioadmin}
   secret-key: ${MINIO_SECRET_KEY:minioadmin}
-  bucket-original: ${MINIO_BUCKET_ORIGINAL:edms-documents-original}
-  bucket-rendition: ${MINIO_BUCKET_RENDITION:edms-documents-rendition}
-  bucket-anchors: ${MINIO_BUCKET_ANCHORS:edms-audit-anchors}
+  bucket-original: ${MINIO_BUCKET_ORIGINAL:edms-documents-original}       # legacy read-only
+  bucket-original-v2: ${MINIO_BUCKET_ORIGINAL_V2:documents-original-v2}   # M7 cutover, GOVERNANCE
+  bucket-rendition: ${MINIO_BUCKET_RENDITION:documents-rendition}          # M7 신규, GOVERNANCE
+  bucket-anchors: ${MINIO_BUCKET_ANCHORS:edms-audit-anchors}               # M5
+
+gotenberg:
+  url: ${GOTENBERG_URL:http://localhost:3000}
+  timeout-seconds: 60
+
+retention:
+  default-years: 10
