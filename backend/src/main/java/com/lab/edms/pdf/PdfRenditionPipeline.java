@@ -4,6 +4,8 @@ import com.lab.edms.document.*;
 import com.lab.edms.storage.MinioClientWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -34,6 +36,10 @@ public class PdfRenditionPipeline {
     private final DocumentFileRepository documentFileRepository;
     private final MinioClientWrapper minio;
     private final GotenbergClient gotenberg;
+
+    // Self-injection to ensure @Async goes through the Spring AOP proxy, not this.method()
+    @Lazy @Autowired
+    private PdfRenditionPipeline self;
 
     public PdfRenditionPipeline(
             DocumentRepository documentRepository,
@@ -68,8 +74,8 @@ public class PdfRenditionPipeline {
 
         log.info("[PDF] document={} PENDING_CONVERSION enqueued", documentId);
 
-        // 트랜잭션 커밋 후 비동기 실행 (@Async는 프록시 호출이므로 self-invocation 주의 — 외부 프록시를 통해 호출)
-        runConversionAsync(documentId);
+        // self 프록시를 통해 호출해야 @Async AOP가 적용됨 (this.method() 는 프록시 우회)
+        self.runConversionAsync(documentId);
     }
 
     // -----------------------------------------------------------------------
