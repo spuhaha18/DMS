@@ -54,4 +54,18 @@ public interface DocumentVersionRepository extends JpaRepository<DocumentVersion
     List<DocumentVersion> findByEffectiveDateAndDocumentPdfStatus(
             @Param("effectiveDate") LocalDate effectiveDate,
             @Param("pdfStatus") String pdfStatus);
+
+    /**
+     * M7 버그픽스: effectiveDate &lt;= today 조건 (catch-up 처리).
+     * EffectiveWatermarkScheduler가 누락 날짜까지 처리하기 위해 사용.
+     */
+    @Query("""
+      SELECT v FROM DocumentVersion v
+       JOIN Document d ON d.id = v.documentId
+       WHERE v.effectiveDate <= :effectiveDate
+         AND d.pdfStatus = :pdfStatus
+    """)
+    List<DocumentVersion> findByEffectiveDateLessThanEqualAndDocumentPdfStatus(
+            @Param("effectiveDate") LocalDate effectiveDate,
+            @Param("pdfStatus") String pdfStatus);
 }

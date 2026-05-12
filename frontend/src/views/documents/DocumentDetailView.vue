@@ -47,20 +47,19 @@ function onUploaded() {
 }
 
 function canView(v: DocumentVersionSummary): boolean {
-  return v.pdfStatus != null && !PIPELINE_IN_FLIGHT.has((v.pdfStatus ?? '').toUpperCase());
+  // doc.pdfStatus (Document 레벨) 사용 — v.pdfStatus는 version 레벨로 항상 "PENDING"이어서 신뢰 불가
+  const status = (doc.value?.pdfStatus ?? '').toUpperCase();
+  return status !== '' && !PIPELINE_IN_FLIGHT.has(status);
 }
 
 function canDownloadActive(v: DocumentVersionSummary): boolean {
-  // Per the spec, the active "다운로드" button is only enabled when the rendition
-  // is EFFECTIVE_STAMPED AND the user has download permission. Backend currently
-  // doesn't ship `canDownload` per version → default true; the toolbar enforces
-  // the disabled+tooltip pattern when the prop is false.
-  return (v.pdfStatus ?? '').toUpperCase() === 'EFFECTIVE_STAMPED' && (v.canDownload ?? true);
+  const status = (doc.value?.pdfStatus ?? '').toUpperCase();
+  return status === 'EFFECTIVE_STAMPED' && (v.canDownload ?? true);
 }
 
 function shouldShowDisabledDownload(v: DocumentVersionSummary): boolean {
-  // Show disabled button when status is EFFECTIVE_STAMPED but user lacks permission.
-  return (v.pdfStatus ?? '').toUpperCase() === 'EFFECTIVE_STAMPED' && v.canDownload === false;
+  const status = (doc.value?.pdfStatus ?? '').toUpperCase();
+  return status === 'EFFECTIVE_STAMPED' && v.canDownload === false;
 }
 
 function gotoPdfView(v: DocumentVersionSummary) {

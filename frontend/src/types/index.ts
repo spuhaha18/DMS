@@ -191,6 +191,8 @@ export interface DocumentSummary {
   ownerId: number;
   confidential: boolean;
   createdAt: string;
+  /** M7 PDF 파이프라인 상태 — Document 레벨 (version.pdfStatus는 항상 PENDING이므로 이것을 사용) */
+  pdfStatus?: string | null;
 }
 
 export interface DocumentDetail extends DocumentSummary {

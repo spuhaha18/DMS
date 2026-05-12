@@ -211,7 +211,6 @@ public class PdfRenditionPipeline {
      * @Async: 호출자 트랜잭션과 분리되어 별도 스레드에서 실행된다.
      * @Transactional(REQUIRES_NEW): 실패 시 독립 롤백.
      */
-    @Async("pdfWorkerExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyStampForStep(Long versionId, StampPayload payload) {
         // 1. DocumentVersion → Document 조회 — FOR UPDATE: 동시 결재 race 가드
@@ -258,7 +257,8 @@ public class PdfRenditionPipeline {
             byte[] stampedBytes = pdfStampService.applyStamp(baseBytes, payload);
 
             // 6. MinIO에 새 STAMPED rendition 업로드
-            String newKey = renditionKey(version, RenditionKind.STAMPED, payload.stepNumber());
+            // signIntentId를 키에 포함 — min_signers≥2 병렬 서명자의 키 충돌 방지
+            String newKey = renditionKey(version, RenditionKind.STAMPED, payload.stepNumber(), payload.signIntentId());
             MinioClientWrapper.UploadResult uploaded = minio.uploadWithRetention(
                     minio.getBucketRendition(),
                     newKey,
@@ -495,8 +495,18 @@ public class PdfRenditionPipeline {
      * 예) renditions/42/initial.pdf  /  renditions/42/stamped-step3.pdf
      */
     static String renditionKey(DocumentVersion v, RenditionKind kind, Integer step) {
-        return "renditions/" + v.getId() + "/" + kind.name().toLowerCase()
-                + (step != null ? "-step" + step : "") + ".pdf";
+        return renditionKey(v, kind, step, null);
+    }
+
+    /**
+     * STAMPED rendition 키 — signIntentId 포함으로 병렬 서명자 충돌 방지.
+     * 예) renditions/42/stamped-step3-si789.pdf
+     */
+    static String renditionKey(DocumentVersion v, RenditionKind kind, Integer step, Long signIntentId) {
+        String base = "renditions/" + v.getId() + "/" + kind.name().toLowerCase();
+        if (step != null) base += "-step" + step;
+        if (signIntentId != null) base += "-si" + signIntentId;
+        return base + ".pdf";
     }
 
     /** MinIO 키(경로)에서 파일명만 추출. */

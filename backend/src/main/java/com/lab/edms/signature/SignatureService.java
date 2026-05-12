@@ -27,6 +27,8 @@ import com.lab.edms.workflow.WorkflowInstance;
 import com.lab.edms.workflow.WorkflowInstanceRepository;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.security.core.Authentication;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +52,7 @@ import java.util.Map;
 @Service
 public class SignatureService {
 
+    private static final Logger log = LoggerFactory.getLogger(SignatureService.class);
     private static final String GENESIS_HASH = sha256hex("GENESIS");
 
     private static String sha256hex(String input) {
@@ -270,13 +273,14 @@ public class SignatureService {
         wfStepRepo.save(step);
 
         // 10. 통과 평가: step.signed.size() >= step.minSigners
-        if (step.getSigned().size() >= step.getMinSigners()) {
+        final boolean stepCompleted = step.getSigned().size() >= step.getMinSigners();
+        final Long wfId = wf.getId();
+        if (stepCompleted) {
             step.setState("COMPLETED");
             step.setCompletedAt(OffsetDateTime.now());
             wfStepRepo.save(step);
-
-            // advance()는 step 완료 즉시 호출 — stamp 실패 시 assertNextStepAllowed가 다음 단계 차단
-            workflowService.advance(wf.getId());
+            // advance()는 stamp 완료 후 afterCommit에서 호출 — 워크플로 다음 단계가
+            // 열리기 전에 현재 단계의 STAMPED rendition이 DB에 확정됨을 보장한다.
         }
 
         // 11. Audit: WORKFLOW_STEP_SIGNED
@@ -285,12 +289,24 @@ public class SignatureService {
                 .ip(clientIp)
                 .build());
 
-        // 12. afterCommit: stamp enqueue (트랜잭션 커밋 성공 후에만 실행)
+        // 12. afterCommit: stamp 동기 실행 후 워크플로 전진
+        // applyStampForStep은 @Async 제거로 동기 실행 — REQUIRES_NEW 트랜잭션이 완료된 후 advance().
+        // stamp 실패는 메서드 내부에서 처리(STAMP_FAILED 전이)되며 advance()는 실행하지 않는다.
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                pdfRenditionPipeline.applyStampForStep(savedIntent.getVersionId(),
-                        savedIntent.toStampPayload());
+                boolean stampOk = false;
+                try {
+                    pdfRenditionPipeline.applyStampForStep(savedIntent.getVersionId(),
+                            savedIntent.toStampPayload());
+                    stampOk = true;
+                } catch (Exception e) {
+                    log.error("[SIGN] stamp failed for versionId={} — workflow will NOT advance",
+                            savedIntent.getVersionId(), e);
+                }
+                if (stampOk && stepCompleted) {
+                    workflowService.advance(wfId);
+                }
             }
         });
 
