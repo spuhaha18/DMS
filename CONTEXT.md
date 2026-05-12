@@ -20,7 +20,7 @@
 | 항목 | 상태 |
 |---|---|
 | 검증 문서 패키지 | ✅ 완성 — 31개 파일 (V-Model 전 산출물 + 11개 SOP + 컴플라이언스 매트릭스 + 가이드) |
-| 백엔드 구현 | 🔄 M6 완료 (M1~M6) — M7 진입 대기 |
+| 백엔드 구현 | 🔄 M7 완료 (M1~M7) — M7.1 pdf.js 뷰어 진입 대기 |
 | 프론트엔드 구현 | ⬜ 미착수 |
 | IQ/OQ/PQ 실행 | ⬜ 구현 완료 후 |
 | 파일럿 배포 | ⬜ OQ/PQ 통과 후 |
@@ -35,9 +35,9 @@
 | M4 | 문서 라이프사이클 워크플로 | ✅ |
 | M5 | 감사 하드닝 + WORM Audit Anchor | ✅ |
 | M6 | E-Signature 강화 (canonical_payload + UNIQUE + 첫 서명 ID+PW + 잠금 + 조회) | ✅ |
-| M7 | PDF 파이프라인 + documents 버킷 GOVERNANCE | ⬜ |
+| M7 | PDF 파이프라인 + documents 버킷 GOVERNANCE | ✅ |
 
-**다음 행동**: M7 — PDF 파이프라인 + documents 버킷 Object Lock GOVERNANCE.
+**다음 행동**: M7.1 — pdf.js 뷰어 (인브라우저 렌더링, 다운로드 권한 분리).
 
 ---
 
@@ -164,6 +164,9 @@ DMS/
 | **M6: canonical_payload v2 직렬화** | 8-field pipe-delimited: `signer_id\|meaning\|signed_at_iso\|version_id\|doc_number\|revision\|doc_status\|source_file_sha256`. NFC 정규화 + 역슬래시 이스케이프. algorithm_version 컬럼(DEFAULT v1, 신규 v2). genesis = HEX(SHA-256("GENESIS")). this_hash UNIQUE (V20). | `DS.md §8.1`, `FS-SIG-002` |
 | **M6: session_first + ID+PW** | 첫 서명 시 signing_user_id 필수(SIGNATURE_002/003). markSigned() 호출 시점 = signature_manifests INSERT 성공 이후. Tomcat 30분 idle timeout과 동기. | `DS.md §6.5.1`, `FS-SIG-009` |
 | **M6: Rate Limiting** | Bucket4j 5req/min per (userId+IP) → 429 RATE_LIMIT_001. LOCKED/DISABLED 계정 verifyPassword() 거부(403). | `DS.md §6.5`, `FS-SIG-008` |
+| **M7: PDF 파이프라인 상태머신** | Document.pdf_status: PENDING_CONVERSION → CONVERTED → STAMPING → STAMPED → WATERMARKING → EFFECTIVE_STAMPED. Gotenberg(LibreOffice) 변환, PDFBox stamp 누적, EFFECTIVE 워터마크. MinIO COMPLIANCE 10년 retention. | `DS.md §5.4`, `PdfRenditionPipeline` |
+| **M7: canonical_payload v3** | v2(8-field) + rendition_sha256 = 9-field. SignatureCanonicalSerializer.serializeV3. §11.70 RENDITION hash stamp 직접 충족. algorithm_version='v3'. | `DS.md §8.1`, `SignatureCanonicalSerializer` |
+| **M7: EFFECTIVE 워터마크 스케줄러** | EffectiveWatermarkScheduler — 매일 00:05 KST. ShedLock leader election(shedlock 테이블, V22). effectiveDate=오늘 & pdfStatus=STAMPED 버전 자동 처리. | `EffectiveWatermarkScheduler`, V22 migration |
 
 ---
 
