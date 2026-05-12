@@ -21,3 +21,12 @@ minio:
   secret-key: minio_test_pass
   bucket-original: test-edms-documents-original
   bucket-rendition: test-edms-documents-rendition
+
+# M7.1: SpringDoc disabled in tests — controller annotations still parse, but
+# the /v3/api-docs and /swagger-ui endpoints aren't exercised by IT and would
+# otherwise slow context startup.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

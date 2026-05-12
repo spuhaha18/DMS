@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -36,8 +37,10 @@ public class EffectiveWatermarkScheduler {
     @SchedulerLock(name = "effectiveWatermark", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")
     @Transactional
     public void run() {
-        LocalDate today = LocalDate.now();
-        List<DocumentVersion> due = versionRepo.findByEffectiveDateAndDocumentPdfStatus(
+        // KST로 오늘 날짜 계산 — JVM default(UTC)를 쓰면 00:05 KST에 어제 날짜가 반환됨
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        // effectiveDate <= today: 누락된 날도 처리 (= 멱등 catch-up)
+        List<DocumentVersion> due = versionRepo.findByEffectiveDateLessThanEqualAndDocumentPdfStatus(
                 today, PdfStatus.STAMPED.name());
         log.info("[EFFECTIVE] {} versions due for effective watermark on {}", due.size(), today);
         for (DocumentVersion v : due) {

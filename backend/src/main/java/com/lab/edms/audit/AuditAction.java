@@ -56,5 +56,12 @@ public enum AuditAction {
 
     // === M5: WORM Audit Anchor ===
     WORM_ANCHOR_CREATED,
-    WORM_ANCHOR_FAILED
+    WORM_ANCHOR_FAILED,
+
+    // M7.1: PDF Viewer (do NOT conflict with DOCUMENT_VIEWED from M3)
+    PDF_VIEWED,
+    PDF_DOWNLOADED,
+    PDF_VERIFIED,
+    PDF_VIEW_DENIED,
+    PDF_DOWNLOAD_DENIED
 }

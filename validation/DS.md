@@ -211,7 +211,8 @@ frontend/src/
 ├── components/
 │   ├── PdfViewer/
 │   │   ├── PdfViewer.vue             # pdf.js wrapper
-│   │   └── usePdfViewer.ts
+│   │   ├── usePdfViewer.ts           # ArrayBuffer 유지, 페이지 네비게이션
+│   │   └── VerifyButton.vue          # Web Crypto SHA-256 무결성 검증 (M7.1)
 │   ├── SignatureDialog.vue
 │   ├── NotificationCenter.vue        # SSE 수신
 │   └── SessionWarning.vue            # 세션 만료 경고
@@ -1008,6 +1009,40 @@ toolbar.print.hidden = !canDownload;
 
 PDF 스트리밍은 `/api/v1/documents/{id}/versions/{vid}/pdf` 엔드포인트에서  
 `Range` 헤더를 지원하는 `StreamingResponseBody`로 응답한다.
+
+#### 쿼리 파라미터 (M7.1)
+
+| 파라미터 | 타입 | 허용값 | 설명 |
+|---|---|---|---|
+| `kind` | string | `INITIAL` \| `STAMPED` \| `EFFECTIVE` | 렌디션 종류 지정. 미지정 시 역할·권한 기반 자동 선택 |
+| `step` | Integer | 1 이상 정수 | `kind=STAMPED`일 때 특정 결재 단계 본 지정 |
+
+**자동 선택 규칙**: `kind` 파라미터 미지정 시
+
+- 활성 단계 assignee → `STAMPED` (최신 step)
+- AUDITOR → `STAMPED` (모든 step 열람 가능)
+- 일반 열람 권한 → `EFFECTIVE` (EFFECTIVE_STAMPED 상태일 때만)
+- Author (본인 DRAFT) → `INITIAL`
+
+**응답 헤더**:
+
+| 헤더 | 값 예시 | 설명 |
+|---|---|---|
+| `X-Rendition-Kind` | `STAMPED` | 실제 서빙된 렌디션 종류 |
+| `X-Rendition-Step` | `2` | STAMPED 렌디션의 결재 단계 |
+| `Cache-Control` | `no-store` | PDF 캐시 금지 (보안) |
+
+**보안 설정** (isEvalSupported: false):
+
+```typescript
+// pdf.js 보안 옵션
+const PDFJS_OPTIONS = {
+  isEvalSupported: false,  // eval() 비활성화 (CSP 준수)
+  disableRange: false,
+  disableStream: false,
+  disableFontFace: false,
+};
+```
 
 ### 7.4 전자서명 다이얼로그 (SignatureDialog.vue)
 

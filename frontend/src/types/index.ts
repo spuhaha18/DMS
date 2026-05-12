@@ -60,7 +60,10 @@ export interface CreateUserRequest {
   email: string;
   department: string;
   title?: string;
-  password: string;
+  // Initial password is now backend-generated (see M2 commit 30568c1
+  // "remove stale password field from user create form"). Kept optional to
+  // preserve backward compatibility with older callers.
+  password?: string;
   role_codes: string[];
   valid_from?: string | null;
   valid_until?: string | null;
@@ -188,6 +191,8 @@ export interface DocumentSummary {
   ownerId: number;
   confidential: boolean;
   createdAt: string;
+  /** M7 PDF 파이프라인 상태 — Document 레벨 (version.pdfStatus는 항상 PENDING이므로 이것을 사용) */
+  pdfStatus?: string | null;
 }
 
 export interface DocumentDetail extends DocumentSummary {
@@ -206,6 +211,11 @@ export interface DocumentVersionSummary {
   pdfStatus: string;
   createdAt: string;
   updatedAt: string;
+  /**
+   * M7.1 PR3 — populated by /me + per-row permission checks when available.
+   * Drives the disabled+tooltip pattern (DS6) for "다운로드" actions.
+   */
+  canDownload?: boolean;
 }
 
 export interface DocumentFileSummary {
@@ -233,4 +243,26 @@ export interface CreateDocumentResponse {
   versionId: number;
   docNumber: string;
   state: string;
+}
+
+// M7.1 — PDF viewer payloads (versionNumber + renditionKind shape)
+// NOTE: A different `DocumentVersionSummary` already exists above for the
+// document listing/detail flow. The PDF viewer endpoints return a slightly
+// different projection, so we keep them as distinct types.
+export interface PdfVersionSummary {
+  versionId: number;
+  versionNumber: string;
+  status: string;
+  pdfStatus: string | null;
+  createdAt: string;
+}
+
+export interface DocumentFileInfo {
+  id: number;
+  versionId: number;
+  fileType: string;
+  fileName: string;
+  renditionKind: string | null;
+  stepNumber: number | null;
+  sha256Hash: string;
 }

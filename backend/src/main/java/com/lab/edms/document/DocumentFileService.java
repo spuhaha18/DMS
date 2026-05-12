@@ -155,7 +155,9 @@ public class DocumentFileService {
                 docFile.getFileSizeBytes(),
                 docFile.getContentType(),
                 docFile.getSha256Hash(),
-                docFile.getUploadedAt() != null ? docFile.getUploadedAt().toString() : null
+                docFile.getUploadedAt() != null ? docFile.getUploadedAt().toString() : null,
+                docFile.getRenditionKind(),  // M7.1: PDF rendition kind (INITIAL/STAMPED/EFFECTIVE) or null for ORIGINAL
+                docFile.getStepNumber()      // M7.1: non-null only for STAMPED renditions
         );
     }
 

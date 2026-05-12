@@ -1,0 +1,12 @@
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true  # HTTPS only in production
+
+# M7.1: Disable SpringDoc/Swagger UI in production to prevent API schema exposure.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

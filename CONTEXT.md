@@ -20,8 +20,8 @@
 | 항목 | 상태 |
 |---|---|
 | 검증 문서 패키지 | ✅ 완성 — 31개 파일 (V-Model 전 산출물 + 11개 SOP + 컴플라이언스 매트릭스 + 가이드) |
-| 백엔드 구현 | 🔄 M7 완료 (M1~M7) — M7.1 pdf.js 뷰어 진입 대기 |
-| 프론트엔드 구현 | ⬜ 미착수 |
+| 백엔드 구현 | ✅ M7.1 완료 (M1~M7 + PdfController/PdfAccessPolicy/VerifyButton 백엔드) |
+| 프론트엔드 구현 | ✅ M7.1 완료 (pdf.js 뷰어, 권한 분리, Verify) |
 | IQ/OQ/PQ 실행 | ⬜ 구현 완료 후 |
 | 파일럿 배포 | ⬜ OQ/PQ 통과 후 |
 
@@ -36,8 +36,9 @@
 | M5 | 감사 하드닝 + WORM Audit Anchor | ✅ |
 | M6 | E-Signature 강화 (canonical_payload + UNIQUE + 첫 서명 ID+PW + 잠금 + 조회) | ✅ |
 | M7 | PDF 파이프라인 + documents 버킷 GOVERNANCE | ✅ |
+| M7.1 | PDF 뷰어 (pdf.js + Verify + 권한 매트릭스) | ✅ |
 
-**다음 행동**: M7.1 — pdf.js 뷰어 (인브라우저 렌더링, 다운로드 권한 분리).
+**다음 행동**: M8 (결재 인박스 / SignatureDialog / NotificationCenter) 또는 IQ/OQ 실행
 
 ---
 

@@ -18,4 +18,8 @@ public interface DocumentFileRepository extends JpaRepository<DocumentFile, Long
     /** INITIAL rendition 행 반환 (첫 번째 stamp base 조회용). */
     Optional<DocumentFile> findFirstByVersionIdAndFileTypeAndRenditionKind(
             Long versionId, String fileType, String renditionKind);
+
+    /** STAMPED rendition 중 특정 step_number를 가진 행 반환 (step별 stamp 조회용). */
+    Optional<DocumentFile> findFirstByVersionIdAndRenditionKindAndStepNumber(
+            Long versionId, String renditionKind, Integer stepNumber);
 }

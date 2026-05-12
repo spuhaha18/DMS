@@ -30,6 +30,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/login").permitAll()
                         .requestMatchers("/api/v1/auth/csrf").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        // M7.1: SpringDoc OpenAPI/Swagger UI — ROLE_ADMIN only.
+                        // (Disabled entirely on prod profile via springdoc.api-docs.enabled=false.)
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
+                                .hasRole("ADMIN")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/audit-logs/checkpoints/**")
                                 .hasAnyAuthority("ROLE_ADMIN", "ROLE_AUDITOR")

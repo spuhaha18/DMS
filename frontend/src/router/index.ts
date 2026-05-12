@@ -42,6 +42,12 @@ const routes = [
   { path: '/documents/:docId', name: 'document-detail',
     component: () => import('../views/documents/DocumentDetailView.vue'),
     meta: { requiresAuth: true } },
+  {
+    path: '/documents/:docId/versions/:verId/pdf',
+    name: 'document-pdf-view',
+    component: () => import('../views/documents/DocumentPdfView.vue'),
+    meta: { requiresAuth: true },
+  },
 ];
 
 export const router = createRouter({

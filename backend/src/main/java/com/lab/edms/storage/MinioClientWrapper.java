@@ -202,4 +202,22 @@ public class MinioClientWrapper {
             throw new RuntimeException("MinIO getObject failed: " + key, e);
         }
     }
+
+    /**
+     * M7.1: HTTP Range support — open a partial stream from {@code offset} of
+     * length {@code length} bytes. When {@code length <= 0}, reads to end of object.
+     * Used by PdfController to honour {@code Range:} requests for large PDFs.
+     */
+    public InputStream openStream(String bucket, String key, long offset, long length) {
+        ensureBuckets();
+        try {
+            GetObjectArgs.Builder b = GetObjectArgs.builder().bucket(bucket).object(key);
+            if (offset > 0) b.offset(offset);
+            if (length > 0) b.length(length);
+            return minio.getObject(b.build());
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "MinIO getObject (range) failed: " + key + " offset=" + offset + " length=" + length, e);
+        }
+    }
 }
