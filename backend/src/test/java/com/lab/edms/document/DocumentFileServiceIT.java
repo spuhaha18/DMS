@@ -12,7 +12,6 @@ import com.lab.edms.document.dto.DocumentFileDto;
 import com.lab.edms.permission.Permission;
 import com.lab.edms.permission.PermissionRepository;
 import com.lab.edms.storage.MinioClientWrapper;
-import com.lab.edms.storage.MinioProperties;
 import com.lab.edms.user.*;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,11 +43,12 @@ class DocumentFileServiceIT {
 
     @DynamicPropertySource
     static void minioProperties(DynamicPropertyRegistry registry) {
-        registry.add("minio.endpoint",        TestcontainersConfig.MINIO::getS3URL);
-        registry.add("minio.access-key",      TestcontainersConfig.MINIO::getUserName);
-        registry.add("minio.secret-key",      TestcontainersConfig.MINIO::getPassword);
-        registry.add("minio.bucket-original", () -> "test-edms-documents-original");
-        registry.add("minio.bucket-rendition",() -> "test-edms-documents-rendition");
+        registry.add("minio.endpoint",           TestcontainersConfig.MINIO::getS3URL);
+        registry.add("minio.access-key",         TestcontainersConfig.MINIO::getUserName);
+        registry.add("minio.secret-key",         TestcontainersConfig.MINIO::getPassword);
+        registry.add("minio.bucket-original",    () -> "test-edms-documents-original");
+        registry.add("minio.bucket-original-v2", () -> "test-edms-documents-original-v2");
+        registry.add("minio.bucket-rendition",   () -> "test-edms-documents-rendition");
     }
 
     @Autowired DocumentFileService fileService;
@@ -63,7 +63,6 @@ class DocumentFileServiceIT {
     @Autowired PermissionRepository permRepo;
     @Autowired EntityManager em;
     @Autowired MinioClientWrapper minioWrapper;
-    @Autowired MinioProperties minioProps;
 
     private String authorUserId;
     private Long docId;
@@ -165,8 +164,8 @@ class DocumentFileServiceIT {
         assertThat(version.getSourceFileKey()).isNotBlank();
         assertThat(version.getSourceFileKey()).contains("test-document.docx");
 
-        // Verify object exists in MinIO
-        InputStream stream = minioWrapper.openStream(minioProps.bucketOriginal(), version.getSourceFileKey());
+        // Verify object exists in MinIO — cutover 이후 버전은 bucketOriginalV2에 저장됨
+        InputStream stream = minioWrapper.openStream(minioWrapper.getOriginalBucket(version), version.getSourceFileKey());
         assertThat(stream).isNotNull();
         stream.close();
     }
