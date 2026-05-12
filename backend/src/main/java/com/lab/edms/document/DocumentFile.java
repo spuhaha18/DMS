@@ -41,6 +41,13 @@ public class DocumentFile {
     @Column(name = "uploaded_by", nullable = false)
     private Long uploadedBy;
 
+    // V21: 단계별 RENDITION 누적
+    @Column(name = "rendition_kind", length = 16)
+    private String renditionKind;
+
+    @Column(name = "step_number")
+    private Integer stepNumber;
+
     @PrePersist
     protected void onCreate() {
         if (uploadedAt == null) uploadedAt = OffsetDateTime.now();
@@ -57,6 +64,8 @@ public class DocumentFile {
     public String getSha256Hash() { return sha256Hash; }
     public OffsetDateTime getUploadedAt() { return uploadedAt; }
     public Long getUploadedBy() { return uploadedBy; }
+    public String getRenditionKind() { return renditionKind; }
+    public Integer getStepNumber() { return stepNumber; }
 
     public void setVersionId(Long v) { this.versionId = v; }
     public void setFileType(String v) { this.fileType = v; }
@@ -67,4 +76,6 @@ public class DocumentFile {
     public void setContentType(String v) { this.contentType = v; }
     public void setSha256Hash(String v) { this.sha256Hash = v; }
     public void setUploadedBy(Long v) { this.uploadedBy = v; }
+    public void setRenditionKind(String v) { this.renditionKind = v; }
+    public void setStepNumber(Integer v) { this.stepNumber = v; }
 }

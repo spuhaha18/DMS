@@ -189,6 +189,11 @@ public class MinioClientWrapper {
         }
     }
 
+    /** PDF rendition 버킷 이름을 반환한다 (M7 신규 GOVERNANCE 버킷). */
+    public String getBucketRendition() {
+        return props.bucketRendition();
+    }
+
     public InputStream openStream(String bucket, String key) {
         ensureBuckets();
         try {
