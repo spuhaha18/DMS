@@ -99,6 +99,7 @@ class SignatureLockoutRollbackIT {
         // REQUIRES_NEW 불변식 검증을 위해 @Transactional 없이 실행하므로
         // 테스트 데이터를 직접 정리한다.
         jdbc.execute("DELETE FROM signature_manifests");
+        jdbc.execute("DELETE FROM sign_intents");
         jdbc.execute("DELETE FROM workflow_step_instances");
         jdbc.execute("DELETE FROM workflow_instances");
         jdbc.execute("DELETE FROM document_files");
