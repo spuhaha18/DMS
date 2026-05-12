@@ -1,5 +1,6 @@
 package com.lab.edms.storage;
 
+import com.lab.edms.document.DocumentVersion;
 import io.minio.*;
 import io.minio.messages.ObjectLockConfiguration;
 import io.minio.messages.Retention;
@@ -11,12 +12,20 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 public class MinioClientWrapper {
+
+    /**
+     * M7 컷오버 기준 시각: 이 시각 이후 생성된 버전은 bucketOriginalV2 로 라우팅.
+     * TODO: application.yml 의 minio.m7-cutover-instant 로 오버라이드 권장.
+     */
+    public static final Instant M7_CUTOVER_INSTANT = Instant.parse("2026-05-12T00:00:00Z");
 
     private final MinioClient minio;
     private final MinioProperties props;
@@ -28,15 +37,37 @@ public class MinioClientWrapper {
     }
 
     /**
-     * Ensures document buckets (no lock) + anchor bucket (COMPLIANCE 10y).
+     * Ensures all buckets:
+     *   - bucketOriginal   : legacy (no lock, read-only after M7 cutover)
+     *   - bucketOriginalV2 : M7 신규 GOVERNANCE 본문 (30일 기본 보존)
+     *   - bucketRendition  : M7 신규 GOVERNANCE PDF rendition (30일 기본 보존)
+     *   - bucketAnchors    : M5 COMPLIANCE 10년 앵커
      * Lazy on first use — avoids eager MinIO connection at context startup.
      */
     public void ensureBuckets() {
         if (bucketsEnsured.compareAndSet(false, true)) {
             ensureBucket(props.bucketOriginal());
-            ensureBucket(props.bucketRendition());
+            ensureLockedBucket(props.bucketOriginalV2(), RetentionMode.GOVERNANCE, 30);
+            ensureLockedBucket(props.bucketRendition(), RetentionMode.GOVERNANCE, 30);
             ensureLockedBucket(props.bucketAnchors(), RetentionMode.COMPLIANCE, 3650);
         }
+    }
+
+    /**
+     * M7 컷오버 기준으로 업로드 대상 버킷을 결정한다.
+     * - version == null 또는 createdAt == null : legacy 버킷
+     * - createdAt 이 M7_CUTOVER_INSTANT 이전 : legacy 버킷
+     * - 그 외 : bucketOriginalV2
+     */
+    public String getOriginalBucket(DocumentVersion version) {
+        if (version == null || version.getCreatedAt() == null) {
+            return props.bucketOriginal();
+        }
+        Instant createdAtInstant = version.getCreatedAt().toInstant();
+        if (createdAtInstant.isBefore(M7_CUTOVER_INSTANT)) {
+            return props.bucketOriginal();
+        }
+        return props.bucketOriginalV2();
     }
 
     private void ensureBucket(String name) {

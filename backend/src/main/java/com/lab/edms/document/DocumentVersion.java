@@ -98,6 +98,7 @@ public class DocumentVersion {
     public void setPdfStatus(String v) { this.pdfStatus = v; }
     public void setEffectiveDate(LocalDate v) { this.effectiveDate = v; }
     public void setExpiryDate(LocalDate v) { this.expiryDate = v; }
+    public void setCreatedAt(OffsetDateTime v) { this.createdAt = v; }
     public void setCreatedBy(Long v) { this.createdBy = v; }
     public void setUpdatedBy(Long v) { this.updatedBy = v; }
 
