@@ -4,7 +4,7 @@ import { api } from './client';
 export interface VerifyReportPayload {
   renditionKind: string;
   stepNumber: number | null;
-  verifyResult: 'PASS' | 'FAIL';
+  verifyResult: 'PASS' | 'FAIL' | 'NO_HASH';
   expectedSha256: string | null;
   actualSha256: string | null;
   manifestSha256: string | null;

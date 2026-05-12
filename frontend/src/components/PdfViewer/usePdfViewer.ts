@@ -4,6 +4,7 @@ import {
   getDocument,
   type PDFDocumentProxy,
   type PDFPageProxy,
+  type RenderTask,
 } from 'pdfjs-dist';
 import { api } from '../../api/client';
 
@@ -64,7 +65,16 @@ export function usePdfViewer() {
   // in-flight loads can detect they've been superseded and bail out.
   let loadSeq = 0;
 
+  // [C-2] Active render task — cancelled before starting a new render to prevent
+  // concurrent renders writing to the same canvas (canvas tearing).
+  let currentRenderTask: RenderTask | null = null;
+
   function reset() {
+    // [C-2] Cancel any in-flight render before resetting state.
+    if (currentRenderTask) {
+      currentRenderTask.cancel();
+      currentRenderTask = null;
+    }
     // [C-1] Destroy the previous pdf.js document handle to free worker memory.
     if (pdfDoc.value) {
       void pdfDoc.value.destroy();
@@ -177,11 +187,22 @@ export function usePdfViewer() {
 
     const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined;
 
-    await page.render({
-      canvasContext: ctx,
-      viewport,
-      transform,
-    }).promise;
+    // [C-2] Cancel any in-flight render before starting a new one to prevent
+    // two renders writing to the same canvas simultaneously (canvas tearing).
+    if (currentRenderTask) {
+      currentRenderTask.cancel();
+      currentRenderTask = null;
+    }
+
+    const renderTask = page.render({ canvasContext: ctx, viewport, transform });
+    currentRenderTask = renderTask;
+    try {
+      await renderTask.promise;
+    } finally {
+      if (currentRenderTask === renderTask) {
+        currentRenderTask = null;
+      }
+    }
 
     currentPage.value = pageNum;
     if (state.value === PdfViewerState.Partial && pageNum === doc.numPages) {

@@ -56,8 +56,21 @@ async function verify() {
 
   // [I-3] If the server did not send X-File-Sha256, transport hash comparison
   // is impossible. Show a "NO_HASH" warning — do NOT treat as FAIL.
+  // §11.70: still audit the verification attempt so the attempt is traceable.
   if (props.expectedSha256 === null) {
     outcome.value = 'NO_HASH';
+    try {
+      await submitVerifyReport(props.docId, props.versionId, {
+        renditionKind: props.renditionKind,
+        stepNumber: props.stepNumber,
+        verifyResult: 'NO_HASH',
+        expectedSha256: null,
+        actualSha256: null,
+        manifestSha256: null,
+      });
+    } catch {
+      // best-effort
+    }
     loading.value = false;
     return;
   }
