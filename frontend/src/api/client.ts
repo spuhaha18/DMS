@@ -11,6 +11,9 @@ function readCookie(name: string): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+// Guard to prevent concurrent logouts during simultaneous 401 errors
+let logoutInProgress: Promise<void> | null = null;
+
 api.interceptors.request.use((config) => {
   const method = (config.method ?? 'get').toLowerCase();
   if (['post', 'put', 'patch', 'delete'].includes(method)) {
@@ -33,28 +36,34 @@ api.interceptors.response.use(
     const isAuthProbe = url.includes('/auth/me') || url.includes('/auth/login');
 
     if (status === 401 && !isAuthProbe) {
-      try {
-        const { useAuthStore } = await import('../stores/auth');
-        const { router } = await import('../router');
-        const auth = useAuthStore();
-        try { await auth.logout(); } catch { /* swallow — already 401 */ }
-        if (router.currentRoute.value.name !== 'login') {
-          router.push({ name: 'login' });
-        }
-      } catch {
-        // module load failed — best-effort
+      if (!logoutInProgress) {
+        logoutInProgress = (async () => {
+          try {
+            const { useAuthStore } = await import('../stores/auth');
+            const { router } = await import('../router');
+            const auth = useAuthStore();
+            try { await auth.logout(); } catch { /* swallow — already 401 */ }
+            if (router.currentRoute.value.name !== 'login') {
+              await router.push({ name: 'login' });
+            }
+          } catch {
+            // module load failed — best-effort
+          }
+        })().finally(() => { logoutInProgress = null });
       }
+      await logoutInProgress;
     } else if (status && status >= 400) {
       try {
         const { emitToast } = await import('../components/Toast/useToast');
         const problem = error.response?.data;
         const msg = problem?.message ?? error.message ?? '알 수 없는 오류가 발생했습니다';
-        emitToast(msg, 'error');
 
-        // NOT_READY special case — show retry hint
+        // NOT_READY special case — show only warning, not error toast
         if (problem?.code === 'NOT_READY') {
           const retrySeconds = problem?.retryAfterSeconds ?? 30;
           emitToast(`PDF 변환 중입니다. ${retrySeconds}초 후 다시 시도해주세요.`, 'warning');
+        } else {
+          emitToast(msg, 'error');
         }
       } catch {
         // toast module not available — silently drop
