@@ -21,3 +21,10 @@ minio:
 logging:
   file:
     name: /tmp/edms-dev.log
+
+# M7.1: SpringDoc enabled on dev for local Swagger UI exploration.
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
