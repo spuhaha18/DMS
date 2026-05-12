@@ -1,8 +1,10 @@
 package com.lab.edms.pdf;
 
+import com.lab.edms.TestcontainersConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -13,8 +15,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 실제 5단계 누적 검증은 Gotenberg + DB + MinIO 모두 필요하므로
  * 현재는 컨텍스트 로딩 확인만 수행한다.
  */
-@SpringBootTest
 @ActiveProfiles("test")
+@SpringBootTest
+@Import(TestcontainersConfig.class)
 class PdfStampAccumulationIT {
 
     @Autowired
