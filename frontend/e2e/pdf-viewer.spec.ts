@@ -12,7 +12,7 @@
  */
 
 import { test, expect, Page, BrowserContext } from '@playwright/test';
-import { TEST_USERS, apiLogin, createTestDocument } from './fixtures/seed';
+import { TEST_USERS, apiLogin } from './fixtures/seed';
 
 // ---------------------------------------------------------------------------
 // 공통 헬퍼
@@ -263,9 +263,11 @@ test.fixme(
     await page.goto(`/documents/${docId}/versions/${verId}/pdf`);
 
     // "PDF 변환 중" 메시지 또는 오류 페이지 확인
-    await expect(
-      page.locator('text=PDF 변환 중입니다, text=변환 중, text=PDF 준비 중'),
-    ).toBeVisible({ timeout: 5_000 });
+    const notReadyMsg = page
+      .locator('text=PDF 변환 중입니다')
+      .or(page.locator('text=변환 중'))
+      .or(page.locator('text=PDF 준비 중'));
+    await expect(notReadyMsg.first()).toBeVisible({ timeout: 5_000 });
   },
 );
 

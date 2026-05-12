@@ -1268,7 +1268,7 @@ keywords, project_code, migration_note
 | UR-DOC-003 | FS-DOC-002 | ✅ |
 | UR-DOC-004 | FS-DOC-002 | ✅ |
 | UR-DOC-005 | FS-DOC-004 | ✅ |
-| UR-DOC-006 | FS-DOC-003 | ✅ |
+| UR-DOC-006 | FS-DOC-PDFVIEW-001, FS-DOC-PDFVIEW-002, FS-DOC-PDFVIEW-003 | ✅ |
 | UR-DOC-007 | FS-DOC-005 | ✅ |
 | UR-DOC-008 | FS-DOC-005 (BR-DOC-019~020) | ✅ |
 | UR-DOC-009 | FS-DOC-002 (BR-DOC-008) | ✅ |
