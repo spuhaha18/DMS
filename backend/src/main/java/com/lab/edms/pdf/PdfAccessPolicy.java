@@ -22,7 +22,7 @@ import java.util.Optional;
  * <ul>
  *   <li>{@code PENDING_CONVERSION} / {@code STAMPING} / {@code WATERMARKING} → nobody.
  *       Caller surfaces this as HTTP 409 {@code NOT_READY} (this class only signals
- *       "not viewable yet" via {@link Decision#notReady}).</li>
+ *       "not viewable yet" via {@link Decision#isNotReady}).</li>
  *   <li>{@code CONVERTED} + {@code INITIAL} → active-step assignee, Author (owner), ADMIN/AUDITOR,
  *       and category admin (i.e. anyone with {@code can_view} on the row) only.</li>
  *   <li>{@code STAMPED} (rendition) → same as INITIAL.</li>
@@ -62,9 +62,9 @@ public class PdfAccessPolicy {
         public static Decision deny()     { return new Decision(Outcome.DENY, null); }
         public static Decision notReady() { return new Decision(Outcome.NOT_READY, 5); }
 
-        public boolean allowed()  { return outcome == Outcome.ALLOW; }
-        public boolean denied()   { return outcome == Outcome.DENY; }
-        public boolean notReady_(){ return outcome == Outcome.NOT_READY; }
+        public boolean allowed()    { return outcome == Outcome.ALLOW; }
+        public boolean denied()     { return outcome == Outcome.DENY; }
+        public boolean isNotReady() { return outcome == Outcome.NOT_READY; }
     }
 
     /**

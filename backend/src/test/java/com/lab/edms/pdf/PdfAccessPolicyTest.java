@@ -106,7 +106,7 @@ class PdfAccessPolicyTest {
 
         var d = policy.canView(admin, doc, versionWithId(1L), RenditionKind.INITIAL);
 
-        assertThat(d.notReady_()).isTrue();
+        assertThat(d.isNotReady()).isTrue();
         assertThat(d.retryAfterSeconds()).isNotNull();
     }
 
@@ -114,14 +114,14 @@ class PdfAccessPolicyTest {
     void inFlight_stamping_returnsNotReady() {
         doc.setPdfStatus(PdfStatus.STAMPING.name());
         var d = policy.canView(auth("u", "READER"), doc, versionWithId(1L), RenditionKind.STAMPED);
-        assertThat(d.notReady_()).isTrue();
+        assertThat(d.isNotReady()).isTrue();
     }
 
     @Test
     void inFlight_watermarking_returnsNotReady() {
         doc.setPdfStatus(PdfStatus.WATERMARKING.name());
         var d = policy.canView(auth("u", "READER"), doc, versionWithId(1L), RenditionKind.EFFECTIVE);
-        assertThat(d.notReady_()).isTrue();
+        assertThat(d.isNotReady()).isTrue();
     }
 
     // -----------------------------------------------------------------------
@@ -322,7 +322,7 @@ class PdfAccessPolicyTest {
     void download_inFlight_returnsNotReady_neverDownloads() {
         doc.setPdfStatus(PdfStatus.STAMPING.name());
         var d = policy.canDownload(auth("admin", "ADMIN"), doc, versionWithId(1L), RenditionKind.STAMPED);
-        assertThat(d.notReady_()).isTrue();
+        assertThat(d.isNotReady()).isTrue();
     }
 
     // -----------------------------------------------------------------------

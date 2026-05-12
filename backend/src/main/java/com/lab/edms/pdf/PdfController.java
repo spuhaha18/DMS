@@ -42,7 +42,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -281,7 +280,8 @@ public class PdfController {
         // Resolve the actual rendition kind & step (auto-select when kindParam is null).
         ResolvedRendition resolved = resolveRendition(document, version, auth, kindParam, stepParam);
         if (resolved == null || resolved.file == null) {
-            // No matching rendition file present — 404 (IDOR-safe).
+            // No matching rendition file present — audit the deny event then return 404 (IDOR-safe).
+            auditDeny(auth, request, verId, null, download);
             return notFound();
         }
 
@@ -290,7 +290,7 @@ public class PdfController {
                 ? accessPolicy.canDownload(auth, document, version, resolved.kind)
                 : accessPolicy.canView(auth, document, version, resolved.kind);
 
-        if (decision.notReady_()) {
+        if (decision.isNotReady()) {
             return notReady();
         }
         if (decision.denied()) {
@@ -320,10 +320,11 @@ public class PdfController {
         response.setHeader("X-File-Sha256", file.getSha256Hash());
         response.setHeader(HttpHeaders.ACCEPT_RANGES, "bytes");
 
+        String safeName = displayName.replaceAll("[\\r\\n\"\\\\;=]", "_");
         if (download) {
-            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + displayName + "\"");
+            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + safeName + "\"");
         } else {
-            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + displayName + "\"");
+            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + safeName + "\"");
         }
 
         // Audit BEFORE streaming so the event commits even if the client aborts mid-stream.
@@ -451,11 +452,8 @@ public class PdfController {
     }
 
     private Optional<DocumentFile> findStampedByStep(Long versionId, Integer step) {
-        List<DocumentFile> all = fileRepo.findByVersionIdAndFileType(versionId, RENDITION_FILE_TYPE);
-        return all.stream()
-                .filter(f -> RenditionKind.STAMPED.name().equals(f.getRenditionKind())
-                        && step != null && step.equals(f.getStepNumber()))
-                .findFirst();
+        return fileRepo.findFirstByVersionIdAndRenditionKindAndStepNumber(
+                versionId, RenditionKind.STAMPED.name(), step);
     }
 
     /**
