@@ -1,8 +1,11 @@
 package com.lab.edms.pdf;
 
+import com.lab.edms.TestcontainersConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -19,7 +22,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *         doc.createParagraph().createRun().setText("sample");
  *         doc.write(new FileOutputStream("src/test/resources/fixtures/sample.docx"));
  */
+@ActiveProfiles("test")
 @SpringBootTest
+@Import(TestcontainersConfig.class)
 class GotenbergClientIT {
 
     @Autowired

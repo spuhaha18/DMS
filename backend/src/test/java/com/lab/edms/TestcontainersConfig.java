@@ -57,11 +57,13 @@ public class TestcontainersConfig {
     // The static MINIO instance never changes port across reloads, so this is safe.
     @DynamicPropertySource
     static void minioProps(DynamicPropertyRegistry registry) {
-        registry.add("minio.endpoint",         MINIO::getS3URL);
-        registry.add("minio.access-key",       MINIO::getUserName);
-        registry.add("minio.secret-key",       MINIO::getPassword);
-        registry.add("minio.bucket-original",  () -> "test-edms-documents-original");
-        registry.add("minio.bucket-rendition", () -> "test-edms-documents-rendition");
-        registry.add("minio.bucket-anchors",   () -> "test-edms-audit-anchors");
+        registry.add("minio.endpoint",           MINIO::getS3URL);
+        registry.add("minio.access-key",         MINIO::getUserName);
+        registry.add("minio.secret-key",         MINIO::getPassword);
+        registry.add("minio.bucket-original",    () -> "test-edms-documents-original");
+        registry.add("minio.bucket-original-v2", () -> "test-documents-original-v2");
+        registry.add("minio.bucket-rendition",   () -> "test-edms-documents-rendition");
+        registry.add("minio.bucket-anchors",     () -> "test-edms-audit-anchors");
+        registry.add("gotenberg.url",            () -> "http://localhost:3000");
     }
 }
