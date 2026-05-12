@@ -234,3 +234,25 @@ export interface CreateDocumentResponse {
   docNumber: string;
   state: string;
 }
+
+// M7.1 — PDF viewer payloads (versionNumber + renditionKind shape)
+// NOTE: A different `DocumentVersionSummary` already exists above for the
+// document listing/detail flow. The PDF viewer endpoints return a slightly
+// different projection, so we keep them as distinct types.
+export interface PdfVersionSummary {
+  versionId: number;
+  versionNumber: string;
+  status: string;
+  pdfStatus: string | null;
+  createdAt: string;
+}
+
+export interface DocumentFileInfo {
+  id: number;
+  versionId: number;
+  fileType: string;
+  fileName: string;
+  renditionKind: string | null;
+  stepNumber: number | null;
+  sha256Hash: string;
+}

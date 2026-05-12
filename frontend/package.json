@@ -7,10 +7,12 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "gen:api": "node scripts/gen-api.mjs"
   },
   "dependencies": {
     "axios": "^1.7.7",
+    "pdfjs-dist": "^4.4.168",
     "pinia": "^2.2.4",
     "vue": "^3.5.10",
     "vue-router": "^4.4.5"
@@ -20,8 +22,10 @@
     "@vitejs/plugin-vue": "^5.1.4",
     "@vue/test-utils": "^2.4.6",
     "happy-dom": "^15.7.4",
+    "openapi-typescript": "^7.4.0",
     "typescript": "~5.6.2",
     "vite": "^5.4.8",
+    "vite-plugin-sri3": "^1.0.0",
     "vitest": "^2.1.2",
     "vue-tsc": "^2.1.6"
   }

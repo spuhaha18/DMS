@@ -5,10 +5,17 @@ export default defineConfig({
   timeout: 30_000,
   retries: 0,
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:3001',
     headless: true,
     screenshot: 'only-on-failure',
     video: 'off',
+  },
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:3001',
+    reuseExistingServer: !process.env.CI,
+    cwd: '.',
+    timeout: 120_000,
   },
   projects: [
     {
