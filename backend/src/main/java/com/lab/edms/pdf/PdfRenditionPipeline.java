@@ -198,8 +198,8 @@ public class PdfRenditionPipeline {
     @Async("pdfWorkerExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyStampForStep(Long versionId, StampPayload payload) {
-        // 1. DocumentVersion → Document 조회
-        DocumentVersion version = documentVersionRepository.findById(versionId)
+        // 1. DocumentVersion → Document 조회 — FOR UPDATE: 동시 결재 race 가드
+        DocumentVersion version = documentVersionRepository.findByIdForUpdate(versionId)
                 .orElseThrow(() -> new IllegalStateException(
                         "No DocumentVersion found: " + versionId));
         Long documentId = version.getDocumentId();
