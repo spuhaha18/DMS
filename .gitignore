@@ -44,3 +44,6 @@ docs/superpowers/
 
 # Debug tests
 backend/src/test/java/com/lab/edms/auth/LoginDebugIT.java
+
+# Worktrees
+.worktrees/
