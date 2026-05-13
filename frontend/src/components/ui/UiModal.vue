@@ -1,13 +1,22 @@
 <script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue';
+
 defineProps<{ title: string; modelValue: boolean }>();
 const emit = defineEmits<{ 'update:modelValue': [boolean] }>();
 
 function close() { emit('update:modelValue', false); }
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') close();
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown));
+onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 </script>
 
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="ui-modal-backdrop" @click.self="close" @keydown.esc="close">
+    <div v-if="modelValue" class="ui-modal-backdrop" @click.self="close">
       <div class="ui-modal" role="dialog" :aria-label="title">
         <div class="ui-modal-header">
           <h3>{{ title }}</h3>

@@ -4,6 +4,7 @@ import UiModal from '../ui/UiModal.vue';
 import UiAlert from '../ui/UiAlert.vue';
 import UiHint from '../ui/UiHint.vue';
 import UiButton from '../ui/UiButton.vue';
+import UiField from '../ui/UiField.vue';
 import type { ResearchProject } from '../../types';
 
 const props = defineProps<{ project: ResearchProject; modelValue: boolean }>();
@@ -43,16 +44,14 @@ async function confirm() {
       자동 연장됩니다. 21 CFR Part 11 규제상 <strong>한번 연장된 보존기간은 줄일 수 없습니다.</strong>
     </UiAlert>
 
-    <div class="ui-field">
-      <label>중단/종료일 <span aria-required="true">*</span></label>
+    <UiField label="중단/종료일" :required="true">
       <input type="date" v-model="terminationDate" :max="today" required />
-    </div>
+    </UiField>
 
-    <div class="ui-field">
-      <label>확인을 위해 과제코드를 정확히 입력하세요</label>
+    <UiField label="확인을 위해 과제코드를 정확히 입력하세요">
       <input v-model="typedCode" :placeholder="project.projectCode" />
       <UiHint v-if="typedCode && !codeMatch" type="error">코드가 일치하지 않습니다</UiHint>
-    </div>
+    </UiField>
 
     <template #footer>
       <UiButton @click="close" :disabled="busy">취소</UiButton>
@@ -64,19 +63,7 @@ async function confirm() {
 </template>
 
 <style scoped>
-.ui-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.ui-field label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #374151;
-}
-
-.ui-field input {
+input {
   padding: 0.5rem 0.75rem;
   border: 1px solid #d1d5db;
   border-radius: 0.375rem;
@@ -85,7 +72,7 @@ async function confirm() {
   color: #111827;
 }
 
-.ui-field input:focus {
+input:focus {
   outline: 2px solid var(--color-primary, #1a56db);
   outline-offset: -1px;
   border-color: transparent;
