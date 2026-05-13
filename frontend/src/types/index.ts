@@ -266,3 +266,28 @@ export interface DocumentFileInfo {
   stepNumber: number | null;
   sha256Hash: string;
 }
+
+// M7.5: Research Project types
+export type ResearchProjectStatus = 'ACTIVE' | 'APPROVED' | 'TERMINATED';
+
+export interface ResearchProjectType {
+  typeCode: string;
+  typeNameKr: string;
+  typeNameEn?: string;
+  retentionYears?: number;
+  perpetual: boolean;
+  sopTableRow?: string;
+  note?: string;
+}
+
+export interface ResearchProject {
+  projectCode: string;
+  projectName: string;
+  typeCode: string;
+  typeNameKr: string;
+  retentionYears?: number;
+  perpetual: boolean;
+  status: ResearchProjectStatus;
+  approvalDate?: string;
+  terminationDate?: string;
+}
