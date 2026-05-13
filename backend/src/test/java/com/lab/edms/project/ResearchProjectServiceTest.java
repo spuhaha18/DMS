@@ -1,5 +1,7 @@
 package com.lab.edms.project;
 
+import com.lab.edms.audit.AuditAction;
+import com.lab.edms.audit.AuditEvent;
 import com.lab.edms.audit.AuditService;
 import com.lab.edms.document.DocumentFile;
 import com.lab.edms.document.DocumentFileRepository;
@@ -10,6 +12,7 @@ import com.lab.edms.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -89,7 +92,14 @@ class ResearchProjectServiceTest {
 
         assertThat(result.getStatus()).isEqualTo(ResearchProjectStatus.APPROVED);
         assertThat(result.getApprovalDate()).isEqualTo(LocalDate.of(2026, 6, 1));
-        verify(auditService, times(1)).log(any());
+
+        ArgumentCaptor<AuditEvent> captor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditService).log(captor.capture());
+        AuditEvent event = captor.getValue();
+        assertThat(event.action()).isEqualTo(AuditAction.RESEARCH_PROJECT_APPROVED);
+        assertThat(event.entityType()).isEqualTo("research_project");
+        assertThat(event.entityId()).isEqualTo("P-2026-001");
+        assertThat(event.afterValue()).isNotNull();
     }
 
     @Test
@@ -100,7 +110,14 @@ class ResearchProjectServiceTest {
 
         assertThat(result.getStatus()).isEqualTo(ResearchProjectStatus.TERMINATED);
         assertThat(result.getTerminationDate()).isEqualTo(LocalDate.of(2026, 12, 31));
-        verify(auditService, times(1)).log(any());
+
+        ArgumentCaptor<AuditEvent> captor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditService).log(captor.capture());
+        AuditEvent event = captor.getValue();
+        assertThat(event.action()).isEqualTo(AuditAction.RESEARCH_PROJECT_TERMINATED);
+        assertThat(event.entityType()).isEqualTo("research_project");
+        assertThat(event.entityId()).isEqualTo("P-2026-001");
+        assertThat(event.afterValue()).isNotNull();
         // 파일이 없으므로 outbox save는 호출되지 않아야 함
         verify(outboxRepo, never()).save(any());
     }
@@ -141,7 +158,14 @@ class ResearchProjectServiceTest {
         assertThat(result.getProjectName()).isEqualTo("신약 B 임상");
         assertThat(result.getStatus()).isEqualTo(ResearchProjectStatus.ACTIVE);
         verify(projectRepo, times(1)).save(any(ResearchProject.class));
-        verify(auditService, times(1)).log(any());
+
+        ArgumentCaptor<AuditEvent> captor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditService).log(captor.capture());
+        AuditEvent event = captor.getValue();
+        assertThat(event.action()).isEqualTo(AuditAction.RESEARCH_PROJECT_REGISTERED);
+        assertThat(event.entityType()).isEqualTo("research_project");
+        assertThat(event.entityId()).isEqualTo("P-2026-002");
+        assertThat(event.afterValue()).isNotNull();
     }
 
     @Test

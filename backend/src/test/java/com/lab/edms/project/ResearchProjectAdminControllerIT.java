@@ -11,6 +11,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -35,6 +37,7 @@ class ResearchProjectAdminControllerIT {
     @Autowired ObjectMapper json;
     @Autowired ResearchProjectRepository projectRepo;
     @Autowired ResearchProjectTypeRepository typeRepo;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     @Test
     @WithMockUser(username = "admin", roles = "ADMIN")
@@ -76,6 +79,12 @@ class ResearchProjectAdminControllerIT {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("APPROVED"))
                 .andExpect(jsonPath("$.approvalDate").value("2026-06-01"));
+
+        // 파일이 없으므로 outbox 적재 건수는 0이어야 함
+        Integer outboxCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM retention_extension_outbox WHERE project_code = ?",
+                Integer.class, "P-IT-002");
+        assertThat(outboxCount).isEqualTo(0);
     }
 
     @Test
