@@ -24,6 +24,14 @@ async function onLogout() {
       <nav class="nav">
         <router-link to="/">홈</router-link>
         <router-link to="/documents">문서 목록</router-link>
+        <router-link
+          v-if="auth.hasRole('QA') || auth.hasRole('ADMIN')"
+          to="/admin/research-projects"
+        >연구과제 관리</router-link>
+        <router-link
+          v-if="auth.hasRole('QA') || auth.hasRole('ADMIN')"
+          to="/admin/research-project-types"
+        >시험 종류 마스터</router-link>
       </nav>
       <div class="user-area">
         <span v-if="auth.me" class="user-name">{{ auth.me.fullName }}</span>

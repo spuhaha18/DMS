@@ -967,6 +967,55 @@ components:
           format: date-time
           nullable: true
 
+    # ─────────────────────────────────────────────
+    # 연구과제
+    # ─────────────────────────────────────────────
+    ProjectDto:
+      type: object
+      properties:
+        projectCode: { type: string }
+        projectName: { type: string }
+        typeCode: { type: string }
+        typeNameKr: { type: string }
+        retentionYears: { type: integer, nullable: true }
+        perpetual: { type: boolean }
+        status:
+          type: string
+          enum: [ACTIVE, APPROVED, TERMINATED]
+        approvalDate: { type: string, format: date, nullable: true }
+        terminationDate: { type: string, format: date, nullable: true }
+
+    ProjectTypeDto:
+      type: object
+      properties:
+        typeCode: { type: string }
+        typeNameKr: { type: string }
+        typeNameEn: { type: string, nullable: true }
+        retentionYears: { type: integer, nullable: true }
+        perpetual: { type: boolean }
+        sopTableRow: { type: string, nullable: true }
+        note: { type: string, nullable: true }
+
+    CreateProjectRequest:
+      type: object
+      required: [projectCode, projectName, typeCode]
+      properties:
+        projectCode: { type: string, maxLength: 50 }
+        projectName: { type: string, maxLength: 500 }
+        typeCode: { type: string, maxLength: 50 }
+
+    ApproveProjectRequest:
+      type: object
+      required: [approvalDate]
+      properties:
+        approvalDate: { type: string, format: date }
+
+    TerminateProjectRequest:
+      type: object
+      required: [terminationDate]
+      properties:
+        terminationDate: { type: string, format: date }
+
   responses:
     Unauthorized:
       description: 인증 필요
@@ -2372,3 +2421,141 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SignResponse'
+
+  # ═══════════════════════════════════════════════
+  # 연구과제
+  # ═══════════════════════════════════════════════
+  /api/v1/admin/research-project-types:
+    get:
+      summary: 시험 종류 목록 조회
+      operationId: listResearchProjectTypes
+      tags: [ResearchProject]
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: 시험 종류 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectTypeDto'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/research-projects:
+    get:
+      summary: 연구과제 목록 조회
+      operationId: listResearchProjects
+      tags: [ResearchProject]
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACTIVE, APPROVED, TERMINATED]
+        - name: typeCode
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 연구과제 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectDto'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      summary: 연구과제 등록
+      operationId: createResearchProject
+      tags: [ResearchProject]
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: 등록된 연구과제
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDto'
+        '400':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/research-projects/{code}/approve:
+    post:
+      summary: 연구과제 품목허가 전이
+      operationId: approveResearchProject
+      tags: [ResearchProject]
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveProjectRequest'
+      responses:
+        '200':
+          description: 전이된 연구과제
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/v1/admin/research-projects/{code}/terminate:
+    post:
+      summary: 연구과제 중단/종료 전이
+      operationId: terminateResearchProject
+      tags: [ResearchProject]
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TerminateProjectRequest'
+      responses:
+        '200':
+          description: 전이된 연구과제
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'

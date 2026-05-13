@@ -1,52 +1,58 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { listProjects, approveProject, terminateProject } from '../../api/researchProjects';
+import type { ResearchProject } from '../../types';
 import UiPageHeader from '../../components/ui/UiPageHeader.vue';
 import UiLoadingState from '../../components/ui/UiLoadingState.vue';
 import UiErrorState from '../../components/ui/UiErrorState.vue';
+import UiEmptyState from '../../components/ui/UiEmptyState.vue';
+import UiDataTable from '../../components/ui/UiDataTable.vue';
+import UiBanner from '../../components/ui/UiBanner.vue';
 import ResearchProjectStatusBadge from '../../components/admin/ResearchProjectStatusBadge.vue';
 import ApproveProjectDialog from '../../components/admin/ApproveProjectDialog.vue';
 import TerminateProjectDialog from '../../components/admin/TerminateProjectDialog.vue';
-import { listProjects, approveProject, terminateProject } from '../../api/researchProjects';
-import type { ResearchProject } from '../../types';
 
-const loading = ref(false);
-const error = ref('');
 const projects = ref<ResearchProject[]>([]);
+const loading = ref(false);
+const error = ref<string | null>(null);
 const approveTarget = ref<ResearchProject | null>(null);
 const terminateTarget = ref<ResearchProject | null>(null);
+const actionError = ref<string | null>(null);
 
 async function load() {
   loading.value = true;
-  error.value = '';
+  error.value = null;
   try {
     projects.value = await listProjects();
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : '불러오기 실패';
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : '목록을 불러오지 못했습니다.';
   } finally {
     loading.value = false;
   }
 }
 
-async function onApproveConfirmed(payload: { approvalDate: string }) {
+async function onApproveConfirmed({ approvalDate }: { approvalDate: string }) {
   if (!approveTarget.value) return;
   try {
-    await approveProject(approveTarget.value.projectCode, payload.approvalDate);
+    const updated = await approveProject(approveTarget.value.projectCode, approvalDate);
+    const idx = projects.value.findIndex(p => p.projectCode === updated.projectCode);
+    if (idx !== -1) projects.value[idx] = updated;
     approveTarget.value = null;
-    await load();
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : '처리 실패';
+  } catch (e: unknown) {
+    actionError.value = e instanceof Error ? e.message : '품목허가 처리에 실패했습니다.';
     approveTarget.value = null;
   }
 }
 
-async function onTerminateConfirmed(payload: { terminationDate: string }) {
+async function onTerminateConfirmed({ terminationDate }: { terminationDate: string }) {
   if (!terminateTarget.value) return;
   try {
-    await terminateProject(terminateTarget.value.projectCode, payload.terminationDate);
+    const updated = await terminateProject(terminateTarget.value.projectCode, terminationDate);
+    const idx = projects.value.findIndex(p => p.projectCode === updated.projectCode);
+    if (idx !== -1) projects.value[idx] = updated;
     terminateTarget.value = null;
-    await load();
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : '처리 실패';
+  } catch (e: unknown) {
+    actionError.value = e instanceof Error ? e.message : '중단/종료 처리에 실패했습니다.';
     terminateTarget.value = null;
   }
 }
@@ -55,48 +61,50 @@ onMounted(load);
 </script>
 
 <template>
-  <main style="max-width: 1100px; margin: 24px auto; font-family: inherit;">
-    <UiPageHeader title="연구 과제 관리" />
+  <div style="max-width: 1100px; margin: 24px auto;">
+    <UiPageHeader title="연구과제 관리" />
 
-    <UiLoadingState v-if="loading" message="불러오는 중…" />
+    <UiBanner v-if="actionError" type="error" :dismissible="true" style="margin-bottom: 1rem;">
+      {{ actionError }}
+    </UiBanner>
+
+    <UiLoadingState v-if="loading" message="목록을 불러오는 중…" />
     <UiErrorState v-else-if="error" :error="error" :retry="load" />
-
-    <table v-else style="width: 100%; border-collapse: collapse;">
-      <thead>
-        <tr style="background: #f0f0f0;">
-          <th style="padding: 6px; text-align: left;">과제코드</th>
-          <th style="padding: 6px; text-align: left;">과제명</th>
-          <th style="padding: 6px; text-align: left;">유형</th>
-          <th style="padding: 6px; text-align: left;">상태</th>
-          <th style="padding: 6px;"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="p in projects" :key="p.projectCode" style="border-top: 1px solid #ddd;">
-          <td style="padding: 6px; font-family: monospace;">{{ p.projectCode }}</td>
-          <td style="padding: 6px;">{{ p.projectName }}</td>
-          <td style="padding: 6px;">{{ p.typeNameKr }}</td>
-          <td style="padding: 6px;">
-            <ResearchProjectStatusBadge :status="p.status" />
-          </td>
-          <td style="padding: 6px; display: flex; gap: 6px;">
-            <button
-              v-if="p.status === 'ACTIVE'"
-              @click="approveTarget = p"
-              style="font-size: 12px;"
-            >품목허가</button>
-            <button
-              v-if="p.status === 'ACTIVE'"
-              @click="terminateTarget = p"
-              style="font-size: 12px;"
-            >중단/종료</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <p v-if="!loading && !error && projects.length === 0" style="color: gray;">
-      등록된 연구 과제가 없습니다.
-    </p>
+    <UiEmptyState
+      v-else-if="!projects.length"
+      message="등록된 연구과제가 없습니다."
+      icon="📂"
+    />
+    <UiDataTable
+      v-else
+      :columns="[
+        { key: 'projectCode', label: '과제코드' },
+        { key: 'projectName', label: '과제명' },
+        { key: 'typeNameKr', label: '시험 종류' },
+        { key: 'status', label: '상태' },
+        { key: '_actions', label: '작업' },
+      ]"
+      :rows="(projects as unknown as Record<string, unknown>[])"
+      row-key="projectCode"
+    >
+      <template #status="{ row }">
+        <ResearchProjectStatusBadge :status="(row as unknown as ResearchProject).status" />
+      </template>
+      <template #_actions="{ row }">
+        <div style="display: flex; gap: 6px;">
+          <button
+            v-if="(row as unknown as ResearchProject).status === 'ACTIVE'"
+            @click="approveTarget = (row as unknown as ResearchProject)"
+            class="action-btn"
+          >품목허가</button>
+          <button
+            v-if="(row as unknown as ResearchProject).status === 'ACTIVE'"
+            @click="terminateTarget = (row as unknown as ResearchProject)"
+            class="action-btn action-btn--danger"
+          >중단/종료</button>
+        </div>
+      </template>
+    </UiDataTable>
 
     <ApproveProjectDialog
       v-if="approveTarget"
@@ -105,6 +113,7 @@ onMounted(load);
       @update:model-value="approveTarget = null"
       @confirmed="onApproveConfirmed"
     />
+
     <TerminateProjectDialog
       v-if="terminateTarget"
       :project="terminateTarget"
@@ -112,5 +121,31 @@ onMounted(load);
       @update:model-value="terminateTarget = null"
       @confirmed="onTerminateConfirmed"
     />
-  </main>
+  </div>
 </template>
+
+<style scoped>
+.action-btn {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background: #fff;
+  cursor: pointer;
+  color: #374151;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.action-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+.action-btn--danger {
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+.action-btn--danger:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+</style>
