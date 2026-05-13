@@ -84,8 +84,7 @@ public class ResearchProject {
 
     public void approve(LocalDate date, User actor, OffsetDateTime now) {
         if (status != ResearchProjectStatus.ACTIVE) {
-            throw new IllegalStateException(
-                "Project " + projectCode + " cannot be approved from status " + status);
+            throw new ResearchProjectStateException(projectCode, status, "approved");
         }
         this.approvalDate = date;
         this.status = ResearchProjectStatus.APPROVED;
@@ -95,8 +94,7 @@ public class ResearchProject {
 
     public void terminate(LocalDate date, User actor, OffsetDateTime now) {
         if (status != ResearchProjectStatus.ACTIVE) {
-            throw new IllegalStateException(
-                "Project " + projectCode + " cannot be terminated from status " + status);
+            throw new ResearchProjectStateException(projectCode, status, "terminated");
         }
         this.terminationDate = date;
         this.status = ResearchProjectStatus.TERMINATED;

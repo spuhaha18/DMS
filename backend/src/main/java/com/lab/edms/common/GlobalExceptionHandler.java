@@ -1,6 +1,8 @@
 package com.lab.edms.common;
 
 import com.lab.edms.lifecycle.IllegalTransitionException;
+import com.lab.edms.project.ResearchProjectStateException;
+import com.lab.edms.storage.RetentionShortenedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -78,6 +80,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleIllegalTransition(IllegalTransitionException ex) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                 .body(ProblemDetail.of("LIFECYCLE_001", ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(ResearchProjectStateException.class)
+    public ResponseEntity<ProblemDetail> handleProjectState(ResearchProjectStateException ex) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ProblemDetail.of("LIFECYCLE_001", ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(RetentionShortenedException.class)
+    public ResponseEntity<ProblemDetail> handleRetentionShortened(RetentionShortenedException ex) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ProblemDetail.of("RETENTION_001", ex.getMessage(), null));
     }
 
     @ExceptionHandler(NotFoundException.class)
