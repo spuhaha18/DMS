@@ -1,5 +1,12 @@
 import axios from 'axios';
 
+// Extend axios config to support per-request toast suppression
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    suppressGlobalToast?: boolean;
+  }
+}
+
 export const api = axios.create({
   baseURL: '/api/v1',
   withCredentials: true,
@@ -54,7 +61,7 @@ api.interceptors.response.use(
         })().finally(() => { logoutInProgress = null });
       }
       await logoutInProgress;
-    } else if (status && status >= 400 && !isPdfStream) {
+    } else if (status && status >= 400 && !isPdfStream && !error.config?.suppressGlobalToast) {
       try {
         const { emitToast } = await import('../components/Toast/useToast');
         const problem = error.response?.data;

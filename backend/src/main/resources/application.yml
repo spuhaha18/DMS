@@ -50,7 +50,11 @@ gotenberg:
   timeout-seconds: 60
 
 retention:
-  default-years: 10
+  fallback-years: 30        # ACTIVE 동안 임시 30년. feature flag true 전환 후 SOP Table 1로 계산.
+  feature:
+    project-based-enabled: false  # M7.5 staged rollout flag (ADR 0004). PR3+IQ 후 true 전환.
+  outbox:
+    poll-ms: 10000          # RetentionExtensionWorker 폴링 주기
 
 # M7.1: SpringDoc OpenAPI / Swagger UI. Default-on; prod profile overrides to disable.
 springdoc:

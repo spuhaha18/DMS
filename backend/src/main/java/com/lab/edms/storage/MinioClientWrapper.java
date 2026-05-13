@@ -2,10 +2,14 @@ package com.lab.edms.storage;
 
 import com.lab.edms.document.DocumentVersion;
 import io.minio.*;
+import io.minio.messages.Item;
 import io.minio.messages.ObjectLockConfiguration;
 import io.minio.messages.Retention;
 import io.minio.messages.RetentionDurationDays;
 import io.minio.messages.RetentionMode;
+import io.minio.Result;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayInputStream;
@@ -20,6 +24,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 public class MinioClientWrapper {
+
+    private static final Logger log = LoggerFactory.getLogger(MinioClientWrapper.class);
 
     /**
      * M7 컷오버 기준 시각: 이 시각 이후 생성된 버전은 bucketOriginalV2 로 라우팅.
@@ -47,8 +53,10 @@ public class MinioClientWrapper {
     public void ensureBuckets() {
         if (bucketsEnsured.compareAndSet(false, true)) {
             ensureBucket(props.bucketOriginal());
-            ensureLockedBucket(props.bucketOriginalV2(), RetentionMode.GOVERNANCE, 3650);
-            ensureLockedBucket(props.bucketRendition(), RetentionMode.GOVERNANCE, 3650);
+            // M7.5: GOVERNANCE → COMPLIANCE 30년(10950일). ADR 0003.
+            migrateBucketToCompliance(props.bucketOriginalV2(), 10950);
+            migrateBucketToCompliance(props.bucketRendition(),  10950);
+            // AnchorService: 고정 10년, ADR 0002.
             ensureLockedBucket(props.bucketAnchors(), RetentionMode.COMPLIANCE, 3650);
         }
     }
@@ -218,6 +226,70 @@ public class MinioClientWrapper {
         } catch (Exception e) {
             throw new RuntimeException(
                     "MinIO getObject (range) failed: " + key + " offset=" + offset + " length=" + length, e);
+        }
+    }
+
+    /**
+     * Drops and recreates an existing locked bucket as COMPLIANCE with new default retention.
+     * REQUIRES: bucket has 0 objects — throws IllegalStateException if not.
+     * Caller is responsible for re-applying IAM/lifecycle from external backup (ADR 0003 Step 0.3).
+     */
+    public void migrateBucketToCompliance(String name, int defaultRetentionDays) {
+        try {
+            boolean exists = minio.bucketExists(BucketExistsArgs.builder().bucket(name).build());
+            if (!exists) {
+                ensureLockedBucket(name, RetentionMode.COMPLIANCE, defaultRetentionDays);
+                return;
+            }
+            Iterable<Result<Item>> items = minio.listObjects(
+                    ListObjectsArgs.builder().bucket(name).recursive(true).maxKeys(1).build());
+            if (items.iterator().hasNext()) {
+                throw new IllegalStateException(
+                    "Bucket " + name + " is not empty — refusing drop & recreate. " +
+                    "Fall back to ADR 0003 Alternative (IAM block on BypassGovernanceRetention).");
+            }
+            minio.removeBucket(RemoveBucketArgs.builder().bucket(name).build());
+            minio.makeBucket(MakeBucketArgs.builder().bucket(name).objectLock(true).build());
+            minio.setObjectLockConfiguration(
+                    SetObjectLockConfigurationArgs.builder()
+                            .bucket(name)
+                            .config(new ObjectLockConfiguration(
+                                    RetentionMode.COMPLIANCE,
+                                    new RetentionDurationDays(defaultRetentionDays)))
+                            .build());
+            log.warn("bucket.migrated.to_compliance bucket={} days={}", name, defaultRetentionDays);
+        } catch (IllegalStateException ise) {
+            throw ise;
+        } catch (Exception e) {
+            throw new IllegalStateException("Cannot migrate bucket " + name + " to COMPLIANCE", e);
+        }
+    }
+
+    /**
+     * Extends per-object COMPLIANCE retention to newRetainUntil.
+     * Throws RetentionShortenedException if the requested date is earlier than current retention.
+     */
+    public void extendRetention(String bucket, String objectKey, java.time.Instant newRetainUntil) {
+        try {
+            Retention current = minio.getObjectRetention(
+                    GetObjectRetentionArgs.builder().bucket(bucket).object(objectKey).build());
+            if (current != null && current.retainUntilDate() != null
+                    && newRetainUntil.isBefore(current.retainUntilDate().toInstant())) {
+                throw new RetentionShortenedException(
+                    "단축 불가: current=" + current.retainUntilDate() + " requested=" + newRetainUntil);
+            }
+            minio.setObjectRetention(
+                    SetObjectRetentionArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .config(new Retention(RetentionMode.COMPLIANCE,
+                                    ZonedDateTime.ofInstant(newRetainUntil, ZoneOffset.UTC)))
+                            .build());
+            log.info("retention.extended bucket={} object={} until={}", bucket, objectKey, newRetainUntil);
+        } catch (RetentionShortenedException rse) {
+            throw rse;
+        } catch (Exception e) {
+            throw new RuntimeException("MinIO extendRetention failed: " + objectKey, e);
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.lab.edms.document;
 
+import com.lab.edms.project.ResearchProject;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -21,8 +22,9 @@ public class Document {
     @Column(name = "department", nullable = false, length = 50)
     private String department;
 
-    @Column(name = "project_code", length = 100)
-    private String projectCode;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_code")
+    private ResearchProject project;
 
     @Column(name = "title", nullable = false, length = 500)
     private String title;
@@ -58,7 +60,8 @@ public class Document {
     public String getDocNumber() { return docNumber; }
     public Long getCategoryId() { return categoryId; }
     public String getDepartment() { return department; }
-    public String getProjectCode() { return projectCode; }
+    public ResearchProject getProject() { return project; }
+    public String getProjectCode() { return project != null ? project.getProjectCode() : null; }
     public String getTitle() { return title; }
     public Long getOwnerId() { return ownerId; }
     public boolean isConfidential() { return confidential; }
@@ -71,7 +74,7 @@ public class Document {
     public void setDocNumber(String v) { this.docNumber = v; }
     public void setCategoryId(Long v) { this.categoryId = v; }
     public void setDepartment(String v) { this.department = v; }
-    public void setProjectCode(String v) { this.projectCode = v; }
+    public void setProject(ResearchProject v) { this.project = v; }
     public void setTitle(String v) { this.title = v; }
     public void setOwnerId(Long v) { this.ownerId = v; }
     public void setConfidential(boolean v) { this.confidential = v; }

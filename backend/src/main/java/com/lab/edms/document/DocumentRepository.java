@@ -38,4 +38,7 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
             @Param("userId") Long userId,
             @Param("state") String state,
             Pageable pageable);
+
+    /** M7.5: 연구과제 코드로 페이지 단위 조회 — outbox 발급용 bulk 처리. */
+    Page<Document> findByProject_ProjectCode(String projectCode, Pageable pageable);
 }

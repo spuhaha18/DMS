@@ -10,6 +10,7 @@ import com.lab.edms.department.DepartmentRepository;
 import com.lab.edms.document.dto.*;
 import com.lab.edms.numbering.NumberingService;
 import com.lab.edms.pdf.PdfStatus;
+import com.lab.edms.project.ResearchProjectRepository;
 import com.lab.edms.user.User;
 import com.lab.edms.user.UserRepository;
 import org.springframework.data.domain.Page;
@@ -37,6 +38,7 @@ public class DocumentService {
     private final PermissionResolver permissionResolver;
     private final AuditService audit;
     private final UserRepository userRepo;
+    private final ResearchProjectRepository projectRepo;
     private final ObjectMapper json = new ObjectMapper();
 
     public DocumentService(DocumentRepository docRepo,
@@ -46,7 +48,8 @@ public class DocumentService {
                            NumberingService numberingService,
                            PermissionResolver permissionResolver,
                            AuditService audit,
-                           UserRepository userRepo) {
+                           UserRepository userRepo,
+                           ResearchProjectRepository projectRepo) {
         this.docRepo = docRepo;
         this.versionRepo = versionRepo;
         this.catRepo = catRepo;
@@ -55,6 +58,7 @@ public class DocumentService {
         this.permissionResolver = permissionResolver;
         this.audit = audit;
         this.userRepo = userRepo;
+        this.projectRepo = projectRepo;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -90,7 +94,11 @@ public class DocumentService {
         doc.setDocNumber(issued.docNumber());
         doc.setCategoryId(category.getId());
         doc.setDepartment(req.department());
-        doc.setProjectCode(req.projectCode());
+        if (req.projectCode() != null && !req.projectCode().isBlank()) {
+            doc.setProject(projectRepo.findById(req.projectCode())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Unknown project_code: " + req.projectCode())));
+        }
         doc.setTitle(req.title());
         doc.setOwnerId(actor.getId());
         doc.setConfidential(req.confidential());

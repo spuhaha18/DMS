@@ -97,9 +97,9 @@ public class NumberingService {
                     throw new IllegalArgumentException("PER_DEPT scope requires department");
                 yield ctx.department();
             }
-            case "PER_PRODUCT" -> {
+            case "PER_PROJECT", "PER_PRODUCT" -> { // PER_PRODUCT: deprecated alias (V26에서 제거)
                 if (ctx.projectCode() == null || ctx.projectCode().isBlank())
-                    throw new IllegalArgumentException("PER_PRODUCT scope requires projectCode");
+                    throw new IllegalArgumentException("PER_PROJECT scope requires non-blank project code");
                 yield ctx.projectCode();
             }
             case "PER_YEAR" ->
@@ -113,7 +113,8 @@ public class NumberingService {
         String result = pattern
                 .replace("{TYPE}", typeCode)
                 .replace("{DEPT}", ctx.department() != null ? ctx.department() : "")
-                .replace("{PROD}", ctx.projectCode() != null ? ctx.projectCode() : "")
+                .replace("{PROJECT}", ctx.projectCode() != null ? ctx.projectCode() : "")
+                .replace("{PROD}", ctx.projectCode() != null ? ctx.projectCode() : "")  // deprecated alias
                 .replace("{YEAR}", String.valueOf(LocalDate.now(ZoneId.of("Asia/Seoul")).getYear()));
 
         Matcher matcher = SEQ_PATTERN.matcher(result);
