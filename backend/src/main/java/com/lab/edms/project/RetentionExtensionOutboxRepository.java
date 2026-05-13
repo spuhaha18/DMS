@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -13,6 +14,7 @@ public interface RetentionExtensionOutboxRepository extends JpaRepository<Retent
      * 원자적으로 PENDING 행을 PROCESSING으로 클레임.
      * FOR UPDATE SKIP LOCKED: 다중 워커 인스턴스 간 중복 처리 방지.
      */
+    @Transactional
     @Modifying
     @Query(value = """
         UPDATE retention_extension_outbox

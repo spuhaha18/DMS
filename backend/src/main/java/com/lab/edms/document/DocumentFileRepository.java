@@ -28,6 +28,12 @@ public interface DocumentFileRepository extends JpaRepository<DocumentFile, Long
             Long versionId, String renditionKind, Integer stepNumber);
 
     /** M7.5: 연구과제 코드로 DocumentFile 페이지 단위 조회 — outbox 발급용. */
-    @Query("SELECT f FROM DocumentFile f WHERE f.version.document.project.projectCode = :code")
+    @Query(value = """
+        SELECT f.* FROM document_files f
+        JOIN document_versions dv ON dv.id = f.version_id
+        JOIN documents d ON d.id = dv.document_id
+        WHERE d.project_code = :code
+        ORDER BY f.id
+        """, nativeQuery = true)
     Page<DocumentFile> findByProjectCode(@Param("code") String code, Pageable pageable);
 }
