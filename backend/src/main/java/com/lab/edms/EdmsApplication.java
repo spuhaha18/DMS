@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import javax.sql.DataSource;
+import java.time.Clock;
 
 @SpringBootApplication
 @EnableScheduling
@@ -19,6 +20,11 @@ import javax.sql.DataSource;
 public class EdmsApplication {
     public static void main(String[] args) {
         SpringApplication.run(EdmsApplication.class, args);
+    }
+
+    @Bean
+    public Clock clock() {
+        return Clock.systemUTC();
     }
 
     @Bean
