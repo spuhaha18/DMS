@@ -8,6 +8,7 @@ import com.lab.edms.signature.SignatureManifest;
 import com.lab.edms.signature.SignatureManifestRepository;
 import com.lab.edms.signature.SignatureMeaning;
 import com.lab.edms.storage.MinioClientWrapper;
+import com.lab.edms.storage.RetentionResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,6 +64,7 @@ public class PdfRenditionPipeline {
     private final PdfStampService pdfStampService;
     private final SignIntentRepository signIntentRepository;
     private final SignatureManifestRepository signatureManifestRepository;
+    private final RetentionResolver retentionResolver;
 
     // Self-injection to ensure @Async goes through the Spring AOP proxy, not this.method()
     @Lazy @Autowired
@@ -76,7 +78,8 @@ public class PdfRenditionPipeline {
             GotenbergClient gotenberg,
             PdfStampService pdfStampService,
             SignIntentRepository signIntentRepository,
-            SignatureManifestRepository signatureManifestRepository) {
+            SignatureManifestRepository signatureManifestRepository,
+            RetentionResolver retentionResolver) {
         this.documentRepository = documentRepository;
         this.documentVersionRepository = documentVersionRepository;
         this.documentFileRepository = documentFileRepository;
@@ -85,6 +88,7 @@ public class PdfRenditionPipeline {
         this.pdfStampService = pdfStampService;
         this.signIntentRepository = signIntentRepository;
         this.signatureManifestRepository = signatureManifestRepository;
+        this.retentionResolver = retentionResolver;
     }
 
     // -----------------------------------------------------------------------
@@ -164,14 +168,17 @@ public class PdfRenditionPipeline {
         String fileName = fileNameFrom(sourceFileKey);
         byte[] pdfBytes = gotenberg.convertOfficeToPdf(fileName, sourceBytes);
 
-        // 4. MinIO 업로드 (rendition 버킷)
+        // 4. MinIO 업로드 (rendition 버킷) — M7.5: retention = retentionResolver (ADR 0001)
+        Document docForRetention = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalStateException("Document disappeared: " + documentId));
+        int retentionDays = retentionResolver.resolveYears(docForRetention) * 365;
         String renditionKey = renditionKey(version, RenditionKind.INITIAL, null);
         MinioClientWrapper.UploadResult uploaded = minio.uploadWithRetention(
                 minio.getBucketRendition(),
                 renditionKey,
                 pdfBytes,
                 "application/pdf",
-                3650   // 10년 COMPLIANCE retention (M7 정책)
+                retentionDays
         );
 
         // 5. DocumentFile(RENDITION/INITIAL) 저장
@@ -190,8 +197,7 @@ public class PdfRenditionPipeline {
         documentFileRepository.save(renditionFile);
 
         // 6. Document pdf_status → CONVERTED
-        Document doc = documentRepository.findById(documentId)
-                .orElseThrow(() -> new IllegalStateException("Document disappeared: " + documentId));
+        Document doc = docForRetention;
         doc.setPdfStatus(PdfStatus.CONVERTED.name());
         doc.setPdfStatusUpdatedAt(Instant.now());
         doc.setPdfStatusReason(null);
@@ -256,15 +262,16 @@ public class PdfRenditionPipeline {
             // 5. PdfStampService로 도장 적용
             byte[] stampedBytes = pdfStampService.applyStamp(baseBytes, payload);
 
-            // 6. MinIO에 새 STAMPED rendition 업로드
+            // 6. MinIO에 새 STAMPED rendition 업로드 — M7.5: retention = retentionResolver (ADR 0001)
             // signIntentId를 키에 포함 — min_signers≥2 병렬 서명자의 키 충돌 방지
             String newKey = renditionKey(version, RenditionKind.STAMPED, payload.stepNumber(), payload.signIntentId());
+            int retentionDays = retentionResolver.resolveYears(doc) * 365;
             MinioClientWrapper.UploadResult uploaded = minio.uploadWithRetention(
                     minio.getBucketRendition(),
                     newKey,
                     stampedBytes,
                     "application/pdf",
-                    3650   // 10년 COMPLIANCE retention (M7 정책)
+                    retentionDays
             );
 
             // 7. document_files INSERT (kind=STAMPED, step_number=payload.stepNumber())
@@ -428,14 +435,15 @@ public class PdfRenditionPipeline {
                     ? version.getEffectiveDate().toString() : "");
             byte[] watermarkedBytes = pdfStampService.applyEffectiveWatermark(baseBytes, legend.trim());
 
-            // 7. MinIO에 EFFECTIVE rendition 업로드
+            // 7. MinIO에 EFFECTIVE rendition 업로드 — M7.5: retention = retentionResolver (ADR 0001)
             String newKey = renditionKey(version, RenditionKind.EFFECTIVE, null);
+            int retentionDays = retentionResolver.resolveYears(doc) * 365;
             MinioClientWrapper.UploadResult uploaded = minio.uploadWithRetention(
                     minio.getBucketRendition(),
                     newKey,
                     watermarkedBytes,
                     "application/pdf",
-                    3650   // 10년 COMPLIANCE retention
+                    retentionDays
             );
 
             // 8. document_files INSERT (kind=EFFECTIVE, step_number=null)
