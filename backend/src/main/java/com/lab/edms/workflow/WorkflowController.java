@@ -113,10 +113,14 @@ public class WorkflowController {
         return ResponseEntity.ok(dto);
     }
 
+    @Deprecated
     @GetMapping("/workflow/my-pending")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<PendingTaskDto>> getMyPending(Authentication auth) {
         List<PendingTaskDto> result = workflowService.getMyPending(auth.getName());
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok()
+                .header("Sunset", "Sat, 01 Aug 2026 00:00:00 GMT")
+                .header("Link", "</api/v1/work-queue>; rel=\"successor-version\"")
+                .body(result);
     }
 }

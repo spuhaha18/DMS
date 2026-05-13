@@ -20,6 +20,10 @@ import com.lab.edms.user.UserRepository;
 import com.lab.edms.workflow.dto.PendingTaskDto;
 import com.lab.edms.workflow.dto.SubmitRequest;
 import com.lab.edms.workflow.dto.SubmitResponse;
+import com.lab.edms.workflow.event.EffectiveTransitionedEvent;
+import com.lab.edms.workflow.event.WorkflowRejectedEvent;
+import com.lab.edms.workflow.event.WorkflowSubmittedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -53,6 +57,8 @@ public class WorkflowService {
     @SuppressWarnings("unused")
     private final LifecycleStateMachine stateMachine;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     public WorkflowService(WorkflowInstanceRepository wfInstanceRepo,
                            WorkflowStepInstanceRepository wfStepRepo,
                            WorkflowTemplateRepository templateRepo,
@@ -65,7 +71,8 @@ public class WorkflowService {
                            UserRepository userRepo,
                            BCryptPasswordEncoder passwordEncoder,
                            LifecycleStateMachine stateMachine,
-                           PdfRenditionPipeline pdfRenditionPipeline) {
+                           PdfRenditionPipeline pdfRenditionPipeline,
+                           ApplicationEventPublisher eventPublisher) {
         this.wfInstanceRepo = wfInstanceRepo;
         this.wfStepRepo = wfStepRepo;
         this.templateRepo = templateRepo;
@@ -79,6 +86,7 @@ public class WorkflowService {
         this.passwordEncoder = passwordEncoder;
         this.stateMachine = stateMachine;
         this.pdfRenditionPipeline = pdfRenditionPipeline;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -182,6 +190,15 @@ public class WorkflowService {
                 .after("\"UNDER_REVIEW\"")
                 .build());
 
+        // 이벤트 발행 — WorkQueueProjector가 AFTER_COMMIT 처리
+        List<Long> reviewerIds = assigneesByStep.get(0).stream()
+                .map(a -> userRepo.findByUserId(a.userIdString())
+                        .map(User::getId).orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        eventPublisher.publishEvent(new WorkflowSubmittedEvent(
+                wfInstance.getId(), verId, docId, actorId, reviewerIds, OffsetDateTime.now()));
+
         return new SubmitResponse(wfInstance.getId(), 1, assigneesByStep.get(0));
     }
 
@@ -284,6 +301,9 @@ public class WorkflowService {
                 .after("\"" + newVersionState + "\"")
                 .ip(clientIp)
                 .build());
+
+        eventPublisher.publishEvent(new WorkflowRejectedEvent(
+                wf.getId(), verId, docId, actorUserId, reason, OffsetDateTime.now()));
     }
 
     /**
@@ -403,6 +423,10 @@ public class WorkflowService {
         auditService.log(AuditEvent.of("SYSTEM", AuditAction.WORKFLOW_COMPLETED)
                 .entity("workflow_instance", String.valueOf(wf.getId()))
                 .build());
+
+        eventPublisher.publishEvent(new EffectiveTransitionedEvent(
+                wf.getId(), wf.getVersionId(), document.getId(),
+                version.getCreatedBy(), version.getEffectiveDate(), OffsetDateTime.now()));
     }
 
     /**
