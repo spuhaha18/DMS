@@ -8,6 +8,10 @@
 | 변경 분류 | **Major** |
 | 상태 | 초안 — 3명 서명 후 PR2 착수 가능 |
 
+> **PR 머지 게이트 안내:**
+> - **PR1 (이 문서 포함)**: 코드 변경 없음 — 아키텍처 문서 및 영향평가서만 포함. 시스템 상태 변경이 없으므로 서명 전 main 머지 허용. (SOP-CHANGE-001 §4.3: "변경 내용이 없는 설계 문서는 설계 리뷰 단계로 간주하며 변경통제 실행 전에 작성 가능하다")
+> - **PR2 이후 (마이그레이션, 코드)**: 아래 승인란 **3명 서명 완료** 후에만 착수 가능. 서명 없이 PR2+를 시작하는 것은 21 CFR Part 11 §11.10(d) 및 EU GMP Annex 11 §4.2 위반임.
+
 ---
 
 ## 1. 변경 식별
@@ -57,7 +61,7 @@ M8
 
 ### 2.3 Deprecated endpoints (1 마일스톤 후 제거)
 
-- `GET /api/v1/workflow/my-pending` → `GET /api/v1/work-queue?kind=APPROVAL&state=OPEN` 으로 이전
+- `GET /api/v1/workflow/my-pending` → `GET /api/v1/work-queue?kind=APPROVAL&state=OPEN` 으로 이전 (ADR 0009)
 - `GET /api/v1/notifications/stream` (SSE) → polling 30s (ADR 0006)
 
 ### 2.4 외부 의존성 추가
@@ -89,6 +93,16 @@ M8
 | EU GMP Annex 11 | §14 | 검토 확인 강화 | SignatureDialog 본문 확인 흐름 |
 | ALCOA+ Enduring | — | notifications hard delete 금지 | read 90일 후 archived 이전(ADR 0005), 5년 보존 |
 
+### 3.1.1 사용자 교육·훈련 영향 (21 CFR Part 11 §11.10(i) / Annex 11 §2)
+
+| 대상 | 교육 내용 | 시점 |
+|------|---------|------|
+| 전체 사용자 | Work Queue 인박스 사용법, SignatureDialog 본문 확인 절차 | PR6/PR7 배포 전 |
+| QA 매니저 | 위임 신청 승인 절차, 부재 시 대리 승인자 지정 | PR5 배포 전 |
+| IT팀 | OutboxDispatcher 모니터링, DLQ 알림 확인 절차 | PR4 배포 전 |
+
+교육 완료 기록은 별도 교육일지로 관리 (훈련기록부 TRG-M8-001).
+
 ### 3.2 검증(V&V) 영향
 
 | 항목 | 영향 | 조치 |
@@ -111,7 +125,7 @@ M8
 | 위험 | 등급 | 대책 |
 |------|------|------|
 | SMTP relay 미준비 시 이메일 미발송 | **중간** | `notification.email.enabled=false` 게이트. `LogEmailChannel`이 로그로 대체. 운영 활성화는 별도 단계 (ADR 0007) |
-| OutboxDispatcher 실패 시 알림 누락 | **중간** | 최대 3회 재시도(지수 백오프 1m/5m/30m) + `notification_dlq` 격리 + `NOTIFICATION_DELIVERY_FAILED` audit. 크래시 후 재시작 시 SENDING stuck 행 10분 경과 후 FAILED 복구 (ApplicationRunner) |
+| OutboxDispatcher 실패 시 알림 누락 | **중간** | 최대 3회 재시도(지수 백오프 1m/5m/30m) + `notification_dlq` 격리 + `NOTIFICATION_DELIVERY_FAILED` audit. 크래시 후 재시작 시 SENDING stuck 행 10분 경과 후 FAILED 복구 (ApplicationRunner) (ADR 0010) |
 | Delegation race — 동시 승인 요청 | **중간** | `delegations` 테이블 낙관적 락 + QA 매니저 단일 승인 게이트 |
 | WorkQueueProjector 누락 — work_queue 미생성 | **중간** | `@TransactionalEventListener(REQUIRES_NEW)` + 통합 테스트 `WorkQueueProjectorIT` |
 | polling 30s 부하 (50명 동시 접속) | **낮음** | DB index + `@PageableDefault(size=20, max=100)` 제한. PQ에서 검증 |
@@ -194,7 +208,7 @@ M8
 | PR6 (frontend work_queue + bell) | 프론트엔드 PR 리버트. 백엔드 데이터 영향 없음 | 가역 |
 | PR7 (SignatureDialog + delegation UI) | 프론트엔드 PR 리버트 | 가역 |
 
-**notifications_archived 이전 후 롤백:** archived 이전은 배치로 원본 삭제 → 단순 롤백 불가. 단, archived 테이블 보존으로 데이터 손실 0건. 비상 복구는 archived → notifications 역이전 스크립트(운영 SOP-RCY-001 별도 관리).
+**notifications_archived 이전 후 롤백:** archived 이전은 배치로 원본 삭제 → 단순 롤백 불가. 단, archived 테이블 보존으로 데이터 손실 0건. 비상 복구는 archived → notifications 역이전 스크립트(SOP-RCY-001로 관리 예정 — 해당 SOP는 PR4 배포 전 IT팀이 작성 완료해야 한다. 미작성 시 PR4 배포 금지).
 
 ---
 

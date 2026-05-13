@@ -61,6 +61,29 @@ public class WorkQueueProjector {
 
 `REQUIRES_NEW`를 사용하는 이유: `AFTER_COMMIT` 핸들러는 원 트랜잭션 밖에서 실행된다. 별도 트랜잭션이 없으면 `DelegationService` 호출 등 부수 작업이 원 커밋과 묶이지 않아 부분 실패 시 롤백 불가 (E3).
 
+### 이벤트 소실 보상 (Startup Reconciliation)
+
+`@TransactionalEventListener(AFTER_COMMIT)` 패턴에서 커밋 후 앱 크래시 시 `WorkQueueProjector` 실행이 누락될 수 있다. 이 경우 `WorkflowStepInstance.state = 'PENDING'`인 행은 존재하나 `work_queue` OPEN 행이 없는 불일치가 발생한다.
+
+완화 전략 — **`WorkQueueReconciler`** `ApplicationRunner`:
+
+```java
+@Component
+public class WorkQueueReconciler implements ApplicationRunner {
+    @Override
+    public void run(ApplicationArguments args) {
+        // workflow step이 PENDING이지만 work_queue OPEN 행이 없는 케이스를 찾아 생성
+        List<WorkflowStepInstance> orphans = stepRepo.findPendingWithoutWorkQueueItem();
+        for (var step : orphans) {
+            workQueueService.createFromStep(step);
+            log.warn("Reconciled orphan WorkQueueItem for step {}", step.getId());
+        }
+    }
+}
+```
+
+재시작 시 1회 실행. 중복 생성 방지는 `(source_type, source_id, state='OPEN')` UNIQUE 제약 (V25 migration).
+
 ### `WorkflowController.my-pending` deprecated 처리
 
 ```java

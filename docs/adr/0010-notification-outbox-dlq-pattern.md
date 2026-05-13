@@ -105,6 +105,10 @@ public class OutboxStuckRecoverer implements ApplicationRunner {
 
 DB에 `CHECK (octet_length(payload_json::text) < 65536)` 제약 추가. 실제 이메일 렌더링은 `SmtpEmailChannel`이 발송 시점에 수행.
 
+### DLQ 보존 정책
+
+`notification_dlq` 행은 **5년 보존** 후 vacuum. 근거: 전달 실패 알림은 "누가 언제 알림을 받지 못했는가"의 GxP 증거이므로 ALCOA+ Enduring 요건 적용. `notification_dlq.created_at` 기준 5년 경과 행만 삭제. vacuum은 V29 마이그레이션에 `pg_cron` 또는 별도 배치로 구현 (M8 PR4 게이트).
+
 ### DLQ 모니터링
 
 `notification_dlq` 행은 관리자 화면 또는 `/api/v1/admin/notification-dlq` (M9 이후)로 조회. 현재는 `NOTIFICATION_DELIVERY_FAILED` audit_logs로 추적.

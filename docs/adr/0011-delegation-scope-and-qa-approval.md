@@ -81,6 +81,10 @@ public void approve(@PathVariable Long id, @RequestBody ApproveDelegationRequest
 
 `work_queue` 행의 `delegated_from_user_id` 컬럼으로 "이 항목은 누구의 위임으로 생성됐는가" 추적 가능.
 
+### 위임 만료 알림
+
+`DelegationExpiryJob`이 APPROVED→EXPIRED 전이 수행 시 위임자와 대리인 양쪽에 `work_queue` 내 미처리 OPEN 항목이 있는지 확인하고, 있다면 알림을 발송한다. 대리인의 OPEN 항목은 만료 시 CANCELLED 처리 후 원위임자에게 OPEN 항목으로 재귀속된다 (위임 종료 후 결재 방치 방지).
+
 ### 위임 상태 전이
 
 ```

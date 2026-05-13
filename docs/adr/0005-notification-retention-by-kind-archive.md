@@ -25,7 +25,7 @@ GxP EDMS에서 알림(notification)은 두 가지 성격이 혼재한다:
 
 ### TRAINING / PERIODIC_REVIEW / READACK (M9+)
 
-동일 정책 적용 예정. M9 설계 시 kind별 보존일 오버라이드 필요 시 `notification_event_codes.retention_days` 컬럼 추가로 확장 가능.
+M9+ kind 도입 시 **이 ADR을 개정**하거나 별도 ADR(0012+)에서 각 kind의 규제적 증거 전략을 명시해야 한다. `notifications_archived` 5년 후 vacuum 정책은 현재 APPROVAL kind에만 안전하게 적용된다 — APPROVAL은 `audit_logs` 이중 커버가 보장되기 때문이다. M9+ kind에서 archived 행이 유일한 GxP 증거인 경우 5년 vacuum 적용 전 별도 ADR 승인이 필요하다.
 
 ### archived 이전 정책
 
