@@ -1,6 +1,7 @@
 package com.lab.edms.storage;
 
 import com.lab.edms.document.Document;
+import com.lab.edms.project.ResearchProject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
@@ -27,6 +28,15 @@ public class ProjectBasedRetentionResolver implements RetentionResolver {
     public int resolveYears(Document document) {
         if (!featureEnabled) return fallbackYears;
         return resolveYears(document.getProject());
+    }
+
+    @Override
+    public int resolveYears(ResearchProject project) {
+        if (!featureEnabled) return fallbackYears;
+        if (project == null) return fallbackYears;
+        if (project.getType().isPerpetual()) return 99;
+        Integer y = project.getType().getRetentionYears();
+        return (y == null || y <= 0) ? fallbackYears : y;
     }
 
     @Override

@@ -95,7 +95,9 @@ public class DocumentService {
         doc.setCategoryId(category.getId());
         doc.setDepartment(req.department());
         if (req.projectCode() != null && !req.projectCode().isBlank()) {
-            projectRepo.findById(req.projectCode()).ifPresent(doc::setProject);
+            doc.setProject(projectRepo.findById(req.projectCode())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Unknown project_code: " + req.projectCode())));
         }
         doc.setTitle(req.title());
         doc.setOwnerId(actor.getId());
