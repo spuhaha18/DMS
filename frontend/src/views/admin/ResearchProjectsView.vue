@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { listProjects, approveProject, terminateProject } from '../../api/researchProjects';
 import type { ResearchProject } from '../../types';
+import { translateError } from '../../i18n/retentionErrorMessages';
 import UiPageHeader from '../../components/ui/UiPageHeader.vue';
 import UiLoadingState from '../../components/ui/UiLoadingState.vue';
 import UiErrorState from '../../components/ui/UiErrorState.vue';
@@ -33,26 +34,30 @@ async function load() {
 
 async function onApproveConfirmed({ approvalDate }: { approvalDate: string }) {
   if (!approveTarget.value) return;
+  actionError.value = null;
   try {
     const updated = await approveProject(approveTarget.value.projectCode, approvalDate);
     const idx = projects.value.findIndex(p => p.projectCode === updated.projectCode);
     if (idx !== -1) projects.value[idx] = updated;
     approveTarget.value = null;
   } catch (e: unknown) {
-    actionError.value = e instanceof Error ? e.message : '품목허가 처리에 실패했습니다.';
+    const code = (e as { response?: { data?: { code?: string } } })?.response?.data?.code ?? '';
+    actionError.value = translateError(code, '품목허가 처리에 실패했습니다.');
     approveTarget.value = null;
   }
 }
 
 async function onTerminateConfirmed({ terminationDate }: { terminationDate: string }) {
   if (!terminateTarget.value) return;
+  actionError.value = null;
   try {
     const updated = await terminateProject(terminateTarget.value.projectCode, terminationDate);
     const idx = projects.value.findIndex(p => p.projectCode === updated.projectCode);
     if (idx !== -1) projects.value[idx] = updated;
     terminateTarget.value = null;
   } catch (e: unknown) {
-    actionError.value = e instanceof Error ? e.message : '중단/종료 처리에 실패했습니다.';
+    const code = (e as { response?: { data?: { code?: string } } })?.response?.data?.code ?? '';
+    actionError.value = translateError(code, '중단/종료 처리에 실패했습니다.');
     terminateTarget.value = null;
   }
 }

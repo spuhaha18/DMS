@@ -5,6 +5,7 @@ import type { ResearchProjectType } from '../../types';
 import UiPageHeader from '../../components/ui/UiPageHeader.vue';
 import UiLoadingState from '../../components/ui/UiLoadingState.vue';
 import UiErrorState from '../../components/ui/UiErrorState.vue';
+import UiEmptyState from '../../components/ui/UiEmptyState.vue';
 import UiDataTable from '../../components/ui/UiDataTable.vue';
 import UiBadge from '../../components/ui/UiBadge.vue';
 
@@ -36,6 +37,7 @@ onMounted(load);
 
     <UiLoadingState v-if="loading" message="목록을 불러오는 중…" />
     <UiErrorState v-else-if="error" :error="error" :retry="load" />
+    <UiEmptyState v-else-if="!types.length" message="등록된 시험 종류가 없습니다." />
     <UiDataTable
       v-else
       :columns="[
