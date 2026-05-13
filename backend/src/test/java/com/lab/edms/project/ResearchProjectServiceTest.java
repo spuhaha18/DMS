@@ -101,6 +101,8 @@ class ResearchProjectServiceTest {
         assertThat(result.getStatus()).isEqualTo(ResearchProjectStatus.TERMINATED);
         assertThat(result.getTerminationDate()).isEqualTo(LocalDate.of(2026, 12, 31));
         verify(auditService, times(1)).log(any());
+        // 파일이 없으므로 outbox save는 호출되지 않아야 함
+        verify(outboxRepo, never()).save(any());
     }
 
     @Test
