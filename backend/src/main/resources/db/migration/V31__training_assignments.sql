@@ -4,7 +4,7 @@ CREATE TABLE training_assignments (
     user_id           BIGINT       NOT NULL REFERENCES users(id),
     version_id        BIGINT       NOT NULL REFERENCES document_versions(id),
     assigned_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    assigned_by       VARCHAR(50)  NOT NULL,
+    assigned_by       BIGINT       NOT NULL REFERENCES users(id),
     due_at            TIMESTAMPTZ,
     completed_at      TIMESTAMPTZ,
     completion_sig_id BIGINT       REFERENCES signature_manifests(id),

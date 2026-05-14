@@ -2,9 +2,10 @@
 -- content_summary 컬럼이 V9에 없으므로 먼저 추가
 ALTER TABLE document_versions ADD COLUMN IF NOT EXISTS content_summary TEXT;
 
+-- already added in V9; IF NOT EXISTS is a safety guard
 ALTER TABLE documents
     ADD COLUMN IF NOT EXISTS search_vector TSVECTOR;
-
+-- already added in V9; IF NOT EXISTS is a safety guard
 ALTER TABLE document_versions
     ADD COLUMN IF NOT EXISTS search_vector TSVECTOR;
 
@@ -50,8 +51,10 @@ CREATE TRIGGER trg_docversions_sv
 -- 기존 데이터 백필
 UPDATE documents SET search_vector =
     to_tsvector('simple', coalesce(doc_number, '')) ||
-    to_tsvector('simple', coalesce(title, ''));
+    to_tsvector('simple', coalesce(title, ''))
+WHERE search_vector IS NULL;
 
 UPDATE document_versions SET search_vector =
     to_tsvector('simple', coalesce(title, '')) ||
-    to_tsvector('simple', coalesce(content_summary, ''));
+    to_tsvector('simple', coalesce(content_summary, ''))
+WHERE search_vector IS NULL;
