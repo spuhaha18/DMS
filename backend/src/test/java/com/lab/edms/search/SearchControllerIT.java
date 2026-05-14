@@ -32,14 +32,14 @@ class SearchControllerIT {
     }
 
     @Test
-    @WithMockUser(username = "admin")
+    @WithMockUser(username = "admin", roles = "ADMIN")
     void search_withShortQuery_returns400() throws Exception {
         mvc.perform(get("/api/v1/search").param("q", "a"))
            .andExpect(status().isBadRequest());
     }
 
     @Test
-    @WithMockUser(username = "admin")
+    @WithMockUser(username = "admin", roles = "ADMIN")
     void search_withValidQuery_returns200() throws Exception {
         mvc.perform(get("/api/v1/search").param("q", "품질관리"))
            .andExpect(status().isOk())

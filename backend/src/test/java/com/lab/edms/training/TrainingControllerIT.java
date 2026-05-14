@@ -32,10 +32,17 @@ class TrainingControllerIT {
     }
 
     @Test
-    @WithMockUser(username = "admin")
+    @WithMockUser(username = "admin", roles = "ADMIN")
     void listTraining_withAuth_returns200() throws Exception {
         mvc.perform(get("/api/v1/training"))
            .andExpect(status().isOk())
            .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    @WithMockUser(username = "admin", roles = "AUTHOR")
+    void getTrainingStatus_withoutManagerRole_returns403() throws Exception {
+        mvc.perform(get("/api/v1/training/status/1"))
+           .andExpect(status().isForbidden());
     }
 }
