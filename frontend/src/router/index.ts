@@ -17,7 +17,7 @@ const routes = [
     meta: { requiresAuth: true } },
   { path: '/audit-trail', name: 'audit-trail',
     component: () => import('../views/AuditTrailView.vue'),
-    meta: { layout: 'fullscreen' } },
+    meta: { requiresAuth: true, layout: 'fullscreen' } },
   { path: '/admin/users', name: 'admin-users',
     component: () => import('../views/admin/UserListView.vue'),
     meta: { requiresAuth: true, requiresRole: ['ADMIN'] } },

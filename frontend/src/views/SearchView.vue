@@ -27,20 +27,24 @@ function goToDocument(docId: number, versionId: number) {
     <p v-if="store.isLoading">로딩 중...</p>
     <p v-else-if="store.error" role="alert">{{ store.error }}</p>
     <p v-else-if="store.results.length === 0">검색 결과가 없습니다.</p>
-    <ul v-else class="result-list">
-      <li
-        v-for="item in store.results"
-        :key="item.versionId"
-        class="result-item"
-        style="cursor:pointer"
-        @click="goToDocument(item.documentId, item.versionId)"
-      >
-        <span class="doc-number">{{ item.docNumber }}</span>
-        <span class="doc-title">{{ item.title }}</span>
-        <span class="doc-state">{{ item.state }}</span>
-        <span class="doc-dept">{{ item.department }}</span>
-      </li>
-    </ul>
-    <p>총 {{ store.totalElements }}건</p>
+    <template v-else>
+      <p>총 {{ store.totalElements }}건</p>
+      <ul class="result-list">
+        <li
+          v-for="item in store.results"
+          :key="item.versionId"
+          class="result-item"
+          style="cursor:pointer"
+          tabindex="0"
+          @click="goToDocument(item.documentId, item.versionId)"
+          @keydown.enter="goToDocument(item.documentId, item.versionId)"
+        >
+          <span class="doc-number">{{ item.docNumber }}</span>
+          <span class="doc-title">{{ item.title }}</span>
+          <span class="doc-state">{{ item.state }}</span>
+          <span class="doc-dept">{{ item.department }}</span>
+        </li>
+      </ul>
+    </template>
   </div>
 </template>
