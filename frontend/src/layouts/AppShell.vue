@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/auth';
 import { useToast } from '../components/Toast/useToast';
 import Toast from '../components/Toast/Toast.vue';
 import WorkQueueIcon from '../components/workQueue/WorkQueueIcon.vue';
+import NotificationBell from '../components/notification/NotificationBell.vue';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -35,6 +36,7 @@ async function onLogout() {
         >시험 종류 마스터</router-link>
       </nav>
       <div class="user-area">
+        <NotificationBell />
         <WorkQueueIcon />
         <span v-if="auth.me" class="user-name">{{ auth.me.fullName }}</span>
         <button type="button" class="logout-btn" @click="onLogout">로그아웃</button>
