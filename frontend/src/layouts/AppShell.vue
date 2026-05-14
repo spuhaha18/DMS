@@ -5,6 +5,7 @@ import { useToast } from '../components/Toast/useToast';
 import Toast from '../components/Toast/Toast.vue';
 import WorkQueueIcon from '../components/workQueue/WorkQueueIcon.vue';
 import NotificationBell from '../components/notification/NotificationBell.vue';
+import SearchBar from '../components/SearchBar.vue';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -35,6 +36,7 @@ async function onLogout() {
           to="/admin/research-project-types"
         >시험 종류 마스터</router-link>
       </nav>
+      <SearchBar />
       <div class="user-area">
         <NotificationBell />
         <WorkQueueIcon />

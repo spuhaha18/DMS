@@ -15,6 +15,9 @@ const routes = [
   { path: '/notifications', name: 'notifications',
     component: () => import('../views/NotificationCenterView.vue'),
     meta: { requiresAuth: true } },
+  { path: '/audit-trail', name: 'audit-trail',
+    component: () => import('../views/AuditTrailView.vue'),
+    meta: { layout: 'fullscreen' } },
   { path: '/admin/users', name: 'admin-users',
     component: () => import('../views/admin/UserListView.vue'),
     meta: { requiresAuth: true, requiresRole: ['ADMIN'] } },
@@ -58,6 +61,12 @@ const routes = [
     path: '/documents/:docId/versions/:verId/pdf',
     name: 'document-pdf-view',
     component: () => import('../views/documents/DocumentPdfView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/search',
+    name: 'search',
+    component: () => import('../views/SearchView.vue'),
     meta: { requiresAuth: true },
   },
 ];
