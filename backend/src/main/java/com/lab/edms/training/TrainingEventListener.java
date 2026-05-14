@@ -8,6 +8,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class TrainingEventListener {
 
+    private static final org.slf4j.Logger log =
+        org.slf4j.LoggerFactory.getLogger(TrainingEventListener.class);
+
     private final TrainingService trainingService;
 
     public TrainingEventListener(TrainingService trainingService) {
@@ -17,6 +20,10 @@ public class TrainingEventListener {
     @EventListener
     @Async
     public void onEffectiveTransitioned(EffectiveTransitionedEvent event) {
-        trainingService.createAssignmentsForVersion(event);
+        try {
+            trainingService.createAssignmentsForVersion(event);
+        } catch (Exception e) {
+            log.error("교육 과제 생성 실패: versionId={}", event.documentVersionId(), e);
+        }
     }
 }

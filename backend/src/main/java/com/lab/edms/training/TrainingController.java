@@ -5,6 +5,7 @@ import com.lab.edms.user.UserRepository;
 import com.lab.edms.common.NotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -39,6 +40,7 @@ public class TrainingController {
      * GET /api/v1/training/status/{versionId}
      * 특정 버전에 대한 교육 현황 반환 (관리자용).
      */
+    @PreAuthorize("hasAnyRole('ADMIN', 'QA_MANAGER', 'DEPT_MANAGER')")
     @GetMapping("/status/{versionId}")
     public ResponseEntity<List<TrainingStatusDto>> statusByVersion(@PathVariable Long versionId) {
         List<TrainingStatusDto> result = trainingService.statusByVersion(versionId);

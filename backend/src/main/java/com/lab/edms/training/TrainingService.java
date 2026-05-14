@@ -11,6 +11,7 @@ import com.lab.edms.document.DocumentVersion;
 import com.lab.edms.document.DocumentVersionRepository;
 import com.lab.edms.user.User;
 import com.lab.edms.user.UserRepository;
+import com.lab.edms.user.UserStatus;
 import com.lab.edms.workflow.event.EffectiveTransitionedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +60,9 @@ public class TrainingService {
         List<User> allUsers = userRepository.findAll();
         int created = 0;
         for (User user : allUsers) {
+            if (user.getStatus() != UserStatus.ACTIVE) {
+                continue;
+            }
             Long userId = user.getId();
             if (repo.existsByUserIdAndVersionId(userId, versionId)) {
                 continue;
@@ -148,6 +152,7 @@ public class TrainingService {
         }
 
         // 완료 처리
+        // completionSigId is null for Phase 1 (button click only); Phase 2 will integrate e-signature flow
         assignment.complete(OffsetDateTime.now(), null);
         repo.save(assignment);
 

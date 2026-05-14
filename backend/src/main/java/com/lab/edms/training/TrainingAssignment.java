@@ -19,7 +19,7 @@ public class TrainingAssignment {
     private Long versionId;
 
     @Column(name = "assigned_at", nullable = false)
-    private OffsetDateTime assignedAt = OffsetDateTime.now();
+    private OffsetDateTime assignedAt;
 
     @Column(name = "assigned_by", nullable = false)
     private Long assignedBy;

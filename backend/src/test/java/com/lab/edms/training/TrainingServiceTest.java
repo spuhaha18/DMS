@@ -7,6 +7,7 @@ import com.lab.edms.document.DocumentRepository;
 import com.lab.edms.document.DocumentVersionRepository;
 import com.lab.edms.user.User;
 import com.lab.edms.user.UserRepository;
+import com.lab.edms.user.UserStatus;
 import com.lab.edms.workflow.event.EffectiveTransitionedEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -55,7 +56,8 @@ class TrainingServiceTest {
 
     private User makeUser(Long id) {
         User user = mock(User.class);
-        when(user.getId()).thenReturn(id);
+        lenient().when(user.getId()).thenReturn(id);
+        lenient().when(user.getStatus()).thenReturn(UserStatus.ACTIVE);
         return user;
     }
 
