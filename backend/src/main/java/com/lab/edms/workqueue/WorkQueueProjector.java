@@ -3,6 +3,8 @@ package com.lab.edms.workqueue;
 import com.lab.edms.audit.AuditAction;
 import com.lab.edms.audit.AuditEvent;
 import com.lab.edms.audit.AuditService;
+import com.lab.edms.delegation.Delegation;
+import com.lab.edms.delegation.DelegationService;
 import com.lab.edms.document.DocumentVersion;
 import com.lab.edms.document.DocumentVersionRepository;
 import com.lab.edms.user.UserRepository;
@@ -35,27 +37,47 @@ public class WorkQueueProjector {
     private final DocumentVersionRepository documentVersionRepo;
     private final UserRepository userRepo;
     private final AuditService auditService;
+    private final DelegationService delegationService;
 
     public WorkQueueProjector(WorkQueueRepository repo,
                               DocumentVersionRepository documentVersionRepo,
                               UserRepository userRepo,
-                              AuditService auditService) {
+                              AuditService auditService,
+                              DelegationService delegationService) {
         this.repo = repo;
         this.documentVersionRepo = documentVersionRepo;
         this.userRepo = userRepo;
         this.auditService = auditService;
+        this.delegationService = delegationService;
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onSubmitted(WorkflowSubmittedEvent e) {
+        List<Long> reviewerIds = e.reviewerUserIds();
+        if (reviewerIds == null || reviewerIds.isEmpty()) return;
+
         String title = buildTitle(e.documentVersionId());
-        for (Long reviewerId : e.reviewerUserIds()) {
+        for (Long reviewerId : reviewerIds) {
             WorkQueueItem item = buildItem(
                     WorkQueueKind.APPROVAL, reviewerId, null,
                     SOURCE_TYPE_WF_INSTANCE, e.workflowInstanceId(),
                     e.documentId(), e.documentVersionId(), title);
             trySave(item, e.submittedByUserId());
+
+            // 활성 위임 확인 → 위임자(delegate)에게도 항목 생성
+            List<Delegation> activeDelegations =
+                    delegationService.findActiveDelegatesFor(reviewerId, e.occurredAt());
+            for (Delegation delegation : activeDelegations) {
+                WorkQueueItem delegatedItem = buildItem(
+                        WorkQueueKind.APPROVAL, delegation.getDelegateUserId(), reviewerId,
+                        SOURCE_TYPE_WF_INSTANCE, e.workflowInstanceId(),
+                        e.documentId(), e.documentVersionId(), title);
+                trySave(delegatedItem, "SYSTEM");
+                auditService.log(AuditEvent.of("SYSTEM", AuditAction.DELEGATION_USED)
+                        .entity("delegations", String.valueOf(delegation.getId()))
+                        .build());
+            }
         }
     }
 
