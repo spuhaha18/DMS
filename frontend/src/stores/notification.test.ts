@@ -44,11 +44,12 @@ describe('notification store', () => {
       expect(notificationApi.listNotifications).toHaveBeenCalledWith({ page: 2, size: 20 });
     });
 
-    it('clears loading on failure', async () => {
+    it('clears loading on failure and sets error', async () => {
       (notificationApi.listNotifications as any).mockRejectedValue(new Error('Error'));
       const store = useNotificationStore();
-      await expect(store.fetchList()).rejects.toThrow('Error');
+      await store.fetchList();
       expect(store.isLoading).toBe(false);
+      expect(store.error).toBe('알림을 불러오지 못했습니다.');
     });
   });
 

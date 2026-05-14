@@ -46,7 +46,11 @@ function formatDate(iso: string): string {
 
 async function handleClick(item: Notification) {
   if (!item.read) {
-    await store.markRead(item.id);
+    try {
+      await store.markRead(item.id);
+    } catch {
+      // mark-read 실패는 네비게이션을 막지 않음
+    }
   }
   if (item.linkPath) {
     router.push(item.linkPath);
@@ -85,6 +89,8 @@ onMounted(() => {
     </div>
 
     <div v-if="store.isLoading" class="nc-loading">로딩 중...</div>
+
+    <div v-else-if="store.error" class="nc-error" role="alert">{{ store.error }}</div>
 
     <ul v-else-if="filteredItems.length > 0" class="nc-list">
       <li
@@ -127,6 +133,7 @@ onMounted(() => {
 .nc-select { padding: 0.375rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-size: 0.875rem; }
 
 .nc-loading, .nc-empty { padding: 2rem; text-align: center; color: #6b7280; }
+.nc-error { padding: 2rem; text-align: center; color: #991b1b; }
 
 .nc-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 

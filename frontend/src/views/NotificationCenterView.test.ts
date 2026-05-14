@@ -171,6 +171,24 @@ describe('NotificationCenterView - store 연동', () => {
     const target = store.items.find(n => n.id === 1);
     expect(target?.read).toBe(true);
   });
+
+  it('에러 상태: fetchList 실패 시 store.error에 메시지 설정', async () => {
+    (notificationsApi.listNotifications as any).mockRejectedValue(new Error('Network Error'));
+    const store = useNotificationStore();
+    await store.fetchList();
+    expect(store.error).toBe('알림을 불러오지 못했습니다.');
+    expect(store.isLoading).toBe(false);
+  });
+
+  it('에러 상태: 재시도 성공 시 error 초기화', async () => {
+    (notificationsApi.listNotifications as any).mockRejectedValueOnce(new Error('Network Error'));
+    (notificationsApi.listNotifications as any).mockResolvedValueOnce({ content: [], totalElements: 0 });
+    const store = useNotificationStore();
+    await store.fetchList();
+    expect(store.error).toBe('알림을 불러오지 못했습니다.');
+    await store.fetchList();
+    expect(store.error).toBeNull();
+  });
 });
 
 describe('notificationMessages i18n', () => {

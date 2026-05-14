@@ -11,13 +11,17 @@ export const useNotificationStore = defineStore('notification', () => {
   const items = ref<Notification[]>([]);
   const unread = ref(0);
   const isLoading = ref(false);
+  const error = ref<string | null>(null);
   let pollingTimer: ReturnType<typeof setInterval> | null = null;
 
   async function fetchList(params?: { page?: number; size?: number }) {
     isLoading.value = true;
+    error.value = null;
     try {
       const response = await listNotifications(params ?? {});
       items.value = response.content;
+    } catch {
+      error.value = '알림을 불러오지 못했습니다.';
     } finally {
       isLoading.value = false;
     }
@@ -50,5 +54,5 @@ export const useNotificationStore = defineStore('notification', () => {
     }
   }
 
-  return { items, unread, isLoading, fetchList, fetchUnreadCount: fetchUnreadCountAction, markRead, startPolling, stopPolling };
+  return { items, unread, error, isLoading, fetchList, fetchUnreadCount: fetchUnreadCountAction, markRead, startPolling, stopPolling };
 });

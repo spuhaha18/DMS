@@ -23,7 +23,7 @@ function navigate() {
   <button
     type="button"
     class="notif-icon-btn"
-    :aria-label="`알림 ${store.unread}건`"
+    :aria-label="store.unread > 0 ? `알림 ${store.unread}건` : '알림'"
     @click="navigate"
   >
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
