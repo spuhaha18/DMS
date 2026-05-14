@@ -16,6 +16,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import java.time.format.DateTimeParseException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -117,6 +118,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest()
                 .body(ProblemDetail.of("VALIDATION_002",
                         "Invalid value for parameter '" + ex.getName() + "': " + ex.getValue(), null));
+    }
+
+    @ExceptionHandler(DateTimeParseException.class)
+    public ResponseEntity<ProblemDetail> handleDateTimeParse(DateTimeParseException ex) {
+        return ResponseEntity.badRequest()
+                .body(ProblemDetail.of("VALIDATION_003",
+                        "Invalid date-time format: must be a valid ISO-8601 date-time", ex.getMessage()));
     }
 
     @ExceptionHandler(ResponseStatusException.class)
