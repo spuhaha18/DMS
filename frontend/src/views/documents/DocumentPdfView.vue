@@ -159,7 +159,10 @@ function onChangeRendition(payload: { kind: string; step: number | null }) {
   });
 }
 
-onMounted(load);
+onMounted(() => {
+  void load();
+  void trainingStore.fetchMyAssignments();
+});
 
 // [C-2] Clear any active retry interval when the view is unmounted to prevent
 // the timer callback from calling load() on an already-destroyed component.
@@ -246,7 +249,7 @@ onUnmounted(() => {
 
     <!-- Training acknowledgement button (shown when navigated from training list) -->
     <ReadAcknowledgeButton
-      v-if="trainingAssignment"
+      v-if="trainingAssignment && !errorCode"
       :assignment-id="trainingAssignment.id"
       :completed="trainingAssignment.completed"
       @acknowledged="trainingStore.fetchMyAssignments()"

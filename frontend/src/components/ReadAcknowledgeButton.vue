@@ -19,7 +19,7 @@ const error = ref<string | null>(null);
 const visible = computed(() => props.assignmentId !== null && !props.completed);
 
 async function handleClick() {
-  if (!props.assignmentId) return;
+  if (props.assignmentId === null) return;
   isLoading.value = true;
   error.value = null;
   try {
