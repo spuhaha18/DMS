@@ -19,8 +19,7 @@ CREATE TABLE notifications_archived (
 );
 
 CREATE INDEX idx_na_recipient ON notifications_archived(recipient_id, created_at DESC);
-CREATE INDEX idx_na_vacuum    ON notifications_archived(archived_at)
-    WHERE archived_at < now() - INTERVAL '5 years';
+CREATE INDEX idx_na_vacuum    ON notifications_archived(archived_at);
 
 COMMENT ON TABLE notifications_archived IS 'M8: 90일 경과 read 알림 보관소 — ALCOA+ Enduring 5년 후 vacuum (ADR 0005)';
 COMMENT ON COLUMN notifications_archived.id IS 'notifications.id 원본 값 그대로 보존 — FK는 걸지 않음 (원본 삭제 후 아카이브에만 존재)';

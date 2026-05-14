@@ -37,8 +37,10 @@
 | M6 | E-Signature 강화 (canonical_payload + UNIQUE + 첫 서명 ID+PW + 잠금 + 조회) | ✅ |
 | M7 | PDF 파이프라인 + documents 버킷 GOVERNANCE | ✅ |
 | M7.1 | PDF 뷰어 (pdf.js + Verify + 권한 매트릭스) | ✅ |
+| M8 | 결재 인박스 / SignatureDialog / NotificationCenter | ✅ |
+| M9 | 전문검색(tsvector) + Read & Acknowledge 교육 이수 | ✅ |
 
-**다음 행동**: M8 (결재 인박스 / SignatureDialog / NotificationCenter) 또는 IQ/OQ 실행
+**다음 행동**: IQ/OQ 실행
 
 ---
 
@@ -168,6 +170,8 @@ DMS/
 | **M7: PDF 파이프라인 상태머신** | Document.pdf_status: PENDING_CONVERSION → CONVERTED → STAMPING → STAMPED → WATERMARKING → EFFECTIVE_STAMPED. Gotenberg(LibreOffice) 변환, PDFBox stamp 누적, EFFECTIVE 워터마크. MinIO COMPLIANCE 10년 retention. | `DS.md §5.4`, `PdfRenditionPipeline` |
 | **M7: canonical_payload v3** | v2(8-field) + rendition_sha256 = 9-field. SignatureCanonicalSerializer.serializeV3. §11.70 RENDITION hash stamp 직접 충족. algorithm_version='v3'. | `DS.md §8.1`, `SignatureCanonicalSerializer` |
 | **M7: EFFECTIVE 워터마크 스케줄러** | EffectiveWatermarkScheduler — 매일 00:05 KST. ShedLock leader election(shedlock 테이블, V22). effectiveDate=오늘 & pdfStatus=STAMPED 버전 자동 처리. | `EffectiveWatermarkScheduler`, V22 migration |
+| **M9: 전문검색** | PostgreSQL tsvector 기반 문서 통합 검색 (RBAC `can_view` 필터 적용). GIN 인덱스 + 자동 업데이트 트리거. GET `/api/v1/search?q=`. 최소 2자 검사, 페이지 크기 최대 100 제한. | `SearchController`, `SearchRepositoryImpl`, V30 migration |
+| **M9: 교육 이수** | Read & Acknowledge 흐름 — EffectiveTransitionedEvent 수신 시 활성 사용자 전원 자동 배정. GET `/api/v1/training`, POST `/api/v1/training/{id}/acknowledge`. AuditAction.TRAINING_ACKNOWLEDGED 기록. | `TrainingController`, `TrainingEventListener`, V31 migration |
 
 ---
 
