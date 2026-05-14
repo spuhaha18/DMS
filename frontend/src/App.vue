@@ -5,8 +5,8 @@ import AppShell from './layouts/AppShell.vue';
 
 const route = useRoute();
 
-// Login page (and any other unauthenticated route) does NOT render the AppShell chrome.
-const showShell = computed(() => route.meta?.requiresAuth === true);
+// Login page and fullscreen product surfaces do not render the AppShell chrome.
+const showShell = computed(() => route.meta?.requiresAuth === true && route.meta?.layout !== 'fullscreen');
 </script>
 
 <template>
