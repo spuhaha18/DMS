@@ -28,12 +28,11 @@ public class SearchRepositoryImpl implements SearchRepository {
             String state,
             OffsetDateTime from,
             OffsetDateTime to,
-            List<String> permittedRoles,
             Long userId,
             Pageable pageable
     ) {
         StringBuilder sql = new StringBuilder("""
-                SELECT d.id, dv.id, d.doc_number, dv.title, dv.state,
+                SELECT DISTINCT d.id, dv.id, d.doc_number, dv.title, dv.state,
                        c.category_code, d.department, dv.effective_date,
                        u.user_id,
                        ts_rank(dv.search_vector, plainto_tsquery('simple', :query)) AS rank
@@ -48,6 +47,7 @@ public class SearchRepositoryImpl implements SearchRepository {
                 WHERE dv.search_vector @@ plainto_tsquery('simple', :query)
                   AND (p.category_id = d.category_id OR p.category_id IS NULL)
                   AND (p.department = d.department OR p.department IS NULL)
+                  AND p.can_view = TRUE
                 """);
 
         if (categoryCode != null && !categoryCode.isBlank()) {
@@ -98,7 +98,7 @@ public class SearchRepositoryImpl implements SearchRepository {
         // Count query (deduplicated by document_id + version_id)
         StringBuilder countSql = new StringBuilder("""
                 SELECT COUNT(*) FROM (
-                    SELECT d.id, dv.id
+                    SELECT DISTINCT d.id, dv.id
                     FROM documents d
                     JOIN document_versions dv ON dv.document_id = d.id
                     JOIN document_categories c ON c.id = d.category_id
@@ -110,6 +110,7 @@ public class SearchRepositoryImpl implements SearchRepository {
                     WHERE dv.search_vector @@ plainto_tsquery('simple', :query)
                       AND (p.category_id = d.category_id OR p.category_id IS NULL)
                       AND (p.department = d.department OR p.department IS NULL)
+                      AND p.can_view = TRUE
                 """);
 
         if (categoryCode != null && !categoryCode.isBlank()) {

@@ -38,13 +38,13 @@ class SearchServiceTest {
 
         when(searchRepository.search(
                 eq("test"), isNull(), isNull(), isNull(),
-                isNull(), isNull(), anyList(), eq(1L), eq(pageable)))
+                isNull(), isNull(), eq(1L), eq(pageable)))
                 .thenReturn(mockPage);
 
         // when
         Page<SearchResultDto> result = searchService.search(
                 "test", null, null, null,
-                null, null, List.of("ROLE_QA"), 1L, pageable);
+                null, null, 1L, pageable);
 
         // then
         assertThat(result.getTotalElements()).isEqualTo(1);
@@ -62,13 +62,13 @@ class SearchServiceTest {
 
         when(searchRepository.search(
                 eq("procedure"), eq("SOP"), eq("QA"), eq("APPROVED"),
-                eq(from), eq(to), anyList(), eq(2L), eq(pageable)))
+                eq(from), eq(to), eq(2L), eq(pageable)))
                 .thenReturn(emptyPage);
 
         // when
         Page<SearchResultDto> result = searchService.search(
                 "procedure", "SOP", "QA", "APPROVED",
-                from, to, List.of("ROLE_VIEWER"), 2L, pageable);
+                from, to, 2L, pageable);
 
         // then
         assertThat(result.getTotalElements()).isEqualTo(0);

@@ -9,15 +9,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/search")
@@ -47,22 +44,18 @@ public class SearchController {
             @RequestParam(defaultValue = "20") int size,
             Authentication auth) {
 
-        if (q == null || q.trim().length() < 2) {
+        if (q.trim().length() < 2) {
             return ResponseEntity.badRequest().build();
         }
 
         User user = userRepository.findByUserId(auth.getName())
                 .orElseThrow(() -> new NotFoundException("User not found: " + auth.getName()));
 
-        List<String> permittedRoles = auth.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
-
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, Math.min(size, 100));
 
         Page<SearchResultDto> result = searchService.search(
                 q.trim(), category, dept, state, from, to,
-                permittedRoles, user.getId(), pageable);
+                user.getId(), pageable);
 
         return ResponseEntity.ok(result);
     }

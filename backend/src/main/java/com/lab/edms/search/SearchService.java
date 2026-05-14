@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 
 @Service
 @Transactional(readOnly = true)
@@ -25,10 +24,9 @@ public class SearchService {
             String state,
             OffsetDateTime from,
             OffsetDateTime to,
-            List<String> permittedRoles,
             Long userId,
             Pageable pageable) {
         return searchRepository.search(query, categoryCode, department, state, from, to,
-                permittedRoles, userId, pageable);
+                userId, pageable);
     }
 }
