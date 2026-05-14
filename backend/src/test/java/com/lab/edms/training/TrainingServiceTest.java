@@ -1,6 +1,5 @@
 package com.lab.edms.training;
 
-import com.lab.edms.audit.AuditAction;
 import com.lab.edms.audit.AuditEvent;
 import com.lab.edms.audit.AuditService;
 import com.lab.edms.common.ForbiddenException;
@@ -14,8 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 import org.springframework.security.core.Authentication;
 
 import java.time.LocalDate;
@@ -26,11 +23,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class TrainingServiceTest {
 
     @Mock
@@ -58,11 +53,9 @@ class TrainingServiceTest {
         );
     }
 
-    private User makeUser(Long id, String userId) {
+    private User makeUser(Long id) {
         User user = mock(User.class);
         when(user.getId()).thenReturn(id);
-        when(user.getUserId()).thenReturn(userId);
-        when(user.getFullName()).thenReturn("User " + userId);
         return user;
     }
 
@@ -72,8 +65,8 @@ class TrainingServiceTest {
         Long versionId = 42L;
         EffectiveTransitionedEvent event = makeEvent(versionId);
 
-        User user1 = makeUser(1L, "u1");
-        User user2 = makeUser(2L, "u2");
+        User user1 = makeUser(1L);
+        User user2 = makeUser(2L);
         when(userRepository.findAll()).thenReturn(List.of(user1, user2));
         when(repo.existsByUserIdAndVersionId(1L, versionId)).thenReturn(false);
         when(repo.existsByUserIdAndVersionId(2L, versionId)).thenReturn(false);
@@ -92,8 +85,8 @@ class TrainingServiceTest {
         Long versionId = 43L;
         EffectiveTransitionedEvent event = makeEvent(versionId);
 
-        User user1 = makeUser(1L, "u1");
-        User user2 = makeUser(2L, "u2");
+        User user1 = makeUser(1L);
+        User user2 = makeUser(2L);
         when(userRepository.findAll()).thenReturn(List.of(user1, user2));
         // user1은 이미 할당됨
         when(repo.existsByUserIdAndVersionId(1L, versionId)).thenReturn(true);
@@ -117,7 +110,7 @@ class TrainingServiceTest {
         when(repo.findById(assignmentId)).thenReturn(Optional.of(assignment));
 
         // 인증 사용자는 userId=20L ("otherUser")
-        User otherUser = makeUser(20L, "otherUser");
+        User otherUser = makeUser(20L);
         when(userRepository.findByUserId("otherUser")).thenReturn(Optional.of(otherUser));
 
         Authentication auth = mock(Authentication.class);
@@ -137,7 +130,7 @@ class TrainingServiceTest {
         when(repo.findById(assignmentId)).thenReturn(Optional.of(assignment));
         when(repo.save(any(TrainingAssignment.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        User actor = makeUser(5L, "actor");
+        User actor = makeUser(5L);
         when(userRepository.findByUserId("actor")).thenReturn(Optional.of(actor));
 
         // DocumentVersion / Document 없어도 DTO는 생성됨
@@ -166,7 +159,7 @@ class TrainingServiceTest {
 
         when(repo.findById(assignmentId)).thenReturn(Optional.of(assignment));
 
-        User actor = makeUser(3L, "actor2");
+        User actor = makeUser(3L);
         when(userRepository.findByUserId("actor2")).thenReturn(Optional.of(actor));
         when(versionRepository.findById(2L)).thenReturn(Optional.empty());
 
