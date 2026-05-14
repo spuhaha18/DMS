@@ -9,7 +9,7 @@ import java.util.List;
 
 public interface NotificationOutboxRepository extends JpaRepository<NotificationOutbox, Long> {
 
-    @Query("SELECT o FROM NotificationOutbox o WHERE o.status IN ('PENDING','FAILED') AND o.nextAttemptAt <= :now ORDER BY o.createdAt ASC LIMIT 100")
+    @Query(value = "SELECT * FROM notification_outbox WHERE status IN ('PENDING','FAILED') AND next_attempt_at <= :now ORDER BY created_at ASC LIMIT 100", nativeQuery = true)
     List<NotificationOutbox> findDueForDispatch(@Param("now") OffsetDateTime now);
 
     List<NotificationOutbox> findByStatus(String status);

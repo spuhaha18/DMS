@@ -73,7 +73,9 @@ public class NotificationEventListener {
         payloadBase.put("workflowInstanceId", e.workflowInstanceId());
 
         OffsetDateTime now = OffsetDateTime.now();
-        for (Long reviewerId : e.reviewerUserIds()) {
+        List<Long> reviewerIds = e.reviewerUserIds();
+        if (reviewerIds == null || reviewerIds.isEmpty()) return;
+        for (Long reviewerId : reviewerIds) {
             queueOutbox(reviewerId, EVT_SUBMITTED, channels, payloadBase, now);
             auditService.log(AuditEvent.of(e.submittedByUserId(), AuditAction.NOTIFICATION_QUEUED)
                     .entity("notification_outbox", "recipient=" + reviewerId)

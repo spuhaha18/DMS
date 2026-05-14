@@ -1,6 +1,8 @@
 package com.lab.edms.notification;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.OffsetDateTime;
 
 /**
@@ -33,7 +35,8 @@ public class NotificationEventCode {
      * PostgreSQL TEXT[] 칼럼.
      * Hibernate 6 기본 지원: String[] → text[] 매핑 사용.
      */
-    @Column(name = "default_channels", nullable = false, columnDefinition = "TEXT[]")
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "default_channels", columnDefinition = "TEXT[]", nullable = false)
     private String[] defaultChannels = new String[]{"IN_APP"};
 
     @Column(name = "template_key", nullable = false, length = 80)
