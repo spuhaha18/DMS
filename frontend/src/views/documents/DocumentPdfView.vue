@@ -3,6 +3,8 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { documentsApi } from '../../api/documents';
 import PdfViewer from '../../components/PdfViewer/PdfViewer.vue';
+import ReadAcknowledgeButton from '../../components/ReadAcknowledgeButton.vue';
+import { useTrainingStore } from '../../stores/training';
 import type { DocumentSummary, DocumentVersionSummary } from '../../types';
 
 // ---------------------------------------------------------------------------
@@ -14,6 +16,12 @@ const router = useRouter();
 
 const docId = computed(() => Number(route.params.docId));
 const verId = computed(() => Number(route.params.verId));
+
+// Training assignment integration
+const trainingStore = useTrainingStore();
+const trainingAssignment = computed(() =>
+  trainingStore.assignments.find(a => a.versionId === verId.value) ?? null
+);
 
 const kindParam = computed<string | undefined>(() => {
   const k = route.query.kind;
@@ -235,6 +243,14 @@ onUnmounted(() => {
         @change-rendition="onChangeRendition"
       />
     </section>
+
+    <!-- Training acknowledgement button (shown when navigated from training list) -->
+    <ReadAcknowledgeButton
+      v-if="trainingAssignment"
+      :assignment-id="trainingAssignment.id"
+      :completed="trainingAssignment.completed"
+      @acknowledged="trainingStore.fetchMyAssignments()"
+    />
   </main>
 </template>
 

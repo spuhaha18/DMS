@@ -69,6 +69,18 @@ const routes = [
     component: () => import('../views/SearchView.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/training',
+    name: 'training',
+    component: () => import('../views/TrainingListView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/training/status/:versionId',
+    name: 'training-status',
+    component: () => import('../views/TrainingStatusView.vue'),
+    meta: { requiresAuth: true },
+  },
 ];
 
 export const router = createRouter({
